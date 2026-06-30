@@ -176,8 +176,8 @@ public static class ApiEndpoints
         db.Appointments.Add(appointment);
         await db.SaveChangesAsync(cancellationToken);
 
-        var response = await AppointmentQuery(db)
-            .SingleAsync(x => x.Id == appointment.Id, cancellationToken);
+        var response = await AppointmentQuery(db, appointment.Id)
+            .SingleAsync(cancellationToken);
         return Results.Created($"/appointments/{appointment.Id}", response);
     }
 
@@ -192,8 +192,8 @@ public static class ApiEndpoints
         MedSyncDbContext db,
         CancellationToken cancellationToken)
     {
-        var appointment = await AppointmentQuery(db)
-            .SingleOrDefaultAsync(x => x.Id == id, cancellationToken);
+        var appointment = await AppointmentQuery(db, id)
+            .SingleOrDefaultAsync(cancellationToken);
         return appointment is null ? Results.NotFound() : Results.Ok(appointment);
     }
 
@@ -245,10 +245,16 @@ public static class ApiEndpoints
         });
     }
 
-    private static IQueryable<AppointmentResponse> AppointmentQuery(MedSyncDbContext db) =>
-        db.Appointments.AsNoTracking()
-        .OrderBy(x => x.ScheduledAt)
-        .Select(x => new AppointmentResponse(
+    private static IQueryable<AppointmentResponse> AppointmentQuery(
+        MedSyncDbContext db,
+        Guid? appointmentId = null)
+    {
+        var query = db.Appointments.AsNoTracking();
+        if (appointmentId.HasValue)
+            query = query.Where(x => x.Id == appointmentId.Value);
+
+        return query.OrderBy(x => x.ScheduledAt)
+            .Select(x => new AppointmentResponse(
             x.Id,
             x.DoctorId,
             x.Doctor.Name,
@@ -259,6 +265,7 @@ public static class ApiEndpoints
             x.Status,
             x.Notes,
             x.ConsultationRoom == null ? null : x.ConsultationRoom.RoomName));
+    }
 
     private static PatientResponse ToResponse(Patient patient) =>
         new(patient.Id, patient.Name, patient.Email, patient.Cpf, patient.BirthDate, patient.Phone);
