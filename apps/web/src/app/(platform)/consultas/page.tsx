@@ -1,0 +1,107 @@
+"use client";
+
+import { EmptyState, ErrorBanner, LoadingState, PageHeader } from "@/components/ui";
+import { formatDateTime, statusClass, statusLabel } from "@/lib/format";
+import type { Appointment } from "@/lib/types";
+import { api } from "@/services/api";
+import { CalendarDays, Plus, Stethoscope, UserRound, Video } from "lucide-react";
+import Link from "next/link";
+import { useEffect, useState } from "react";
+
+export default function AppointmentsPage() {
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    api
+      .getAppointments()
+      .then(setAppointments)
+      .catch((err) => setError(err instanceof Error ? err.message : "Erro ao carregar consultas."))
+      .finally(() => setLoading(false));
+  }, []);
+
+  return (
+    <>
+      <PageHeader
+        eyebrow="Agenda clínica"
+        title="Consultas"
+        description="Acompanhe os próximos horários e entre nas salas virtuais de atendimento."
+        action={
+          <Link
+            href="/consultas/nova"
+            className="inline-flex h-11 items-center gap-2 rounded-xl bg-teal-600 px-5 text-sm font-bold text-white hover:bg-teal-700"
+          >
+            <Plus size={17} /> Agendar consulta
+          </Link>
+        }
+      />
+      {error && <ErrorBanner message={error} />}
+      {loading ? (
+        <LoadingState label="Carregando agenda..." />
+      ) : appointments.length === 0 ? (
+        <EmptyState
+          icon={<CalendarDays size={22} />}
+          title="Sua agenda está vazia"
+          description="Agende a primeira consulta para preparar uma sala virtual."
+          action={
+            <Link href="/consultas/nova" className="text-sm font-bold text-teal-600">
+              Agendar agora
+            </Link>
+          }
+        />
+      ) : (
+        <div className="overflow-hidden rounded-3xl border border-slate-100 bg-white shadow-sm">
+          <div className="hidden grid-cols-[1.15fr_1fr_1fr_.55fr_auto] gap-5 border-b border-slate-100 bg-slate-50/60 px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-400 lg:grid">
+            <span>Paciente</span>
+            <span>Médico</span>
+            <span>Horário</span>
+            <span>Status</span>
+            <span>Ação</span>
+          </div>
+          <div className="divide-y divide-slate-100">
+            {appointments.map((appointment) => (
+              <article
+                key={appointment.id}
+                className="grid gap-5 px-6 py-5 transition hover:bg-slate-50/50 lg:grid-cols-[1.15fr_1fr_1fr_.55fr_auto] lg:items-center"
+              >
+                <div className="flex items-center gap-3">
+                  <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-blue-50 text-blue-600">
+                    <UserRound size={17} />
+                  </span>
+                  <div>
+                    <p className="text-sm font-bold text-ink">{appointment.patientName}</p>
+                    <p className="mt-1 text-xs text-slate-400">Paciente</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <Stethoscope size={16} className="shrink-0 text-teal-600" />
+                  <div>
+                    <p className="text-sm font-semibold text-ink">{appointment.doctorName}</p>
+                    <p className="mt-1 text-xs text-slate-400">{appointment.specialty}</p>
+                  </div>
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-ink">{formatDateTime(appointment.scheduledAt)}</p>
+                  <p className="mt-1 text-xs text-slate-400">Horário de Brasília</p>
+                </div>
+                <span
+                  className={`w-fit rounded-full px-2.5 py-1.5 text-[11px] font-bold ${statusClass[appointment.status]}`}
+                >
+                  {statusLabel[appointment.status]}
+                </span>
+                <Link
+                  href={`/sala/${appointment.id}`}
+                  className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-ink px-4 text-xs font-bold text-white hover:bg-teal-700"
+                >
+                  <Video size={15} /> Entrar
+                </Link>
+              </article>
+            ))}
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+

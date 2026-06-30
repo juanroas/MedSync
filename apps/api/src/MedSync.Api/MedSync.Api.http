@@ -1,0 +1,13 @@
+@host = http://localhost:8080
+
+GET {{host}}/health
+
+###
+POST {{host}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "medico@medsync.dev",
+  "password": "MedSync@123"
+}
+

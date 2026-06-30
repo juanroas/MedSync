@@ -1,0 +1,13 @@
+{
+  "name": "medsync",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "apps/web"
+  ],
+  "scripts": {
+    "dev:web": "npm run dev --workspace=@medsync/web",
+    "build:web": "npm run build --workspace=@medsync/web",
+    "typecheck:web": "npm run typecheck --workspace=@medsync/web"
+  }
+}

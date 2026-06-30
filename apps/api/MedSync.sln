@@ -1,0 +1,37 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MedSync.Domain", "src\MedSync.Domain\MedSync.Domain.csproj", "{2BF85E43-B88E-45B3-8DF4-508D83AA12B8}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MedSync.Application", "src\MedSync.Application\MedSync.Application.csproj", "{03E767A5-A970-4BF9-AF7F-3340A6F222F0}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MedSync.Infrastructure", "src\MedSync.Infrastructure\MedSync.Infrastructure.csproj", "{36D66744-091B-4B8A-A354-98538177DA49}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MedSync.Api", "src\MedSync.Api\MedSync.Api.csproj", "{69E0CB87-B32A-463E-B240-EC9A47C76B83}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{2BF85E43-B88E-45B3-8DF4-508D83AA12B8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{2BF85E43-B88E-45B3-8DF4-508D83AA12B8}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{2BF85E43-B88E-45B3-8DF4-508D83AA12B8}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{2BF85E43-B88E-45B3-8DF4-508D83AA12B8}.Release|Any CPU.Build.0 = Release|Any CPU
+		{03E767A5-A970-4BF9-AF7F-3340A6F222F0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{03E767A5-A970-4BF9-AF7F-3340A6F222F0}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{03E767A5-A970-4BF9-AF7F-3340A6F222F0}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{03E767A5-A970-4BF9-AF7F-3340A6F222F0}.Release|Any CPU.Build.0 = Release|Any CPU
+		{36D66744-091B-4B8A-A354-98538177DA49}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{36D66744-091B-4B8A-A354-98538177DA49}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{36D66744-091B-4B8A-A354-98538177DA49}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{36D66744-091B-4B8A-A354-98538177DA49}.Release|Any CPU.Build.0 = Release|Any CPU
+		{69E0CB87-B32A-463E-B240-EC9A47C76B83}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{69E0CB87-B32A-463E-B240-EC9A47C76B83}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{69E0CB87-B32A-463E-B240-EC9A47C76B83}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{69E0CB87-B32A-463E-B240-EC9A47C76B83}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal
+
