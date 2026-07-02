@@ -1,15 +1,16 @@
 # MedSync
 
-MVP de telemedicina em monorepo, com agenda clínica, cadastro de médicos e
-pacientes e videochamada WebRTC pelo LiveKit Cloud.
+Plataforma multi-clínica de agenda, teleconsulta sem gravação, registro clínico,
+auditoria e checkout hospedado.
 
 ## Stack
 
 - Next.js 15, TypeScript, Tailwind CSS e App Router
 - .NET 9 Web API com uma Clean Architecture enxuta
 - PostgreSQL com Entity Framework Core e migrations
-- Redis para cache das listagens
-- LiveKit Cloud para as salas de vídeo
+- Redis opcional para dados não sensíveis e coordenação
+- LiveKit Cloud com E2EE para as salas de vídeo
+- Mercado Pago Checkout Pro para cobrança hospedada
 - Vercel (web) e Railway (API, PostgreSQL e Redis)
 
 ## Estrutura
@@ -87,8 +88,10 @@ MedSync/
 |---|---|---|
 | Médico | `medico@medsync.dev` | valor de `SEED_DEMO_PASSWORD` |
 | Paciente | `paciente@medsync.dev` | valor de `SEED_DEMO_PASSWORD` |
+| Administrador | `admin@medsync.dev` | valor de `SEED_DEMO_PASSWORD` |
 
-O seed também cria um médico, um paciente e uma consulta de demonstração.
+O seed existe somente em `Development`. Contas criadas pelo administrador
+recebem uma senha temporária, que deve ser trocada no primeiro acesso.
 
 ## Variáveis de ambiente
 
@@ -108,6 +111,11 @@ O seed também cria um médico, um paciente e uma consulta de demonstração.
 | `LIVEKIT_URL` | URL `wss://` do projeto LiveKit. Reservada para configuração. |
 | `LIVEKIT_API_KEY` | Chave da API do LiveKit. |
 | `LIVEKIT_API_SECRET` | Segredo do LiveKit. Somente no backend. |
+| `VIDEO_E2EE_SECRET` | Segredo independente, com no mínimo 32 caracteres, usado para derivar a chave E2EE de cada sala. |
+| `PUBLIC_APP_URL` | URL pública usada nos retornos do checkout. |
+| `PUBLIC_API_URL` | URL pública usada no webhook do pagamento. |
+| `MERCADOPAGO_ACCESS_TOKEN` | Token do Checkout Pro. |
+| `MERCADOPAGO_WEBHOOK_SECRET` | Segredo de validação do webhook. |
 
 ### Web
 
@@ -125,11 +133,17 @@ credenciais vêm das Environment Variables do Railway/Vercel.
 
 ## Endpoints
 
-Todos os endpoints, exceto login e healthcheck, exigem
-`Authorization: Bearer <token>`.
+Todos os endpoints, exceto cadastro da clínica, login, healthcheck e webhook,
+exigem a sessão em cookie `HttpOnly`.
 
 ```text
 POST /auth/login
+POST /auth/register-clinic
+GET  /auth/me
+POST /auth/change-password
+POST /staff-users
+GET  /staff-users
+GET  /audit-events
 POST /patients
 GET  /patients
 POST /doctors
@@ -137,8 +151,15 @@ GET  /doctors
 POST /appointments
 GET  /appointments
 GET  /appointments/{id}
-POST /consultations/{appointmentId}/room
-GET  /livekit/token?roomName=...&identity=...
+POST /appointments/{id}/consent
+GET  /appointments/{id}/clinical-record
+PUT  /appointments/{id}/clinical-record
+POST /consultations/{appointmentId}/start
+GET  /consultations/{appointmentId}/room
+POST /consultations/{appointmentId}/token
+POST /consultations/{appointmentId}/end
+POST /appointments/{appointmentId}/payments/checkout
+POST /payments/mercadopago/webhook
 GET  /health
 ```
 
@@ -171,11 +192,16 @@ A API executa `Database.MigrateAsync()` na inicialização.
    JWT_SECRET=gere-uma-chave-longa-e-aleatoria
    JWT_ISSUER=MedSync
    JWT_AUDIENCE=MedSync.Web
-   SEED_DEMO_PASSWORD=defina-uma-senha-inicial-segura
    FRONTEND_URL=https://seu-app.vercel.app
+   PUBLIC_APP_URL=https://seu-app.vercel.app
+   PUBLIC_API_URL=https://seu-dominio.up.railway.app
+   AUTH_COOKIE_SAMESITE=None
    LIVEKIT_URL=wss://seu-projeto.livekit.cloud
    LIVEKIT_API_KEY=sua_chave_livekit
    LIVEKIT_API_SECRET=seu_segredo_livekit
+   VIDEO_E2EE_SECRET=gere-outro-segredo-longo-e-independente
+   MERCADOPAGO_ACCESS_TOKEN=seu-token
+   MERCADOPAGO_WEBHOOK_SECRET=seu-segredo-de-webhook
    ```
 
    Se os serviços tiverem nomes diferentes de `Postgres` e `Redis`, ajuste as
@@ -202,12 +228,18 @@ projetos a partir de `apps/api`.
 4. Faça o deploy e depois atualize `FRONTEND_URL` no Railway com o domínio final
    da Vercel. Para previews adicionais, inclua as origens separadas por vírgula.
 
-## Notas de segurança do MVP
+## Segurança e situação da homologação
 
 - Senhas são armazenadas com PBKDF2-SHA256 e salt aleatório.
-- Tokens JWT e tokens de sala são emitidos somente pelo backend.
-- O token LiveKit expira em duas horas e só é emitido para uma sala existente.
-- O frontend guarda a sessão em `localStorage`, uma escolha simples para o MVP.
-  Em produção, prefira cookies `HttpOnly`, rotação de refresh token e uma
-  política de autorização que valide a relação do usuário com cada consulta.
-- Não há pagamento, prontuário completo, prescrição digital ou gravação.
+- A sessão fica em cookie `HttpOnly`; nenhum JWT é salvo no `localStorage`.
+- Tokens LiveKit duram 15 minutos e são emitidos somente para o médico e o
+  paciente vinculados, dentro da janela da consulta.
+- A mídia e os dados da sala usam E2EE com chave por sala.
+- O MedSync não habilita gravação, egress ou transcrição.
+- Dados são escopados por clínica, perfil e vínculo com o atendimento.
+- O cartão é informado apenas no checkout hospedado.
+
+Consulte [o plano de produção](docs/PLANO_PRODUCAO.md) e
+[o relatório de homologação](docs/RELATORIO_HOMOLOGACAO.md). A aprovação
+técnica local não substitui pentest, validação NGS2, jurídico, privacidade e
+diretor técnico antes do uso com pacientes reais.
