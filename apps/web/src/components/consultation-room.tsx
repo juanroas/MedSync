@@ -87,11 +87,11 @@ export function ConsultationRoom({ appointmentId }: { appointmentId: string }) {
       video
       onDisconnected={() => router.push("/consultas")}
       data-lk-theme="default"
-      className="min-h-screen bg-[#0e1716]"
+      className="medsync-room min-h-[100dvh] bg-[#0e1716] lg:h-[100dvh] lg:min-h-0 lg:overflow-hidden"
     >
-      <div className="grid min-h-screen lg:grid-cols-[1fr_340px]">
-        <section className="flex min-h-[70vh] min-w-0 flex-col">
-          <header className="flex h-16 items-center justify-between border-b border-white/10 bg-[#111d1b] px-5 text-white">
+      <div className="grid min-h-[100dvh] lg:h-full lg:min-h-0 lg:grid-cols-[minmax(0,1fr)_340px]">
+        <section className="flex h-[100dvh] min-h-0 min-w-0 flex-col overflow-hidden lg:h-full">
+          <header className="flex h-16 shrink-0 items-center justify-between border-b border-white/10 bg-[#111d1b] px-5 text-white">
             <button
               className="flex items-center gap-2 text-sm font-semibold text-white/60 hover:text-white"
               onClick={() => router.push("/consultas")}
@@ -102,13 +102,13 @@ export function ConsultationRoom({ appointmentId }: { appointmentId: string }) {
               <span className="size-1.5 rounded-full bg-teal-300" /> Sala protegida
             </span>
           </header>
-          <div className="min-h-0 flex-1">
+          <div className="min-h-0 min-w-0 flex-1 overflow-hidden">
             <VideoConference />
             <RoomAudioRenderer />
           </div>
         </section>
 
-        <aside className="border-l border-white/10 bg-[#15221f] p-6 text-white">
+        <aside className="border-l border-white/10 bg-[#15221f] p-6 text-white lg:h-full lg:min-h-0 lg:overflow-y-auto">
           <p className="text-xs font-bold uppercase tracking-[0.2em] text-teal-300">Consulta</p>
           <h1 className="mt-3 text-2xl font-bold tracking-tight">Dados do atendimento</h1>
           <div className="mt-7 space-y-5">
@@ -167,4 +167,3 @@ function Detail({
     </div>
   );
 }
-

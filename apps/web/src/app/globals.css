@@ -36,19 +36,31 @@ body {
   background-size: 34px 34px;
 }
 
-.lk-video-conference {
-  min-height: 100%;
+.medsync-room .lk-video-conference {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
   background: #0e1716 !important;
 }
 
-.lk-control-bar {
+.medsync-room .lk-video-conference-inner,
+.medsync-room .lk-grid-layout-wrapper,
+.medsync-room .lk-focus-layout-wrapper {
+  min-width: 0;
+  min-height: 0;
+}
+
+.medsync-room .lk-control-bar {
+  flex-shrink: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
   border-top: 1px solid rgba(255, 255, 255, 0.08) !important;
   background: #111d1b !important;
 }
 
-.lk-participant-tile {
+.medsync-room .lk-participant-tile {
   border-radius: 1.25rem !important;
   overflow: hidden;
   border-color: rgba(255, 255, 255, 0.08) !important;
 }
-
