@@ -5,6 +5,7 @@ import { Logo } from "@/components/logo";
 import { api, saveSession } from "@/services/api";
 import { ArrowRight, Eye, EyeOff, LockKeyhole } from "lucide-react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { FormEvent, useState } from "react";
 
 export default function LoginPage() {
@@ -22,7 +23,7 @@ export default function LoginPage() {
     try {
       const session = await api.login(email, password);
       saveSession(session);
-      router.push("/dashboard");
+      router.push(session.user.mustChangePassword ? "/alterar-senha" : "/dashboard");
     } catch (err) {
       setError(err instanceof Error ? err.message : "E-mail ou senha inválidos.");
     } finally {
@@ -81,6 +82,13 @@ export default function LoginPage() {
               {loading ? "Entrando..." : "Entrar na plataforma"} <ArrowRight size={16} />
             </button>
           </form>
+
+          <p className="mt-6 text-center text-sm text-slate-500">
+            Nova clínica?{" "}
+            <Link href="/cadastro" className="font-bold text-teal-600">
+              Criar conta administrativa
+            </Link>
+          </p>
 
           <div className="mt-7 rounded-2xl bg-mist p-4 text-xs leading-5 text-slate-500">
             <strong className="text-slate-700">Acesso de demonstração:</strong>

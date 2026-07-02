@@ -4,60 +4,75 @@ import type {
   Doctor,
   LoginResponse,
   Patient,
+  Payment,
+  StaffUser,
+  AuditEvent,
+  User,
 } from "@/lib/types";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
-const TOKEN_KEY = "medsync_token";
 const USER_KEY = "medsync_user";
 
-type RequestOptions = RequestInit & { authenticated?: boolean };
-
-async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
-  const headers = new Headers(options.headers);
-  headers.set("Content-Type", "application/json");
-
-  if (options.authenticated !== false && typeof window !== "undefined") {
-    const token = localStorage.getItem(TOKEN_KEY);
-    if (token) headers.set("Authorization", `Bearer ${token}`);
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    public status: number,
+    public code?: string,
+    public details?: Record<string, unknown>,
+  ) {
+    super(message);
   }
+}
+
+async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const headers = new Headers(options.headers);
+  if (options.body) headers.set("Content-Type", "application/json");
 
   const response = await fetch(`${API_URL}${path}`, {
     ...options,
     headers,
+    credentials: "include",
     cache: "no-store",
   });
 
   if (response.status === 401 && typeof window !== "undefined") {
     clearSession();
-    window.location.href = "/login";
-    throw new Error("Sua sessão expirou.");
+    if (window.location.pathname !== "/login") window.location.href = "/login";
+    throw new ApiError("Sua sessão expirou.", response.status);
   }
 
   if (!response.ok) {
     const body = await response.json().catch(() => null);
-    throw new Error(body?.message ?? "Não foi possível concluir a operação.");
+    const validationMessage = body?.errors
+      ? (Object.values(body.errors).flat()[0] as string | undefined)
+      : undefined;
+    throw new ApiError(
+      body?.message ?? body?.detail ?? validationMessage ?? "Não foi possível concluir a operação.",
+      response.status,
+      body?.code,
+      body ?? undefined,
+    );
   }
 
+  if (response.status === 204) return undefined as T;
   return response.json() as Promise<T>;
 }
 
-export function saveSession(session: LoginResponse) {
-  localStorage.setItem(TOKEN_KEY, session.token);
-  localStorage.setItem(USER_KEY, JSON.stringify(session.user));
+export function saveSession(session: LoginResponse | User) {
+  const user = "user" in session ? session.user : session;
+  localStorage.setItem(USER_KEY, JSON.stringify(user));
 }
 
 export function clearSession() {
-  localStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem(USER_KEY);
 }
 
-export function getSession() {
+export function getSession(): { user: User } | null {
   if (typeof window === "undefined") return null;
-  const token = localStorage.getItem(TOKEN_KEY);
   const rawUser = localStorage.getItem(USER_KEY);
-  if (!token || !rawUser) return null;
+  if (!rawUser) return null;
   try {
-    return { token, user: JSON.parse(rawUser) as LoginResponse["user"] };
+    return { user: JSON.parse(rawUser) as User };
   } catch {
     clearSession();
     return null;
@@ -68,19 +83,64 @@ export const api = {
   login: (email: string, password: string) =>
     request<LoginResponse>("/auth/login", {
       method: "POST",
-      authenticated: false,
       body: JSON.stringify({ email, password }),
     }),
 
+  registerClinic: (input: {
+    clinicName: string;
+    name: string;
+    email: string;
+    password: string;
+  }) =>
+    request<LoginResponse>("/auth/register-clinic", {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
+
+  me: () => request<User>("/auth/me"),
+  logout: () => request<void>("/auth/logout", { method: "POST" }),
+  changePassword: (currentPassword: string, newPassword: string) =>
+    request<void>("/auth/change-password", {
+      method: "POST",
+      body: JSON.stringify({ currentPassword, newPassword }),
+    }),
+
+  getStaffUsers: () => request<StaffUser[]>("/staff-users"),
+  createStaffUser: (input: {
+    name: string;
+    email: string;
+    role: "Receptionist" | "Finance" | "ClinicAdmin" | "PrivacyAuditor";
+    temporaryPassword: string;
+  }) =>
+    request<StaffUser>("/staff-users", {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
+  getAuditEvents: () => request<AuditEvent[]>("/audit-events"),
+
   getPatients: () => request<Patient[]>("/patients"),
-  createPatient: (patient: Omit<Patient, "id">) =>
+  createPatient: (patient: {
+    name: string;
+    email: string;
+    cpf: string;
+    birthDate: string;
+    phone?: string;
+    temporaryPassword: string;
+  }) =>
     request<Patient>("/patients", {
       method: "POST",
       body: JSON.stringify(patient),
     }),
 
   getDoctors: () => request<Doctor[]>("/doctors"),
-  createDoctor: (doctor: Omit<Doctor, "id">) =>
+  createDoctor: (doctor: {
+    name: string;
+    email: string;
+    crm: string;
+    specialty: string;
+    phone?: string;
+    temporaryPassword: string;
+  }) =>
     request<Doctor>("/doctors", {
       method: "POST",
       body: JSON.stringify(doctor),
@@ -92,21 +152,45 @@ export const api = {
     doctorId: string;
     patientId: string;
     scheduledAt: string;
+    durationMinutes: number;
     notes?: string;
+    price?: number;
+    paymentRequired: boolean;
   }) =>
     request<Appointment>("/appointments", {
       method: "POST",
       body: JSON.stringify(appointment),
     }),
 
-  createRoom: (appointmentId: string) =>
-    request<ConsultationRoom>(`/consultations/${appointmentId}/room`, {
+  acceptConsent: (appointmentId: string, termVersion = "telemedicina-2026-01") =>
+    request<{ accepted: boolean; termVersion: string; term: string }>(
+      `/appointments/${appointmentId}/consent`,
+      {
+        method: "POST",
+        body: JSON.stringify({ accepted: true, termVersion }),
+      },
+    ),
+  getConsentTerm: () =>
+    request<{ termVersion: string; term: string }>("/consent/term"),
+
+  startConsultation: (appointmentId: string) =>
+    request<ConsultationRoom>(`/consultations/${appointmentId}/start`, {
       method: "POST",
     }),
-
-  getLiveKitToken: (roomName: string, identity: string) =>
-    request<{ token: string; roomName: string }>(
-      `/livekit/token?roomName=${encodeURIComponent(roomName)}&identity=${encodeURIComponent(identity)}`,
+  getRoom: (appointmentId: string) =>
+    request<ConsultationRoom>(`/consultations/${appointmentId}/room`),
+  getLiveKitToken: (appointmentId: string) =>
+    request<{ token: string; roomName: string; encryptionKey: string }>(
+      `/consultations/${appointmentId}/token`,
+      { method: "POST" },
     ),
-};
+  endConsultation: (appointmentId: string) =>
+    request<void>(`/consultations/${appointmentId}/end`, { method: "POST" }),
 
+  createCheckout: (appointmentId: string) =>
+    request<Payment>(`/appointments/${appointmentId}/payments/checkout`, {
+      method: "POST",
+    }),
+  getPayment: (appointmentId: string) =>
+    request<Payment>(`/appointments/${appointmentId}/payments`),
+};

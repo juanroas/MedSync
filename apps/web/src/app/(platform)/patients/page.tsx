@@ -3,13 +3,23 @@
 import { ErrorBanner, EmptyState, LoadingState, PageHeader, buttonClass, inputClass } from "@/components/ui";
 import { formatDate } from "@/lib/format";
 import type { Patient } from "@/lib/types";
-import { api } from "@/services/api";
+import { api, getSession } from "@/services/api";
 import { Mail, Phone, Plus, Search, UserRound } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
-const initialForm = { name: "", email: "", cpf: "", birthDate: "", phone: "" };
+const initialForm = {
+  name: "",
+  email: "",
+  cpf: "",
+  birthDate: "",
+  phone: "",
+  temporaryPassword: "",
+};
 
 export default function PatientsPage() {
+  const canManage = getSession()?.user.roles.some((role) =>
+    role === "Receptionist" || role === "ClinicAdmin" || role === "MedicalDirector",
+  ) ?? false;
   const [patients, setPatients] = useState<Patient[]>([]);
   const [form, setForm] = useState(initialForm);
   const [query, setQuery] = useState("");
@@ -29,7 +39,7 @@ export default function PatientsPage() {
   const filtered = useMemo(
     () =>
       patients.filter((patient) =>
-        `${patient.name} ${patient.email} ${patient.cpf}`.toLowerCase().includes(query.toLowerCase()),
+        `${patient.name} ${patient.email} ${patient.cpfMasked}`.toLowerCase().includes(query.toLowerCase()),
       ),
     [patients, query],
   );
@@ -56,11 +66,11 @@ export default function PatientsPage() {
         eyebrow="Cadastros"
         title="Pacientes"
         description="Mantenha os dados essenciais dos pacientes disponíveis para os atendimentos."
-        action={
+        action={canManage ? (
           <button className={buttonClass} onClick={() => setShowForm((value) => !value)}>
             <Plus size={17} /> Novo paciente
           </button>
-        }
+        ) : undefined}
       />
       {error && <ErrorBanner message={error} />}
       {showForm && (
@@ -69,13 +79,14 @@ export default function PatientsPage() {
             <h2 className="font-bold text-ink">Cadastrar paciente</h2>
             <p className="mt-1 text-xs text-slate-400">Preencha os dados para criar um novo cadastro.</p>
           </div>
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {[
               ["name", "Nome completo", "text"],
               ["email", "E-mail", "email"],
               ["cpf", "CPF", "text"],
               ["birthDate", "Nascimento", "date"],
               ["phone", "Telefone", "tel"],
+              ["temporaryPassword", "Senha temporária", "password"],
             ].map(([key, label, type]) => (
               <label key={key} className="block">
                 <span className="mb-2 block text-xs font-bold text-slate-600">{label}</span>
@@ -85,6 +96,7 @@ export default function PatientsPage() {
                   value={form[key as keyof typeof form]}
                   onChange={(event) => setForm({ ...form, [key]: event.target.value })}
                   required={key !== "phone"}
+                  minLength={key === "temporaryPassword" ? 12 : undefined}
                 />
               </label>
             ))}
@@ -132,7 +144,7 @@ export default function PatientsPage() {
                 </span>
                 <div className="min-w-0">
                   <h2 className="truncate font-bold text-ink">{patient.name}</h2>
-                  <p className="mt-1 text-xs text-slate-400">CPF {patient.cpf}</p>
+                  <p className="mt-1 text-xs text-slate-400">CPF {patient.cpfMasked}</p>
                 </div>
               </div>
               <div className="mt-6 space-y-3 border-t border-slate-100 pt-5 text-sm text-slate-500">
@@ -147,4 +159,3 @@ export default function PatientsPage() {
     </>
   );
 }
-

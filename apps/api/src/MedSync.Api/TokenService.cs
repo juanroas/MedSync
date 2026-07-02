@@ -10,24 +10,30 @@ namespace MedSync.Api;
 
 public sealed class TokenService(IConfiguration configuration) : ITokenService
 {
-    public string CreateJwt(User user)
+    public string CreateJwt(
+        User user,
+        Clinic clinic,
+        IReadOnlyCollection<ClinicRole> roles)
     {
         var secret = Required("JWT_SECRET", "Jwt:Secret");
         var issuer = Value("JWT_ISSUER", "Jwt:Issuer") ?? "MedSync";
         var audience = Value("JWT_AUDIENCE", "Jwt:Audience") ?? "MedSync.Web";
-        var expiresMinutes = configuration.GetValue<int?>("Jwt:ExpiresMinutes") ?? 480;
+        var expiresMinutes = configuration.GetValue<int?>("Jwt:ExpiresMinutes") ?? 15;
         var credentials = new SigningCredentials(
             new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secret)),
             SecurityAlgorithms.HmacSha256);
-        var claims = new[]
+        var claims = new List<Claim>
         {
             new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
             new Claim(JwtRegisteredClaimNames.Email, user.Email),
             new Claim(JwtRegisteredClaimNames.Name, user.Name),
             new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
             new Claim(ClaimTypes.Name, user.Name),
-            new Claim(ClaimTypes.Role, user.Role.ToString())
+            new Claim("clinic_id", clinic.Id.ToString()),
+            new Claim("clinic_name", clinic.Name),
+            new Claim("must_change_password", user.MustChangePassword.ToString().ToLowerInvariant())
         };
+        claims.AddRange(roles.Select(role => new Claim(ClaimTypes.Role, role.ToString())));
 
         var token = new JwtSecurityToken(
             issuer,
@@ -54,7 +60,7 @@ public sealed class TokenService(IConfiguration configuration) : ITokenService
                 CanSubscribe = true,
                 CanPublishData = true
             })
-            .WithTtl(TimeSpan.FromHours(2));
+            .WithTtl(TimeSpan.FromMinutes(15));
 
         return token.ToJwt();
     }
@@ -67,4 +73,3 @@ public sealed class TokenService(IConfiguration configuration) : ITokenService
     private string? Value(string environmentName, string key) =>
         Environment.GetEnvironmentVariable(environmentName) ?? configuration[key];
 }
-

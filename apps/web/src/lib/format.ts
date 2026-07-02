@@ -19,6 +19,7 @@ export const statusLabel: Record<AppointmentStatus, string> = {
   InProgress: "Em andamento",
   Completed: "Concluída",
   Cancelled: "Cancelada",
+  NoShow: "Não compareceu",
 };
 
 export const statusClass: Record<AppointmentStatus, string> = {
@@ -26,5 +27,5 @@ export const statusClass: Record<AppointmentStatus, string> = {
   InProgress: "bg-amber-50 text-amber-700",
   Completed: "bg-teal-50 text-teal-700",
   Cancelled: "bg-red-50 text-red-700",
+  NoShow: "bg-amber-50 text-amber-700",
 };
-

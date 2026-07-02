@@ -1,15 +1,18 @@
 "use client";
 
 import { Logo } from "@/components/logo";
-import { clearSession, getSession } from "@/services/api";
+import type { ClinicRole, User } from "@/lib/types";
+import { api, clearSession, getSession, saveSession } from "@/services/api";
 import {
   CalendarDays,
   ChevronRight,
   LayoutDashboard,
+  ListChecks,
   LogOut,
   Menu,
   Stethoscope,
   Users,
+  UserCog,
   Video,
   X,
 } from "lucide-react";
@@ -17,11 +20,45 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
-const navigation = [
+const navigation: Array<{
+  href: string;
+  label: string;
+  icon: typeof LayoutDashboard;
+  roles?: ClinicRole[];
+}> = [
   { href: "/dashboard", label: "Visão geral", icon: LayoutDashboard },
   { href: "/consultas", label: "Consultas", icon: CalendarDays },
-  { href: "/patients", label: "Pacientes", icon: Users },
-  { href: "/doctors", label: "Médicos", icon: Stethoscope },
+  {
+    href: "/patients",
+    label: "Pacientes",
+    icon: Users,
+    roles: ["Doctor", "Patient", "Receptionist", "ClinicAdmin", "MedicalDirector"],
+  },
+  {
+    href: "/doctors",
+    label: "Médicos",
+    icon: Stethoscope,
+    roles: ["Doctor", "Receptionist", "ClinicAdmin", "MedicalDirector"],
+  },
+  {
+    href: "/acessos",
+    label: "Equipe e acessos",
+    icon: UserCog,
+    roles: ["ClinicAdmin"],
+  },
+  {
+    href: "/auditoria",
+    label: "Auditoria",
+    icon: ListChecks,
+    roles: ["ClinicAdmin", "PrivacyAuditor"],
+  },
+];
+
+const schedulingRoles: ClinicRole[] = [
+  "Doctor",
+  "Receptionist",
+  "ClinicAdmin",
+  "MedicalDirector",
 ];
 
 export function AppShell({ children }: { children: React.ReactNode }) {
@@ -29,26 +66,36 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const [ready, setReady] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [userName, setUserName] = useState("");
+  const [user, setUser] = useState<User | null>(() => getSession()?.user ?? null);
 
   useEffect(() => {
-    const session = getSession();
-    if (!session) {
-      router.replace("/login");
-      return;
-    }
-    setUserName(session.user.name);
-    setReady(true);
+    api.me()
+      .then((current) => {
+        saveSession(current);
+        setUser(current);
+        if (current.mustChangePassword) router.replace("/alterar-senha");
+        else setReady(true);
+      })
+      .catch(() => {
+        clearSession();
+        router.replace("/login");
+      });
   }, [router]);
 
-  function logout() {
+  async function logout() {
+    await api.logout().catch(() => undefined);
     clearSession();
     router.push("/login");
   }
 
-  if (!ready) {
+  if (!ready || !user) {
     return <div className="min-h-screen bg-mist" />;
   }
+
+  const visibleNavigation = navigation.filter(
+    (item) => !item.roles || item.roles.some((role) => user.roles.includes(role)),
+  );
+  const canSchedule = schedulingRoles.some((role) => user.roles.includes(role));
 
   return (
     <div className="min-h-screen bg-mist">
@@ -72,7 +119,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
 
         <nav className="mt-10 space-y-1.5">
-          {navigation.map(({ href, label, icon: Icon }) => {
+          {visibleNavigation.map(({ href, label, icon: Icon }) => {
             const active = pathname === href || (href !== "/dashboard" && pathname.startsWith(href));
             return (
               <Link
@@ -94,18 +141,20 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </nav>
 
         <div className="mt-auto">
-          <Link
-            href="/consultas/nova"
-            className="mb-5 flex items-center gap-3 rounded-2xl border border-teal-300/15 bg-teal-300/10 p-4 text-sm text-teal-100"
-          >
-            <span className="grid size-9 place-items-center rounded-xl bg-teal-300/15">
-              <Video size={18} />
-            </span>
-            <span>
-              <strong className="block">Nova consulta</strong>
-              <small className="text-teal-100/55">Agendar atendimento</small>
-            </span>
-          </Link>
+          {canSchedule && (
+            <Link
+              href="/consultas/nova"
+              className="mb-5 flex items-center gap-3 rounded-2xl border border-teal-300/15 bg-teal-300/10 p-4 text-sm text-teal-100"
+            >
+              <span className="grid size-9 place-items-center rounded-xl bg-teal-300/15">
+                <Video size={18} />
+              </span>
+              <span>
+                <strong className="block">Nova consulta</strong>
+                <small className="text-teal-100/55">Agendar atendimento</small>
+              </span>
+            </Link>
+          )}
           <button
             onClick={logout}
             className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm text-white/50 hover:bg-white/5 hover:text-white"
@@ -125,15 +174,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </button>
           <div className="hidden lg:block">
             <p className="text-xs text-slate-400">Sua central de cuidado</p>
-            <p className="mt-0.5 text-sm font-bold text-ink">MedSync Clinic</p>
+            <p className="mt-0.5 text-sm font-bold text-ink">{user.clinicName}</p>
           </div>
           <div className="flex items-center gap-3">
             <div className="hidden text-right sm:block">
-              <p className="text-sm font-bold text-ink">{userName}</p>
-              <p className="text-xs text-slate-400">Profissional de saúde</p>
+              <p className="text-sm font-bold text-ink">{user.name}</p>
+              <p className="text-xs text-slate-400">{user.roles.join(" · ")}</p>
             </div>
             <span className="grid size-10 place-items-center rounded-xl bg-teal-100 text-sm font-bold text-teal-700">
-              {userName
+              {user.name
                 .split(" ")
                 .slice(0, 2)
                 .map((part) => part[0])
@@ -146,4 +195,3 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     </div>
   );
 }
-

@@ -3,7 +3,7 @@
 import { ErrorBanner, LoadingState, PageHeader } from "@/components/ui";
 import { formatDateTime, statusClass, statusLabel } from "@/lib/format";
 import type { Appointment, Doctor, Patient } from "@/lib/types";
-import { api } from "@/services/api";
+import { api, getSession } from "@/services/api";
 import {
   ArrowRight,
   CalendarCheck2,
@@ -16,6 +16,19 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 
 export default function DashboardPage() {
+  const roles = getSession()?.user.roles ?? [];
+  const canSchedule = roles.some((role) =>
+    ["Doctor", "Receptionist", "ClinicAdmin", "MedicalDirector"].includes(role),
+  );
+  const canJoin = roles.some((role) =>
+    ["Doctor", "Patient", "MedicalDirector"].includes(role),
+  );
+  const canLoadPatients = roles.some((role) =>
+    ["Doctor", "Patient", "Receptionist", "ClinicAdmin", "MedicalDirector"].includes(role),
+  );
+  const canLoadDoctors = roles.some((role) =>
+    ["Doctor", "Receptionist", "ClinicAdmin", "MedicalDirector"].includes(role),
+  );
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [patients, setPatients] = useState<Patient[]>([]);
@@ -23,7 +36,11 @@ export default function DashboardPage() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    Promise.all([api.getAppointments(), api.getDoctors(), api.getPatients()])
+    Promise.all([
+      api.getAppointments(),
+      canLoadDoctors ? api.getDoctors() : Promise.resolve([]),
+      canLoadPatients ? api.getPatients() : Promise.resolve([]),
+    ])
       .then(([appointmentData, doctorData, patientData]) => {
         setAppointments(appointmentData);
         setDoctors(doctorData);
@@ -43,14 +60,14 @@ export default function DashboardPage() {
         eyebrow="Visão geral"
         title="Bom ter você por aqui."
         description="Acompanhe a operação da clínica e acesse rapidamente os próximos atendimentos."
-        action={
+        action={canSchedule ? (
           <Link
             href="/consultas/nova"
             className="inline-flex h-11 items-center gap-2 rounded-xl bg-teal-600 px-5 text-sm font-bold text-white hover:bg-teal-700"
           >
             <CalendarCheck2 size={17} /> Nova consulta
           </Link>
-        }
+        ) : undefined}
       />
       {error && <ErrorBanner message={error} />}
       {loading ? (
@@ -148,13 +165,15 @@ export default function DashboardPage() {
                           {statusLabel[appointment.status]}
                         </span>
                       </div>
-                      <Link
-                        href={`/sala/${appointment.id}`}
-                        className="grid size-10 shrink-0 place-items-center rounded-xl bg-ink text-white hover:bg-teal-700"
-                        aria-label="Entrar na sala"
-                      >
-                        <Video size={17} />
-                      </Link>
+                      {canJoin && (
+                        <Link
+                          href={`/sala/${appointment.id}`}
+                          className="grid size-10 shrink-0 place-items-center rounded-xl bg-ink text-white hover:bg-teal-700"
+                          aria-label="Entrar na sala"
+                        >
+                          <Video size={17} />
+                        </Link>
+                      )}
                     </div>
                   ))
                 )}
@@ -183,4 +202,3 @@ export default function DashboardPage() {
     </>
   );
 }
-

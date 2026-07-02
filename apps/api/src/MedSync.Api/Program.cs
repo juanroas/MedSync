@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json.Serialization;
+using System.Threading.RateLimiting;
 using MedSync.Api;
 using MedSync.Application;
 using MedSync.Infrastructure;
@@ -38,10 +39,29 @@ else
 
 builder.Services.AddScoped<IPasswordService, PasswordService>();
 builder.Services.AddScoped<ITokenService, TokenService>();
+builder.Services.AddScoped<AuditWriter>();
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddHttpClient<IPaymentProvider, MercadoPagoPaymentProvider>();
+builder.Services.AddHttpClient(nameof(LiveKitRoomManager));
+builder.Services.AddScoped<LiveKitRoomManager>();
+builder.Services.AddHostedService<VideoSessionCleanupService>();
 builder.Services.ConfigureHttpJsonOptions(options =>
     options.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.AddPolicy("auth", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 10,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0
+            }));
+});
 
 var jwtSecret = Environment.GetEnvironmentVariable("JWT_SECRET")
     ?? builder.Configuration["Jwt:Secret"]
@@ -56,6 +76,15 @@ var jwtAudience = Environment.GetEnvironmentVariable("JWT_AUDIENCE")
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
+        options.Events = new JwtBearerEvents
+        {
+            OnMessageReceived = context =>
+            {
+                if (context.Request.Cookies.TryGetValue("medsync_session", out var token))
+                    context.Token = token;
+                return Task.CompletedTask;
+            }
+        };
         options.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuer = true,
@@ -75,15 +104,50 @@ var frontendUrls = (Environment.GetEnvironmentVariable("FRONTEND_URL") ?? "http:
 builder.Services.AddCors(options => options.AddDefaultPolicy(policy =>
     policy.WithOrigins(frontendUrls)
         .AllowAnyHeader()
-        .AllowAnyMethod()));
+        .AllowAnyMethod()
+        .AllowCredentials()));
 
 var app = builder.Build();
 
-app.UseSwagger();
-app.UseSwaggerUI();
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
+app.Use(async (context, next) =>
+{
+    context.Response.Headers["X-Content-Type-Options"] = "nosniff";
+    context.Response.Headers["X-Frame-Options"] = "DENY";
+    context.Response.Headers["Referrer-Policy"] = "no-referrer";
+    context.Response.Headers["Permissions-Policy"] =
+        "camera=(self), microphone=(self), geolocation=()";
+    await next();
+});
 app.UseCors();
+app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
+app.Use(async (context, next) =>
+{
+    if (context.User.Identity?.IsAuthenticated == true &&
+        string.Equals(
+            context.User.FindFirst("must_change_password")?.Value,
+            "true",
+            StringComparison.OrdinalIgnoreCase) &&
+        !context.Request.Path.StartsWithSegments("/auth/change-password") &&
+        !context.Request.Path.StartsWithSegments("/auth/me") &&
+        !context.Request.Path.StartsWithSegments("/auth/logout"))
+    {
+        context.Response.StatusCode = StatusCodes.Status403Forbidden;
+        await context.Response.WriteAsJsonAsync(new
+        {
+            code = "password_change_required",
+            message = "Troque a senha temporária antes de continuar."
+        });
+        return;
+    }
+    await next();
+});
 
 app.MapGet("/health", () => Results.Ok(new
 {
@@ -97,13 +161,16 @@ await using (var scope = app.Services.CreateAsyncScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<MedSyncDbContext>();
     await db.Database.MigrateAsync();
-    var demoPassword = Environment.GetEnvironmentVariable("SEED_DEMO_PASSWORD");
-    if (string.IsNullOrWhiteSpace(demoPassword))
-        throw new InvalidOperationException("Configure SEED_DEMO_PASSWORD para criar o seed.");
-    await DatabaseSeeder.SeedAsync(
-        db,
-        scope.ServiceProvider.GetRequiredService<IPasswordService>(),
-        demoPassword);
+    if (app.Environment.IsDevelopment())
+    {
+        var demoPassword = Environment.GetEnvironmentVariable("SEED_DEMO_PASSWORD");
+        if (string.IsNullOrWhiteSpace(demoPassword))
+            throw new InvalidOperationException("Configure SEED_DEMO_PASSWORD para criar o seed.");
+        await DatabaseSeeder.SeedAsync(
+            db,
+            scope.ServiceProvider.GetRequiredService<IPasswordService>(),
+            demoPassword);
+    }
 }
 
 await app.RunAsync();

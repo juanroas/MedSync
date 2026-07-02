@@ -3,12 +3,19 @@
 import { EmptyState, ErrorBanner, LoadingState, PageHeader } from "@/components/ui";
 import { formatDateTime, statusClass, statusLabel } from "@/lib/format";
 import type { Appointment } from "@/lib/types";
-import { api } from "@/services/api";
+import { api, getSession } from "@/services/api";
 import { CalendarDays, Plus, Stethoscope, UserRound, Video } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
 export default function AppointmentsPage() {
+  const roles = getSession()?.user.roles ?? [];
+  const canSchedule = roles.some((role) =>
+    ["Doctor", "Receptionist", "ClinicAdmin", "MedicalDirector"].includes(role),
+  );
+  const canJoin = roles.some((role) =>
+    ["Doctor", "Patient", "MedicalDirector"].includes(role),
+  );
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -27,14 +34,14 @@ export default function AppointmentsPage() {
         eyebrow="Agenda clínica"
         title="Consultas"
         description="Acompanhe os próximos horários e entre nas salas virtuais de atendimento."
-        action={
+        action={canSchedule ? (
           <Link
             href="/consultas/nova"
             className="inline-flex h-11 items-center gap-2 rounded-xl bg-teal-600 px-5 text-sm font-bold text-white hover:bg-teal-700"
           >
             <Plus size={17} /> Agendar consulta
           </Link>
-        }
+        ) : undefined}
       />
       {error && <ErrorBanner message={error} />}
       {loading ? (
@@ -44,11 +51,11 @@ export default function AppointmentsPage() {
           icon={<CalendarDays size={22} />}
           title="Sua agenda está vazia"
           description="Agende a primeira consulta para preparar uma sala virtual."
-          action={
+          action={canSchedule ? (
             <Link href="/consultas/nova" className="text-sm font-bold text-teal-600">
               Agendar agora
             </Link>
-          }
+          ) : undefined}
         />
       ) : (
         <div className="overflow-hidden rounded-3xl border border-slate-100 bg-white shadow-sm">
@@ -90,12 +97,14 @@ export default function AppointmentsPage() {
                 >
                   {statusLabel[appointment.status]}
                 </span>
-                <Link
-                  href={`/sala/${appointment.id}`}
-                  className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-ink px-4 text-xs font-bold text-white hover:bg-teal-700"
-                >
-                  <Video size={15} /> Entrar
-                </Link>
+                {canJoin ? (
+                  <Link
+                    href={`/sala/${appointment.id}`}
+                    className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-ink px-4 text-xs font-bold text-white hover:bg-teal-700"
+                  >
+                    <Video size={15} /> Entrar
+                  </Link>
+                ) : <span />}
               </article>
             ))}
           </div>
@@ -104,4 +113,3 @@ export default function AppointmentsPage() {
     </>
   );
 }
-

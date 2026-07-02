@@ -2,13 +2,23 @@
 
 import { ErrorBanner, EmptyState, LoadingState, PageHeader, buttonClass, inputClass } from "@/components/ui";
 import type { Doctor } from "@/lib/types";
-import { api } from "@/services/api";
+import { api, getSession } from "@/services/api";
 import { BadgeCheck, Mail, Plus, Search, Stethoscope } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
-const initialForm = { name: "", email: "", crm: "", specialty: "", phone: "" };
+const initialForm = {
+  name: "",
+  email: "",
+  crm: "",
+  specialty: "",
+  phone: "",
+  temporaryPassword: "",
+};
 
 export default function DoctorsPage() {
+  const canManage = getSession()?.user.roles.some((role) =>
+    role === "ClinicAdmin" || role === "MedicalDirector",
+  ) ?? false;
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [form, setForm] = useState(initialForm);
   const [query, setQuery] = useState("");
@@ -57,11 +67,11 @@ export default function DoctorsPage() {
         eyebrow="Equipe"
         title="Médicos"
         description="Gerencie os profissionais disponíveis para os atendimentos da clínica."
-        action={
+        action={canManage ? (
           <button className={buttonClass} onClick={() => setShowForm((value) => !value)}>
             <Plus size={17} /> Novo médico
           </button>
-        }
+        ) : undefined}
       />
       {error && <ErrorBanner message={error} />}
       {showForm && (
@@ -70,13 +80,14 @@ export default function DoctorsPage() {
             <h2 className="font-bold text-ink">Cadastrar médico</h2>
             <p className="mt-1 text-xs text-slate-400">Adicione um profissional à equipe clínica.</p>
           </div>
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {[
               ["name", "Nome completo", "text"],
               ["email", "E-mail", "email"],
               ["crm", "CRM", "text"],
               ["specialty", "Especialidade", "text"],
               ["phone", "Telefone", "tel"],
+              ["temporaryPassword", "Senha temporária", "password"],
             ].map(([key, label, type]) => (
               <label key={key} className="block">
                 <span className="mb-2 block text-xs font-bold text-slate-600">{label}</span>
@@ -86,6 +97,7 @@ export default function DoctorsPage() {
                   value={form[key as keyof typeof form]}
                   onChange={(event) => setForm({ ...form, [key]: event.target.value })}
                   required={key !== "phone"}
+                  minLength={key === "temporaryPassword" ? 12 : undefined}
                 />
               </label>
             ))}
@@ -148,4 +160,3 @@ export default function DoctorsPage() {
     </>
   );
 }
-

@@ -16,7 +16,10 @@ export default function NewAppointmentPage() {
     doctorId: "",
     patientId: "",
     scheduledAt: "",
+    durationMinutes: 60,
     notes: "",
+    price: "",
+    paymentRequired: false,
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -43,8 +46,13 @@ export default function NewAppointmentPage() {
     setError("");
     try {
       await api.createAppointment({
-        ...form,
+        doctorId: form.doctorId,
+        patientId: form.patientId,
         scheduledAt: new Date(form.scheduledAt).toISOString(),
+        durationMinutes: form.durationMinutes,
+        notes: form.notes,
+        price: form.price ? Number(form.price) : undefined,
+        paymentRequired: form.paymentRequired,
       });
       router.push("/consultas");
     } catch (err) {
@@ -113,6 +121,43 @@ export default function NewAppointmentPage() {
                   required
                 />
               </label>
+              <label className="block">
+                <span className="mb-2 block text-sm font-bold text-slate-700">Duração</span>
+                <select
+                  className={inputClass}
+                  value={form.durationMinutes}
+                  onChange={(event) =>
+                    setForm({ ...form, durationMinutes: Number(event.target.value) })
+                  }
+                >
+                  {[30, 45, 60, 90, 120].map((minutes) => (
+                    <option key={minutes} value={minutes}>{minutes} minutos</option>
+                  ))}
+                </select>
+              </label>
+              <label className="block">
+                <span className="mb-2 block text-sm font-bold text-slate-700">Valor (R$)</span>
+                <input
+                  className={inputClass}
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={form.price}
+                  onChange={(event) => setForm({ ...form, price: event.target.value })}
+                />
+              </label>
+              <label className="flex items-center gap-3 sm:col-span-2">
+                <input
+                  type="checkbox"
+                  checked={form.paymentRequired}
+                  onChange={(event) =>
+                    setForm({ ...form, paymentRequired: event.target.checked })
+                  }
+                />
+                <span className="text-sm font-bold text-slate-700">
+                  Exigir pagamento antes da videochamada
+                </span>
+              </label>
               <label className="block sm:col-span-2">
                 <span className="mb-2 block text-sm font-bold text-slate-700">Observações</span>
                 <textarea
@@ -156,4 +201,3 @@ export default function NewAppointmentPage() {
     </>
   );
 }
-
