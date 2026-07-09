@@ -3,6 +3,7 @@
 import { ErrorBanner, EmptyState, LoadingState, PageHeader, buttonClass, inputClass } from "@/components/ui";
 import { formatDate } from "@/lib/format";
 import type { Patient } from "@/lib/types";
+import { isValidCpf, isValidOptionalPhone, maskCpf } from "@/lib/validation";
 import { api, getSession } from "@/services/api";
 import { Mail, Phone, Plus, Search, UserRound } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useState } from "react";
@@ -48,6 +49,26 @@ export default function PatientsPage() {
     event.preventDefault();
     setSaving(true);
     setError("");
+    if (form.name.trim().length < 3) {
+      setError("Informe o nome completo com pelo menos 3 caracteres.");
+      setSaving(false);
+      return;
+    }
+    if (!isValidCpf(form.cpf)) {
+      setError("Informe um CPF válido.");
+      setSaving(false);
+      return;
+    }
+    if (form.birthDate && new Date(`${form.birthDate}T00:00:00`).getTime() > Date.now()) {
+      setError("A data de nascimento não pode estar no futuro.");
+      setSaving(false);
+      return;
+    }
+    if (!isValidOptionalPhone(form.phone)) {
+      setError("Informe um telefone válido com DDD.");
+      setSaving(false);
+      return;
+    }
     try {
       const created = await api.createPatient(form);
       setPatients((items) => [...items, created].sort((a, b) => a.name.localeCompare(b.name)));
@@ -94,9 +115,16 @@ export default function PatientsPage() {
                   className={inputClass}
                   type={type}
                   value={form[key as keyof typeof form]}
-                  onChange={(event) => setForm({ ...form, [key]: event.target.value })}
+                  onChange={(event) =>
+                    setForm({
+                      ...form,
+                      [key]: key === "cpf" ? maskCpf(event.target.value) : event.target.value,
+                    })
+                  }
                   required={key !== "phone"}
                   minLength={key === "temporaryPassword" ? 12 : undefined}
+                  max={key === "birthDate" ? new Date().toISOString().slice(0, 10) : undefined}
+                  maxLength={key === "cpf" ? 14 : undefined}
                 />
               </label>
             ))}

@@ -137,6 +137,7 @@ export const api = {
     name: string;
     email: string;
     crm: string;
+    crmUf: string;
     specialty: string;
     phone?: string;
     temporaryPassword: string;

@@ -42,6 +42,15 @@ public enum PaymentStatus
     Chargeback
 }
 
+public enum CompanyContractStatus
+{
+    Draft,
+    Active,
+    Suspended,
+    Ended,
+    Cancelled
+}
+
 public sealed class User
 {
     public Guid Id { get; set; } = Guid.NewGuid();
@@ -85,6 +94,7 @@ public sealed class Doctor
     public required string Name { get; set; }
     public required string Email { get; set; }
     public required string Crm { get; set; }
+    public required string CrmUf { get; set; }
     public required string Specialty { get; set; }
     public string? Phone { get; set; }
     public ICollection<Appointment> Appointments { get; set; } = [];
@@ -197,6 +207,80 @@ public sealed class Payment
     public string? CheckoutUrl { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+}
+
+public sealed class Company
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid ClinicId { get; set; }
+    public Clinic Clinic { get; set; } = null!;
+    public required string LegalName { get; set; }
+    public string? TradeName { get; set; }
+    public required string TaxId { get; set; }
+    public bool IsActive { get; set; } = true;
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public ICollection<CompanyEmployee> Employees { get; set; } = [];
+    public ICollection<CompanyContract> Contracts { get; set; } = [];
+}
+
+public sealed class CompanyEmployee
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid ClinicId { get; set; }
+    public Guid CompanyId { get; set; }
+    public Company Company { get; set; } = null!;
+    public Guid? PatientId { get; set; }
+    public Patient? Patient { get; set; }
+    public required string Name { get; set; }
+    public required string Email { get; set; }
+    public string? EmployeeCode { get; set; }
+    public bool IsActive { get; set; } = true;
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public ICollection<EmployeeEligibility> EligibilityRecords { get; set; } = [];
+}
+
+public sealed class BenefitPlan
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid ClinicId { get; set; }
+    public Clinic Clinic { get; set; } = null!;
+    public required string Name { get; set; }
+    public string? Description { get; set; }
+    public decimal MonthlyFee { get; set; }
+    public int MonthlyConsultationLimit { get; set; }
+    public bool IsActive { get; set; } = true;
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public ICollection<CompanyContract> Contracts { get; set; } = [];
+    public ICollection<EmployeeEligibility> EligibilityRecords { get; set; } = [];
+}
+
+public sealed class CompanyContract
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid ClinicId { get; set; }
+    public Guid CompanyId { get; set; }
+    public Company Company { get; set; } = null!;
+    public Guid BenefitPlanId { get; set; }
+    public BenefitPlan BenefitPlan { get; set; } = null!;
+    public CompanyContractStatus Status { get; set; } = CompanyContractStatus.Draft;
+    public DateOnly StartsAt { get; set; }
+    public DateOnly? EndsAt { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+}
+
+public sealed class EmployeeEligibility
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid ClinicId { get; set; }
+    public Guid CompanyEmployeeId { get; set; }
+    public CompanyEmployee CompanyEmployee { get; set; } = null!;
+    public Guid BenefitPlanId { get; set; }
+    public BenefitPlan BenefitPlan { get; set; } = null!;
+    public bool IsEligible { get; set; } = true;
+    public DateOnly EligibleFrom { get; set; }
+    public DateOnly? EligibleUntil { get; set; }
+    public string? Reason { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }
 
 public sealed class AuditEvent

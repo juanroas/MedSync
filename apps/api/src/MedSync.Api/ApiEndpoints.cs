@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using System.Net.Mail;
 using MedSync.Application;
 using MedSync.Domain;
 using MedSync.Infrastructure;
@@ -310,13 +311,22 @@ public static class ApiEndpoints
         var actor = RequestContext.From(principal);
         if (!actor.HasAny(AccessRules.ManagePatients))
             return Results.Forbid();
-        if (string.IsNullOrWhiteSpace(request.Name) ||
-            string.IsNullOrWhiteSpace(request.Email) ||
-            string.IsNullOrWhiteSpace(request.Cpf))
-            return Validation("patient", "Nome, e-mail e CPF são obrigatórios.");
+        var name = request.Name.Trim();
+        if (name.Length < 3)
+            return Validation("name", "Informe o nome completo com pelo menos 3 caracteres.");
+        if (!IsValidEmail(request.Email))
+            return Validation("email", "Informe um e-mail válido.");
+        var cpf = DigitsOnly(request.Cpf);
+        if (!IsValidCpf(cpf))
+            return Validation("cpf", "Informe um CPF válido.");
+        if (request.BirthDate == default)
+            return Validation("birthDate", "Informe a data de nascimento.");
+        if (request.BirthDate > DateOnly.FromDateTime(DateTime.UtcNow))
+            return Validation("birthDate", "A data de nascimento não pode estar no futuro.");
+        if (!IsValidOptionalPhone(request.Phone))
+            return Validation("phone", "Informe um telefone válido com DDD.");
 
         var email = request.Email.Trim().ToLowerInvariant();
-        var cpf = request.Cpf.Trim();
         if (await db.Patients.AnyAsync(
                 x => x.ClinicId == actor.ClinicId && (x.Email == email || x.Cpf == cpf),
                 cancellationToken))
@@ -407,11 +417,20 @@ public static class ApiEndpoints
         var actor = RequestContext.From(principal);
         if (!actor.HasAny(AccessRules.ManageDoctors))
             return Results.Forbid();
-        if (string.IsNullOrWhiteSpace(request.Name) ||
-            string.IsNullOrWhiteSpace(request.Email) ||
-            string.IsNullOrWhiteSpace(request.Crm) ||
-            string.IsNullOrWhiteSpace(request.Specialty))
-            return Validation("doctor", "Nome, e-mail, CRM e especialidade são obrigatórios.");
+        var name = request.Name.Trim();
+        if (name.Length < 3)
+            return Validation("name", "Informe o nome completo do médico.");
+        if (!IsValidEmail(request.Email))
+            return Validation("email", "Informe um e-mail válido.");
+        if (string.IsNullOrWhiteSpace(request.Crm))
+            return Validation("crm", "CRM é obrigatório.");
+        var crmUf = request.CrmUf.Trim().ToUpperInvariant();
+        if (crmUf.Length != 2 || !crmUf.All(char.IsLetter))
+            return Validation("crmUf", "Informe a UF do CRM com duas letras.");
+        if (string.IsNullOrWhiteSpace(request.Specialty))
+            return Validation("specialty", "Especialidade é obrigatória.");
+        if (!IsValidOptionalPhone(request.Phone))
+            return Validation("phone", "Informe um telefone válido com DDD.");
 
         var email = request.Email.Trim().ToLowerInvariant();
         var crm = request.Crm.Trim();
@@ -454,6 +473,7 @@ public static class ApiEndpoints
             Name = request.Name.Trim(),
             Email = email,
             Crm = crm,
+            CrmUf = crmUf,
             Specialty = request.Specialty.Trim(),
             Phone = request.Phone?.Trim()
         };
@@ -473,7 +493,7 @@ public static class ApiEndpoints
             .Where(x => x.ClinicId == actor.ClinicId)
             .OrderBy(x => x.Name)
             .Select(x => new DoctorResponse(
-                x.Id, x.Name, x.Email, x.Crm, x.Specialty, x.Phone))
+                x.Id, x.Name, x.Email, x.Crm, x.CrmUf, x.Specialty, x.Phone))
             .ToListAsync(cancellationToken);
         return Results.Ok(doctors);
     }
@@ -488,10 +508,17 @@ public static class ApiEndpoints
         var actor = RequestContext.From(principal);
         if (!actor.HasAny(AccessRules.ManageAppointments) && !actor.HasAny(ClinicRole.Doctor))
             return Results.Forbid();
-        if (request.DurationMinutes is < 15 or > 240)
-            return Validation("durationMinutes", "A duração deve estar entre 15 e 240 minutos.");
+        if (request.DoctorId == Guid.Empty || request.PatientId == Guid.Empty)
+            return Validation("appointment", "Paciente e médico são obrigatórios.");
+        if (request.ScheduledAt == default)
+            return Validation("scheduledAt", "Data e hora são obrigatórias.");
+        if (request.DurationMinutes is < 10 or > 240)
+            return Validation("durationMinutes", "A duração deve estar entre 10 e 240 minutos.");
         if (request.Price is < 0)
             return Validation("price", "O valor não pode ser negativo.");
+        var scheduledAt = request.ScheduledAt.ToUniversalTime();
+        if (scheduledAt <= DateTime.UtcNow)
+            return Validation("scheduledAt", "Não é permitido agendar consulta no passado.");
 
         var doctor = await db.Doctors.SingleOrDefaultAsync(
             x => x.Id == request.DoctorId && x.ClinicId == actor.ClinicId,
@@ -505,13 +532,24 @@ public static class ApiEndpoints
             !actor.HasAny(AccessRules.ManageAppointments) &&
             doctor.UserId != actor.UserId)
             return Results.Forbid();
+        var scheduledEndsAt = scheduledAt.AddMinutes(request.DurationMinutes);
+        var hasConflict = await db.Appointments.AnyAsync(
+            x => x.ClinicId == actor.ClinicId &&
+                 x.DoctorId == request.DoctorId &&
+                 x.Status != AppointmentStatus.Cancelled &&
+                 x.Status != AppointmentStatus.Completed &&
+                 x.ScheduledAt < scheduledEndsAt &&
+                 x.ScheduledAt.AddMinutes(x.DurationMinutes) > scheduledAt,
+            cancellationToken);
+        if (hasConflict)
+            return Results.Conflict(new { message = "Já existe uma consulta para este médico no horário selecionado." });
 
         var appointment = new Appointment
         {
             ClinicId = actor.ClinicId,
             DoctorId = request.DoctorId,
             PatientId = request.PatientId,
-            ScheduledAt = request.ScheduledAt.ToUniversalTime(),
+            ScheduledAt = scheduledAt,
             DurationMinutes = request.DurationMinutes,
             Notes = request.Notes?.Trim(),
             Price = request.Price,
@@ -651,7 +689,7 @@ public static class ApiEndpoints
         var appointment = await LoadAppointment(db, actor, id, cancellationToken);
         if (appointment is null)
             return Results.NotFound();
-        if (!IsAssignedDoctor(actor, appointment) && !actor.HasAny(ClinicRole.MedicalDirector))
+        if (!IsAssignedDoctor(actor, appointment))
             return Results.Forbid();
 
         var record = await db.ClinicalRecords
@@ -697,7 +735,7 @@ public static class ApiEndpoints
         var appointment = await LoadAppointment(db, actor, appointmentId, cancellationToken);
         if (appointment is null)
             return Results.NotFound();
-        if (!IsAssignedDoctor(actor, appointment) && !actor.HasAny(ClinicRole.MedicalDirector))
+        if (!IsAssignedDoctor(actor, appointment))
             return Results.Forbid();
         if (!InJoinWindow(appointment))
             return Results.Conflict(new { message = "A consulta está fora da janela permitida." });
@@ -809,7 +847,7 @@ public static class ApiEndpoints
         var appointment = await LoadAppointment(db, actor, appointmentId, cancellationToken);
         if (appointment?.ConsultationRoom is null)
             return Results.NotFound();
-        if (!IsAssignedDoctor(actor, appointment) && !actor.HasAny(ClinicRole.MedicalDirector))
+        if (!IsAssignedDoctor(actor, appointment))
             return Results.Forbid();
         if (!await liveKit.DeleteAsync(appointment.ConsultationRoom.RoomName))
             return Results.Problem(
@@ -1006,7 +1044,6 @@ public static class ApiEndpoints
         IsPatient(actor, appointment);
 
     private static bool CanJoinVideo(RequestContext actor, Appointment appointment) =>
-        actor.HasAny(ClinicRole.MedicalDirector) ||
         IsAssignedDoctor(actor, appointment) ||
         IsPatient(actor, appointment);
 
@@ -1068,7 +1105,7 @@ public static class ApiEndpoints
             patient.Phone);
 
     private static DoctorResponse ToResponse(Doctor doctor) =>
-        new(doctor.Id, doctor.Name, doctor.Email, doctor.Crm, doctor.Specialty, doctor.Phone);
+        new(doctor.Id, doctor.Name, doctor.Email, doctor.Crm, doctor.CrmUf, doctor.Specialty, doctor.Phone);
 
     private static RoomResponse ToResponse(ConsultationRoom room) =>
         new(
@@ -1100,4 +1137,49 @@ public static class ApiEndpoints
 
     private static IResult Validation(string key, string message) =>
         Results.ValidationProblem(new Dictionary<string, string[]> { [key] = [message] });
+
+    private static bool IsValidEmail(string email)
+    {
+        if (string.IsNullOrWhiteSpace(email))
+            return false;
+        try
+        {
+            var parsed = new MailAddress(email.Trim());
+            return parsed.Address.Equals(email.Trim(), StringComparison.OrdinalIgnoreCase);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static bool IsValidOptionalPhone(string? phone)
+    {
+        if (string.IsNullOrWhiteSpace(phone))
+            return true;
+        var digits = DigitsOnly(phone);
+        return digits.Length is >= 10 and <= 13;
+    }
+
+    private static string DigitsOnly(string value) =>
+        new(value.Where(char.IsDigit).ToArray());
+
+    private static bool IsValidCpf(string cpf)
+    {
+        if (cpf.Length != 11 || cpf.Distinct().Count() == 1)
+            return false;
+
+        var firstSum = cpf.Take(9)
+            .Select((digit, index) => (digit - '0') * (10 - index))
+            .Sum();
+        var firstDigit = firstSum % 11 < 2 ? 0 : 11 - firstSum % 11;
+        if (firstDigit != cpf[9] - '0')
+            return false;
+
+        var secondSum = cpf.Take(10)
+            .Select((digit, index) => (digit - '0') * (11 - index))
+            .Sum();
+        var secondDigit = secondSum % 11 < 2 ? 0 : 11 - secondSum % 11;
+        return secondDigit == cpf[10] - '0';
+    }
 }

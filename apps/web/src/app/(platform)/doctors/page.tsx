@@ -2,6 +2,7 @@
 
 import { ErrorBanner, EmptyState, LoadingState, PageHeader, buttonClass, inputClass } from "@/components/ui";
 import type { Doctor } from "@/lib/types";
+import { isValidOptionalPhone } from "@/lib/validation";
 import { api, getSession } from "@/services/api";
 import { BadgeCheck, Mail, Plus, Search, Stethoscope } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useState } from "react";
@@ -10,6 +11,7 @@ const initialForm = {
   name: "",
   email: "",
   crm: "",
+  crmUf: "",
   specialty: "",
   phone: "",
   temporaryPassword: "",
@@ -49,8 +51,23 @@ export default function DoctorsPage() {
     event.preventDefault();
     setSaving(true);
     setError("");
+    if (form.name.trim().length < 3) {
+      setError("Informe o nome completo do médico.");
+      setSaving(false);
+      return;
+    }
+    if (!/^[A-Za-z]{2}$/.test(form.crmUf.trim())) {
+      setError("Informe a UF do CRM com duas letras.");
+      setSaving(false);
+      return;
+    }
+    if (!isValidOptionalPhone(form.phone)) {
+      setError("Informe um telefone válido com DDD.");
+      setSaving(false);
+      return;
+    }
     try {
-      const created = await api.createDoctor(form);
+      const created = await api.createDoctor({ ...form, crmUf: form.crmUf.toUpperCase() });
       setDoctors((items) => [...items, created].sort((a, b) => a.name.localeCompare(b.name)));
       setForm(initialForm);
       setShowForm(false);
@@ -85,6 +102,7 @@ export default function DoctorsPage() {
               ["name", "Nome completo", "text"],
               ["email", "E-mail", "email"],
               ["crm", "CRM", "text"],
+              ["crmUf", "UF do CRM", "text"],
               ["specialty", "Especialidade", "text"],
               ["phone", "Telefone", "tel"],
               ["temporaryPassword", "Senha temporária", "password"],
@@ -95,9 +113,15 @@ export default function DoctorsPage() {
                   className={inputClass}
                   type={type}
                   value={form[key as keyof typeof form]}
-                  onChange={(event) => setForm({ ...form, [key]: event.target.value })}
+                  onChange={(event) =>
+                    setForm({
+                      ...form,
+                      [key]: key === "crmUf" ? event.target.value.toUpperCase().slice(0, 2) : event.target.value,
+                    })
+                  }
                   required={key !== "phone"}
                   minLength={key === "temporaryPassword" ? 12 : undefined}
+                  maxLength={key === "crmUf" ? 2 : undefined}
                 />
               </label>
             ))}
@@ -150,7 +174,7 @@ export default function DoctorsPage() {
                 </div>
               </div>
               <div className="relative mt-6 space-y-3 border-t border-slate-100 pt-5 text-sm text-slate-500">
-                <p className="flex items-center gap-2.5"><BadgeCheck size={15} className="text-teal-600" /> {doctor.crm}</p>
+                <p className="flex items-center gap-2.5"><BadgeCheck size={15} className="text-teal-600" /> {doctor.crm} / {doctor.crmUf}</p>
                 <p className="flex items-center gap-2.5 truncate"><Mail size={15} className="shrink-0 text-teal-600" /> {doctor.email}</p>
               </div>
             </article>

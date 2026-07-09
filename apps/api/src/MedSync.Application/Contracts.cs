@@ -58,6 +58,7 @@ public sealed record CreateDoctorRequest(
     string Name,
     string Email,
     string Crm,
+    string CrmUf,
     string Specialty,
     string? Phone,
     string TemporaryPassword);
@@ -67,6 +68,7 @@ public sealed record DoctorResponse(
     string Name,
     string Email,
     string Crm,
+    string CrmUf,
     string Specialty,
     string? Phone);
 

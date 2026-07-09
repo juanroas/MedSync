@@ -2,6 +2,7 @@
 
 import { ErrorBanner, LoadingState, PageHeader, buttonClass, inputClass } from "@/components/ui";
 import type { Doctor, Patient } from "@/lib/types";
+import { isFutureLocalDateTime } from "@/lib/validation";
 import { api } from "@/services/api";
 import { ArrowLeft, CalendarPlus, CheckCircle2 } from "lucide-react";
 import Link from "next/link";
@@ -44,6 +45,21 @@ export default function NewAppointmentPage() {
     event.preventDefault();
     setSaving(true);
     setError("");
+    if (!form.doctorId || !form.patientId) {
+      setError("Selecione paciente e médico.");
+      setSaving(false);
+      return;
+    }
+    if (!isFutureLocalDateTime(form.scheduledAt)) {
+      setError("Escolha uma data e horário futuros.");
+      setSaving(false);
+      return;
+    }
+    if (form.durationMinutes < 10) {
+      setError("A duração mínima da consulta é de 10 minutos.");
+      setSaving(false);
+      return;
+    }
     try {
       await api.createAppointment({
         doctorId: form.doctorId,
@@ -118,6 +134,7 @@ export default function NewAppointmentPage() {
                   type="datetime-local"
                   value={form.scheduledAt}
                   onChange={(event) => setForm({ ...form, scheduledAt: event.target.value })}
+                  min={new Date().toISOString().slice(0, 16)}
                   required
                 />
               </label>
@@ -130,7 +147,7 @@ export default function NewAppointmentPage() {
                     setForm({ ...form, durationMinutes: Number(event.target.value) })
                   }
                 >
-                  {[30, 45, 60, 90, 120].map((minutes) => (
+                  {[10, 15, 30, 45, 60, 90, 120].map((minutes) => (
                     <option key={minutes} value={minutes}>{minutes} minutos</option>
                   ))}
                 </select>

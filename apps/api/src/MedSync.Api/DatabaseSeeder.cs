@@ -60,6 +60,7 @@ public static class DatabaseSeeder
             Name = doctorUser.Name,
             Email = doctorUser.Email,
             Crm = "CRM-SP 123456",
+            CrmUf = "SP",
             Specialty = "Clínica geral",
             Phone = "(11) 99999-0101"
         };

@@ -3,6 +3,7 @@ using System;
 using MedSync.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace MedSync.Infrastructure.Migrations
 {
     [DbContext(typeof(MedSyncDbContext))]
-    partial class MedSyncDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260708234345_AddDoctorCrmUf")]
+    partial class AddDoctorCrmUf
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -124,45 +127,6 @@ namespace MedSync.Infrastructure.Migrations
                     b.HasIndex("ClinicId", "CreatedAt");
 
                     b.ToTable("AuditEvents", "medsync");
-                });
-
-            modelBuilder.Entity("MedSync.Domain.BenefitPlan", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("ClinicId")
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("Description")
-                        .HasMaxLength(1000)
-                        .HasColumnType("character varying(1000)");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("boolean");
-
-                    b.Property<int>("MonthlyConsultationLimit")
-                        .HasColumnType("integer");
-
-                    b.Property<decimal>("MonthlyFee")
-                        .HasPrecision(12, 2)
-                        .HasColumnType("numeric(12,2)");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(120)
-                        .HasColumnType("character varying(120)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ClinicId", "Name")
-                        .IsUnique();
-
-                    b.ToTable("BenefitPlans", "medsync");
                 });
 
             modelBuilder.Entity("MedSync.Domain.Clinic", b =>
@@ -292,128 +256,6 @@ namespace MedSync.Infrastructure.Migrations
                         .IsUnique();
 
                     b.ToTable("ClinicalRecordRevisions", "medsync");
-                });
-
-            modelBuilder.Entity("MedSync.Domain.Company", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("ClinicId")
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("boolean");
-
-                    b.Property<string>("LegalName")
-                        .IsRequired()
-                        .HasMaxLength(180)
-                        .HasColumnType("character varying(180)");
-
-                    b.Property<string>("TaxId")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)");
-
-                    b.Property<string>("TradeName")
-                        .HasMaxLength(180)
-                        .HasColumnType("character varying(180)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ClinicId", "TaxId")
-                        .IsUnique();
-
-                    b.ToTable("Companies", "medsync");
-                });
-
-            modelBuilder.Entity("MedSync.Domain.CompanyContract", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("BenefitPlanId")
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("ClinicId")
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("CompanyId")
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<DateOnly?>("EndsAt")
-                        .HasColumnType("date");
-
-                    b.Property<DateOnly>("StartsAt")
-                        .HasColumnType("date");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasMaxLength(30)
-                        .HasColumnType("character varying(30)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("BenefitPlanId");
-
-                    b.HasIndex("CompanyId", "BenefitPlanId", "StartsAt");
-
-                    b.ToTable("CompanyContracts", "medsync");
-                });
-
-            modelBuilder.Entity("MedSync.Domain.CompanyEmployee", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("ClinicId")
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("CompanyId")
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("Email")
-                        .IsRequired()
-                        .HasMaxLength(180)
-                        .HasColumnType("character varying(180)");
-
-                    b.Property<string>("EmployeeCode")
-                        .HasMaxLength(80)
-                        .HasColumnType("character varying(80)");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("boolean");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(160)
-                        .HasColumnType("character varying(160)");
-
-                    b.Property<Guid?>("PatientId")
-                        .HasColumnType("uuid");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("PatientId");
-
-                    b.HasIndex("CompanyId", "Email")
-                        .IsUnique();
-
-                    b.HasIndex("CompanyId", "EmployeeCode");
-
-                    b.ToTable("CompanyEmployees", "medsync");
                 });
 
             modelBuilder.Entity("MedSync.Domain.ConsentRecord", b =>
@@ -562,46 +404,6 @@ namespace MedSync.Infrastructure.Migrations
                         .IsUnique();
 
                     b.ToTable("Doctors", "medsync");
-                });
-
-            modelBuilder.Entity("MedSync.Domain.EmployeeEligibility", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("BenefitPlanId")
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("ClinicId")
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("CompanyEmployeeId")
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<DateOnly>("EligibleFrom")
-                        .HasColumnType("date");
-
-                    b.Property<DateOnly?>("EligibleUntil")
-                        .HasColumnType("date");
-
-                    b.Property<bool>("IsEligible")
-                        .HasColumnType("boolean");
-
-                    b.Property<string>("Reason")
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("BenefitPlanId");
-
-                    b.HasIndex("CompanyEmployeeId", "BenefitPlanId", "EligibleFrom");
-
-                    b.ToTable("EmployeeEligibilities", "medsync");
                 });
 
             modelBuilder.Entity("MedSync.Domain.Patient", b =>
@@ -775,17 +577,6 @@ namespace MedSync.Infrastructure.Migrations
                     b.Navigation("Patient");
                 });
 
-            modelBuilder.Entity("MedSync.Domain.BenefitPlan", b =>
-                {
-                    b.HasOne("MedSync.Domain.Clinic", "Clinic")
-                        .WithMany()
-                        .HasForeignKey("ClinicId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("Clinic");
-                });
-
             modelBuilder.Entity("MedSync.Domain.ClinicMembership", b =>
                 {
                     b.HasOne("MedSync.Domain.Clinic", "Clinic")
@@ -825,54 +616,6 @@ namespace MedSync.Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("ClinicalRecord");
-                });
-
-            modelBuilder.Entity("MedSync.Domain.Company", b =>
-                {
-                    b.HasOne("MedSync.Domain.Clinic", "Clinic")
-                        .WithMany()
-                        .HasForeignKey("ClinicId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("Clinic");
-                });
-
-            modelBuilder.Entity("MedSync.Domain.CompanyContract", b =>
-                {
-                    b.HasOne("MedSync.Domain.BenefitPlan", "BenefitPlan")
-                        .WithMany("Contracts")
-                        .HasForeignKey("BenefitPlanId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("MedSync.Domain.Company", "Company")
-                        .WithMany("Contracts")
-                        .HasForeignKey("CompanyId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("BenefitPlan");
-
-                    b.Navigation("Company");
-                });
-
-            modelBuilder.Entity("MedSync.Domain.CompanyEmployee", b =>
-                {
-                    b.HasOne("MedSync.Domain.Company", "Company")
-                        .WithMany("Employees")
-                        .HasForeignKey("CompanyId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("MedSync.Domain.Patient", "Patient")
-                        .WithMany()
-                        .HasForeignKey("PatientId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.Navigation("Company");
-
-                    b.Navigation("Patient");
                 });
 
             modelBuilder.Entity("MedSync.Domain.ConsentRecord", b =>
@@ -915,25 +658,6 @@ namespace MedSync.Infrastructure.Migrations
                     b.Navigation("User");
                 });
 
-            modelBuilder.Entity("MedSync.Domain.EmployeeEligibility", b =>
-                {
-                    b.HasOne("MedSync.Domain.BenefitPlan", "BenefitPlan")
-                        .WithMany("EligibilityRecords")
-                        .HasForeignKey("BenefitPlanId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("MedSync.Domain.CompanyEmployee", "CompanyEmployee")
-                        .WithMany("EligibilityRecords")
-                        .HasForeignKey("CompanyEmployeeId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("BenefitPlan");
-
-                    b.Navigation("CompanyEmployee");
-                });
-
             modelBuilder.Entity("MedSync.Domain.Patient", b =>
                 {
                     b.HasOne("MedSync.Domain.Clinic", "Clinic")
@@ -974,13 +698,6 @@ namespace MedSync.Infrastructure.Migrations
                     b.Navigation("Payments");
                 });
 
-            modelBuilder.Entity("MedSync.Domain.BenefitPlan", b =>
-                {
-                    b.Navigation("Contracts");
-
-                    b.Navigation("EligibilityRecords");
-                });
-
             modelBuilder.Entity("MedSync.Domain.Clinic", b =>
                 {
                     b.Navigation("Memberships");
@@ -989,18 +706,6 @@ namespace MedSync.Infrastructure.Migrations
             modelBuilder.Entity("MedSync.Domain.ClinicalRecord", b =>
                 {
                     b.Navigation("Revisions");
-                });
-
-            modelBuilder.Entity("MedSync.Domain.Company", b =>
-                {
-                    b.Navigation("Contracts");
-
-                    b.Navigation("Employees");
-                });
-
-            modelBuilder.Entity("MedSync.Domain.CompanyEmployee", b =>
-                {
-                    b.Navigation("EligibilityRecords");
                 });
 
             modelBuilder.Entity("MedSync.Domain.Doctor", b =>

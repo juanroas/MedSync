@@ -3,6 +3,7 @@ using System;
 using MedSync.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace MedSync.Infrastructure.Migrations
 {
     [DbContext(typeof(MedSyncDbContext))]
-    partial class MedSyncDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260708234459_AddB2BFoundation")]
+    partial class AddB2BFoundation
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

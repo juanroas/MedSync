@@ -16,6 +16,11 @@ public sealed class MedSyncDbContext(DbContextOptions<MedSyncDbContext> options)
     public DbSet<ClinicalRecord> ClinicalRecords => Set<ClinicalRecord>();
     public DbSet<ClinicalRecordRevision> ClinicalRecordRevisions => Set<ClinicalRecordRevision>();
     public DbSet<Payment> Payments => Set<Payment>();
+    public DbSet<Company> Companies => Set<Company>();
+    public DbSet<CompanyEmployee> CompanyEmployees => Set<CompanyEmployee>();
+    public DbSet<BenefitPlan> BenefitPlans => Set<BenefitPlan>();
+    public DbSet<CompanyContract> CompanyContracts => Set<CompanyContract>();
+    public DbSet<EmployeeEligibility> EmployeeEligibilities => Set<EmployeeEligibility>();
     public DbSet<AuditEvent> AuditEvents => Set<AuditEvent>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -54,6 +59,7 @@ public sealed class MedSyncDbContext(DbContextOptions<MedSyncDbContext> options)
             entity.Property(x => x.Name).HasMaxLength(160);
             entity.Property(x => x.Email).HasMaxLength(180);
             entity.Property(x => x.Crm).HasMaxLength(40);
+            entity.Property(x => x.CrmUf).HasMaxLength(2);
             entity.Property(x => x.Specialty).HasMaxLength(120);
             entity.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId)
                 .OnDelete(DeleteBehavior.SetNull);
@@ -138,6 +144,59 @@ public sealed class MedSyncDbContext(DbContextOptions<MedSyncDbContext> options)
             entity.Property(x => x.CheckoutUrl).HasMaxLength(1000);
             entity.HasOne(x => x.Appointment).WithMany(x => x.Payments)
                 .HasForeignKey(x => x.AppointmentId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<Company>(entity =>
+        {
+            entity.HasIndex(x => new { x.ClinicId, x.TaxId }).IsUnique();
+            entity.Property(x => x.LegalName).HasMaxLength(180);
+            entity.Property(x => x.TradeName).HasMaxLength(180);
+            entity.Property(x => x.TaxId).HasMaxLength(20);
+            entity.HasOne(x => x.Clinic).WithMany().HasForeignKey(x => x.ClinicId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<CompanyEmployee>(entity =>
+        {
+            entity.HasIndex(x => new { x.CompanyId, x.Email }).IsUnique();
+            entity.HasIndex(x => new { x.CompanyId, x.EmployeeCode });
+            entity.Property(x => x.Name).HasMaxLength(160);
+            entity.Property(x => x.Email).HasMaxLength(180);
+            entity.Property(x => x.EmployeeCode).HasMaxLength(80);
+            entity.HasOne(x => x.Company).WithMany(x => x.Employees)
+                .HasForeignKey(x => x.CompanyId).OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(x => x.Patient).WithMany()
+                .HasForeignKey(x => x.PatientId).OnDelete(DeleteBehavior.SetNull);
+        });
+
+        modelBuilder.Entity<BenefitPlan>(entity =>
+        {
+            entity.HasIndex(x => new { x.ClinicId, x.Name }).IsUnique();
+            entity.Property(x => x.Name).HasMaxLength(120);
+            entity.Property(x => x.Description).HasMaxLength(1000);
+            entity.Property(x => x.MonthlyFee).HasPrecision(12, 2);
+            entity.HasOne(x => x.Clinic).WithMany().HasForeignKey(x => x.ClinicId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<CompanyContract>(entity =>
+        {
+            entity.HasIndex(x => new { x.CompanyId, x.BenefitPlanId, x.StartsAt });
+            entity.Property(x => x.Status).HasConversion<string>().HasMaxLength(30);
+            entity.HasOne(x => x.Company).WithMany(x => x.Contracts)
+                .HasForeignKey(x => x.CompanyId).OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(x => x.BenefitPlan).WithMany(x => x.Contracts)
+                .HasForeignKey(x => x.BenefitPlanId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<EmployeeEligibility>(entity =>
+        {
+            entity.HasIndex(x => new { x.CompanyEmployeeId, x.BenefitPlanId, x.EligibleFrom });
+            entity.Property(x => x.Reason).HasMaxLength(500);
+            entity.HasOne(x => x.CompanyEmployee).WithMany(x => x.EligibilityRecords)
+                .HasForeignKey(x => x.CompanyEmployeeId).OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(x => x.BenefitPlan).WithMany(x => x.EligibilityRecords)
+                .HasForeignKey(x => x.BenefitPlanId).OnDelete(DeleteBehavior.Restrict);
         });
 
         modelBuilder.Entity<AuditEvent>(entity =>

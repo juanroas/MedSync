@@ -54,6 +54,7 @@ export type Doctor = {
   name: string;
   email: string;
   crm: string;
+  crmUf: string;
   specialty: string;
   phone?: string;
 };

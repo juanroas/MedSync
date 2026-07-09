@@ -13,6 +13,12 @@ auditoria e checkout hospedado.
 - Mercado Pago Checkout Pro para cobrança hospedada
 - Vercel (web) e Railway (API, PostgreSQL e Redis)
 
+## Status
+
+O MedSync está em homologação controlada. Não declarar conformidade LGPD/CFM
+nem prontidão para uso com pacientes reais antes das aprovações técnica,
+jurídica, privacidade, segurança e diretor técnico.
+
 ## Estrutura
 
 ```text
@@ -81,6 +87,24 @@ MedSync/
    Vercel, ele lê as variáveis configuradas no projeto.
 
    Abra `http://localhost:3000`.
+
+## QA automatizado
+
+O frontend possui Playwright para os fluxos de homologação:
+
+```bash
+npm run test:e2e
+npm run test:e2e:ui
+```
+
+| Variável | Descrição |
+|---|---|
+| `MEDSYNC_E2E_BASE_URL` | URL do frontend. Padrão: `http://localhost:3000`. |
+| `MEDSYNC_E2E_API_URL` | URL da API. Padrão: `http://localhost:8080`. |
+| `MEDSYNC_E2E_PASSWORD` | Senha das contas de homologação. |
+| `MEDSYNC_E2E_MUTATING` | Use `1` para habilitar teste que cria paciente e consulta. |
+
+O relatório HTML é gerado em `apps/web/playwright-report`.
 
 ### Usuários de demonstração
 
@@ -234,12 +258,31 @@ projetos a partir de `apps/api`.
 - A sessão fica em cookie `HttpOnly`; nenhum JWT é salvo no `localStorage`.
 - Tokens LiveKit duram 15 minutos e são emitidos somente para o médico e o
   paciente vinculados, dentro da janela da consulta.
+- Admin, recepção, financeiro e auditor não recebem token de videochamada.
 - A mídia e os dados da sala usam E2EE com chave por sala.
 - O MedSync não habilita gravação, egress ou transcrição.
 - Dados são escopados por clínica, perfil e vínculo com o atendimento.
 - O cartão é informado apenas no checkout hospedado.
+- Headers de segurança incluem CSP, Referrer-Policy, X-Content-Type-Options,
+  Permissions-Policy e HSTS fora de desenvolvimento.
+
+## B2B
+
+A fundação de dados B2B inclui `Company`, `CompanyEmployee`, `BenefitPlan`,
+`CompanyContract` e `EmployeeEligibility`. A regra central é que empresas nunca
+acessam prontuário, diagnóstico, observações clínicas ou dados clínicos
+individuais de colaboradores. Consulte [o modelo B2B](docs/B2B_MODEL.md).
 
 Consulte [o plano de produção](docs/PLANO_PRODUCAO.md) e
-[o relatório de homologação](docs/RELATORIO_HOMOLOGACAO.md). A aprovação
-técnica local não substitui pentest, validação NGS2, jurídico, privacidade e
-diretor técnico antes do uso com pacientes reais.
+[o relatório de homologação](docs/RELATORIO_HOMOLOGACAO.md).
+
+Documentos adicionais:
+
+- [Checklist de QA](docs/QA_CHECKLIST.md)
+- [Checklist de produção](docs/PRODUCTION_CHECKLIST.md)
+- [Checklist de segurança](docs/SECURITY_CHECKLIST.md)
+- [Checklist LGPD](docs/LGPD_CHECKLIST.md)
+- [Registro de riscos](docs/RISK_REGISTER.md)
+
+A aprovação técnica local não substitui pentest, validação NGS2, jurídico,
+privacidade e diretor técnico antes do uso com pacientes reais.
