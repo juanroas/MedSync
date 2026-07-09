@@ -19,6 +19,12 @@ O MedSync está em homologação controlada. Não declarar conformidade LGPD/CFM
 nem prontidão para uso com pacientes reais antes das aprovações técnica,
 jurídica, privacidade, segurança e diretor técnico.
 
+## Documentacao
+
+A documentacao do produto, QA, seguranca, privacidade, B2B e producao esta
+organizada em [docs/README.md](docs/README.md). Comece por esse indice antes de
+alterar ou criar novos documentos.
+
 ## Estrutura
 
 ```text
@@ -271,18 +277,18 @@ projetos a partir de `apps/api`.
 A fundação de dados B2B inclui `Company`, `CompanyEmployee`, `BenefitPlan`,
 `CompanyContract` e `EmployeeEligibility`. A regra central é que empresas nunca
 acessam prontuário, diagnóstico, observações clínicas ou dados clínicos
-individuais de colaboradores. Consulte [o modelo B2B](docs/B2B_MODEL.md).
+individuais de colaboradores. Consulte [o modelo B2B](docs/01-product/B2B_MODEL.md).
 
-Consulte [o plano de produção](docs/PLANO_PRODUCAO.md) e
-[o relatório de homologação](docs/RELATORIO_HOMOLOGACAO.md).
+Consulte [o plano de produção](docs/09-production/PLANO_PRODUCAO.md) e
+[o relatório de homologação](docs/09-production/RELATORIO_HOMOLOGACAO.md).
 
 Documentos adicionais:
 
-- [Checklist de QA](docs/QA_CHECKLIST.md)
-- [Checklist de produção](docs/PRODUCTION_CHECKLIST.md)
-- [Checklist de segurança](docs/SECURITY_CHECKLIST.md)
-- [Checklist LGPD](docs/LGPD_CHECKLIST.md)
-- [Registro de riscos](docs/RISK_REGISTER.md)
+- [Checklist de QA](docs/08-quality/QA_CHECKLIST.md)
+- [Checklist de produção](docs/09-production/PRODUCTION_CHECKLIST.md)
+- [Checklist de segurança](docs/07-security/SECURITY_CHECKLIST.md)
+- [Checklist LGPD](docs/07-security/LGPD_CHECKLIST.md)
+- [Registro de riscos](docs/09-production/RISK_REGISTER.md)
 
 A aprovação técnica local não substitui pentest, validação NGS2, jurídico,
 privacidade e diretor técnico antes do uso com pacientes reais.

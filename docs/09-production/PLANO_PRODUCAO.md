@@ -1,6 +1,6 @@
 # Plano de ação para produção do MedSync
 
-Status: implementação técnica em homologação; consulte `RELATORIO_HOMOLOGACAO.md`  
+Status: implementação técnica em homologação; consulte [RELATORIO_HOMOLOGACAO.md](RELATORIO_HOMOLOGACAO.md)  
 Data de referência: 1º de julho de 2026  
 Escopo: plataforma multi-clínica de agenda, teleconsulta sem gravação e cobrança por checkout hospedado
 
