@@ -176,15 +176,30 @@ await using (var scope = app.Services.CreateAsyncScope())
         Environment.GetEnvironmentVariable("ENABLE_HOMOLOGATION_SEED"),
         "true",
         StringComparison.OrdinalIgnoreCase);
+    var presentationSeedInProduction =
+        app.Environment.IsProduction() &&
+        homologationSeedEnabled &&
+        string.Equals(
+            Environment.GetEnvironmentVariable("ALLOW_PRESENTATION_SEED_IN_PRODUCTION"),
+            "true",
+            StringComparison.OrdinalIgnoreCase) &&
+        string.Equals(
+            Environment.GetEnvironmentVariable("PRESENTATION_SEED_ACK"),
+            "DEMO_ONLY_NO_REAL_PATIENTS",
+            StringComparison.Ordinal);
     var canSeedDemo =
         app.Environment.IsDevelopment() ||
         app.Environment.IsEnvironment("Homologation") ||
-        (homologationSeedEnabled && !app.Environment.IsProduction());
+        (homologationSeedEnabled && !app.Environment.IsProduction()) ||
+        presentationSeedInProduction;
     if (canSeedDemo)
     {
         var demoPassword = Environment.GetEnvironmentVariable("SEED_DEMO_PASSWORD");
         if (string.IsNullOrWhiteSpace(demoPassword))
             throw new InvalidOperationException("Configure SEED_DEMO_PASSWORD para criar o seed.");
+        if (app.Environment.IsProduction() &&
+            string.Equals(demoPassword, "MedSyncLocal123!", StringComparison.Ordinal))
+            throw new InvalidOperationException("Nao use a senha local padrao em ambiente publico. Configure uma SEED_DEMO_PASSWORD forte.");
         await DatabaseSeeder.SeedAsync(
             db,
             scope.ServiceProvider.GetRequiredService<IPasswordService>(),
