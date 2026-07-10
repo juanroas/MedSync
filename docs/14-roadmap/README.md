@@ -9,6 +9,8 @@ Inclui roadmap e placeholders para iniciativas aprovadas.
 # Estrutura
 
 - [ROADMAP.md](ROADMAP.md)
+- [MVP_BACKLOG.md](MVP_BACKLOG.md)
+- [REFERENCE_ALIGNED_IMPLEMENTATION_PLAN.md](REFERENCE_ALIGNED_IMPLEMENTATION_PLAN.md)
 
 # Fluxo
 
@@ -19,6 +21,7 @@ Inclui roadmap e placeholders para iniciativas aprovadas.
 # Boas práticas
 
 - Nao prometer funcionalidades sem aprovacao.
+- Nao tratar referencia de mercado como executada sem backlog e evidencia.
 - Separar ideia, decisao e compromisso.
 - Usar `TODO` para lacunas.
 
@@ -31,5 +34,11 @@ Inclui roadmap e placeholders para iniciativas aprovadas.
 # Referências
 
 - [Produto](../01-product/README.md)
+- [MVP Scope](../01-product/MVP_SCOPE.md)
+- [MVP Screen Flow](../02-design/MVP_SCREEN_FLOW.md)
+- [Reference Traceability Matrix](../01-product/REFERENCE_TRACEABILITY_MATRIX.md)
+- [Reference Aligned Implementation Plan](REFERENCE_ALIGNED_IMPLEMENTATION_PLAN.md)
+- [Actor and Organization Model](../01-product/ACTOR_ORGANIZATION_MODEL.md)
+- [Data Management and CRUD](../01-product/DATA_MANAGEMENT_CRUD.md)
 - [Decisoes](../10-decisions/README.md)
 - [Planning workflow](../agentes/workflows/planning.md)

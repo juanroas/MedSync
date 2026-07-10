@@ -4,13 +4,14 @@ Status: Product Discovery. Este documento nao declara funcionalidade implementad
 
 ## Objetivo
 
-Definir a visao inicial do MedSync como produto SaaS B2B de Saude Digital, alinhando direcao de produto, publicos, principios, diferenciais e limites da fase atual.
+Definir a visao inicial do MedSync como plataforma de Saude Digital com modelo B2B, alinhando direcao de produto, publicos, principios, diferenciais e limites da fase atual.
 
 ## Escopo
 
 Este documento cobre:
 
 - Visao do produto.
+- Posicionamento.
 - Principios de produto.
 - Publicos atendidos.
 - Produtos internos.
@@ -29,9 +30,11 @@ Fora de escopo:
 
 ## Visao do produto
 
-O MedSync deve evoluir para uma plataforma SaaS B2B de Saude Digital para clinicas, empresas e colaboradores, combinando agenda, teleconsulta, registro clinico, auditoria, pagamentos e governanca de privacidade.
+O MedSync deve evoluir para uma plataforma de acesso ao cuidado em Saude Digital para pacientes, medicos independentes, empresas e parceiros, combinando agenda, teleconsulta, registro clinico autorizado, auditoria, pagamentos e governanca de privacidade.
 
-A visao central e permitir que empresas oferecam beneficios de saude digital aos colaboradores sem acessar dados clinicos individuais, enquanto clinicas e profissionais de saude operam atendimentos com seguranca, rastreabilidade e separacao clara de permissoes.
+A visao central e permitir que pessoas acessem atendimento digital de forma simples e privada, enquanto medicos independentes e perfis clinicos autorizados operam atendimentos com seguranca, rastreabilidade e separacao clara de permissoes.
+
+O modelo B2B viabiliza contratos, elegibilidade, planos, faturamento, relatorios permitidos e governanca para empresas ou parceiros. Ele nao transforma o MedSync em sistema de RH: empresas nunca acessam dados clinicos individuais, e a experiencia principal do paciente deve continuar orientada a cuidado, consulta e continuidade assistencial.
 
 ## Principios
 
@@ -40,17 +43,17 @@ A visao central e permitir que empresas oferecam beneficios de saude digital aos
 - Separacao entre dados administrativos, financeiros e clinicos.
 - Multi-tenancy como premissa estrutural.
 - Evidencias para homologacao, auditoria e go/no-go.
-- Experiencia simples para colaborador/paciente.
-- Operacao clara para clinicas e empresas.
+- Experiencia simples para paciente/beneficiario.
+- Operacao clara para empresas, medicos independentes e MedSync.
 
 ## Publicos
 
 | Publico | Necessidade | Valor esperado |
 |---|---|---|
-| Empresas | Oferecer beneficio de saude digital e acompanhar uso administrativo | Indicadores agregados sem acesso a dados clinicos individuais |
-| Colaboradores | Usar o beneficio como paciente com confidencialidade | Jornada simples, segura e privada |
-| Clinicas | Operar agenda, equipe, teleconsulta, cobranca e atendimento | Controle operacional e reducao de retrabalho |
-| Medicos | Atender pacientes vinculados e registrar condutas | Agenda clara, acesso correto e registro auditavel |
+| Empresas | Contratar acesso a cuidado digital e acompanhar uso administrativo permitido | Indicadores agregados sem acesso a dados clinicos individuais |
+| Pacientes/beneficiarios | Acessar cuidado digital com confidencialidade | Jornada simples, segura e privada |
+| Medicos independentes | Atender pacientes vinculados e registrar condutas dentro do ramo autorizado | Agenda clara, acesso correto e registro auditavel |
+| ADM Medico do Trabalho | Apoiar saude ocupacional no CNPJ associado | Acesso clinico restrito, auditado e separado de RH |
 | Administradores | Gerenciar usuarios, perfis e operacao | Governanca, rastreabilidade e menor risco operacional |
 | Privacidade e juridico | Validar controles e responder solicitacoes | Evidencias, minimizacao e trilhas de auditoria |
 
@@ -58,14 +61,15 @@ A visao central e permitir que empresas oferecam beneficios de saude digital aos
 
 | Produto | Objetivo | Status documental |
 |---|---|---|
-| MedSync Business | Portal para empresas e RH acompanharem dados administrativos e agregados | TODO: detalhar em documento proprio |
-| MedSync Care | Portal do colaborador/paciente | TODO: detalhar em documento proprio |
-| MedSync Clinic | Portal da clinica e do medico | TODO: detalhar em documento proprio |
+| MedSync Business | Portal para empresas e parceiros acompanharem contrato, elegibilidade, faturamento e indicadores agregados permitidos | TODO: detalhar em documento proprio |
+| MedSync Care | Portal do paciente/beneficiario para acesso ao cuidado, consultas e teleconsulta | TODO: detalhar em documento proprio |
+| MedSync Medical | Portal do medico independente e ADM Medico do Trabalho | TODO: detalhar em documento proprio |
 | MedSync Admin | Backoffice da plataforma | TODO: detalhar em documento proprio |
 
 ## Diferenciais
 
 - Modelo B2B com regra explicita de privacidade: empresa nao acessa prontuario, diagnostico, observacoes clinicas ou conteudo da consulta.
+- Posicionamento B2B2C: contratacao institucional com experiencia propria e privada para o paciente.
 - Separacao entre operacao administrativa, atendimento clinico, pagamentos e auditoria.
 - Teleconsulta sem gravacao por padrao, conforme documentacao atual de homologacao.
 - Relatorios empresariais planejados para dados agregados e administrativos.
@@ -78,19 +82,20 @@ TODO: Validar tamanho de mercado, segmentos prioritarios, ICP, jornada de compra
 
 Hipoteses iniciais a validar:
 
-- Empresas podem contratar beneficios de saude digital para colaboradores.
-- Clinicas precisam de uma operacao digital com agenda, teleconsulta e registro clinico integrados.
+- Empresas podem contratar acesso a cuidado digital para pessoas elegiveis.
+- Empresas precisam contratar acesso a cuidado digital com elegibilidade, governanca e relatorios permitidos.
+- Medicos independentes precisam de agenda, teleconsulta e registro clinico integrados.
 - Privacidade e separacao de dados sao criterios centrais de compra em contexto B2B de saude.
 - Auditoria, evidencias e controles podem ser diferenciais em vendas enterprise.
 
 ## Concorrentes e referencias
 
-TODO: Mapear concorrentes diretos, indiretos e referencias de produto.
+Referencias iniciais indicadas pelo usuario foram registradas em [Market References](MARKET_REFERENCES.md). O mapeamento ainda precisa validacao formal.
 
 Categorias a validar:
 
 - Plataformas de telemedicina.
-- Sistemas de gestao clinica.
+- Plataformas de atendimento medico digital.
 - Beneficios corporativos de saude.
 - Plataformas de saude ocupacional.
 - Solucoes de prontuario e atendimento digital.
@@ -98,14 +103,14 @@ Categorias a validar:
 ## Regras de produto ja estabelecidas
 
 - Empresas podem acessar apenas dados administrativos e agregados.
-- Empresas nao podem acessar dados clinicos individuais de colaboradores.
+- Empresas nao podem acessar dados clinicos individuais de pacientes ou beneficiarios.
 - O MedSync permanece em homologacao controlada ate aprovacoes formais.
 - O retorno de pagamento nao deve ser tratado como fonte de verdade.
 - Dados sensiveis nao devem aparecer em logs, documentos ou exemplos.
 
 ## Decisoes pendentes
 
-- Modelo comercial prioritario: clinicas, empresas ou hibrido.
+- Modelo comercial prioritario: empresas, parceiros, CNPJ tecnico ou hibrido.
 - ICP inicial e segmento de entrada.
 - Contratos, limites de uso, cancelamento e no-show.
 - Relatorios B2B permitidos por base legal e contrato.
@@ -127,6 +132,10 @@ Categorias a validar:
 ## Referencias
 
 - [Product Blueprint B2B](PRODUCT_BLUEPRINT_B2B.md)
+- [Product Positioning](PRODUCT_POSITIONING.md)
+- [Actor and Organization Model](ACTOR_ORGANIZATION_MODEL.md)
+- [Data Management and CRUD](DATA_MANAGEMENT_CRUD.md)
+- [Market References](MARKET_REFERENCES.md)
 - [Modelo B2B](B2B_MODEL.md)
 - [Sprint 1 - Product Blueprint](Sprint%201%20%E2%80%94%20Product%20Blueprint.md)
 - [Regras dos agentes](../agentes/AI_AGENT_RULES.md)

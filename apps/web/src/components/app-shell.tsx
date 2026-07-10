@@ -26,19 +26,41 @@ const navigation: Array<{
   icon: typeof LayoutDashboard;
   roles?: ClinicRole[];
 }> = [
-  { href: "/dashboard", label: "Visão geral", icon: LayoutDashboard },
-  { href: "/consultas", label: "Consultas", icon: CalendarDays },
+  { href: "/dashboard", label: "Painel", icon: LayoutDashboard },
+  {
+    href: "/consultas",
+    label: "Consultas",
+    icon: CalendarDays,
+    roles: ["Patient", "Doctor", "MedicalDirector", "OccupationalHealthAdmin", "Support", "CompanyAuditor"],
+  },
   {
     href: "/patients",
     label: "Pacientes",
     icon: Users,
-    roles: ["Doctor", "Patient", "Receptionist", "ClinicAdmin", "MedicalDirector"],
+    roles: [
+      "Doctor",
+      "Patient",
+      "Receptionist",
+      "ClinicAdmin",
+      "MedicalDirector",
+      "Support",
+      "OccupationalHealthAdmin",
+      "CompanyAuditor",
+    ],
   },
   {
     href: "/doctors",
-    label: "Médicos",
+    label: "Medicos",
     icon: Stethoscope,
-    roles: ["Doctor", "Receptionist", "ClinicAdmin", "MedicalDirector"],
+    roles: [
+      "Doctor",
+      "Receptionist",
+      "ClinicAdmin",
+      "MedicalDirector",
+      "Support",
+      "OccupationalHealthAdmin",
+      "CompanyAuditor",
+    ],
   },
   {
     href: "/acessos",
@@ -50,15 +72,22 @@ const navigation: Array<{
     href: "/auditoria",
     label: "Auditoria",
     icon: ListChecks,
-    roles: ["ClinicAdmin", "PrivacyAuditor"],
+    roles: [
+      "ClinicAdmin",
+      "PrivacyAuditor",
+      "CompanyAuditor",
+      "PlatformAuditor",
+      "DataProtectionOfficer",
+    ],
   },
 ];
 
 const schedulingRoles: ClinicRole[] = [
-  "Doctor",
   "Receptionist",
   "ClinicAdmin",
   "MedicalDirector",
+  "Support",
+  "OccupationalHealthAdmin",
 ];
 
 export function AppShell({ children }: { children: React.ReactNode }) {
@@ -92,10 +121,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     return <div className="min-h-screen bg-mist" />;
   }
 
-  const visibleNavigation = navigation.filter(
-    (item) => !item.roles || item.roles.some((role) => user.roles.includes(role)),
-  );
-  const canSchedule = schedulingRoles.some((role) => user.roles.includes(role));
+  const isPlatformAdminProfile = user.roles.includes("PlatformAdmin");
+  const visibleNavigation = navigation.filter((item) => {
+    if (isPlatformAdminProfile && item.href !== "/dashboard") {
+      return false;
+    }
+    return !item.roles || item.roles.some((role) => user.roles.includes(role));
+  });
+  const canSchedule =
+    !isPlatformAdminProfile && schedulingRoles.some((role) => user.roles.includes(role));
 
   return (
     <div className="min-h-screen bg-mist">
@@ -107,7 +141,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         />
       )}
       <aside
-        className={`fixed inset-y-0 left-0 z-40 flex w-72 flex-col bg-ink px-5 py-6 text-white transition-transform lg:translate-x-0 ${
+        className={`brand-panel fixed inset-y-0 left-0 z-40 flex w-72 flex-col px-5 py-6 text-white shadow-2xl shadow-teal-950/20 transition-transform lg:translate-x-0 ${
           menuOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
@@ -118,22 +152,28 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </button>
         </div>
 
-        <nav className="mt-10 space-y-1.5">
+        <div className="mx-2 mt-8 rounded-lg border border-white/10 bg-white/5 px-4 py-3">
+          <p className="text-xs font-bold uppercase tracking-[0.08em] text-teal-100">MedSync</p>
+          <p className="mt-1 text-sm text-white/70">Cuidado digital B2B</p>
+        </div>
+
+        <nav className="mt-6 space-y-1.5">
           {visibleNavigation.map(({ href, label, icon: Icon }) => {
             const active = pathname === href || (href !== "/dashboard" && pathname.startsWith(href));
+            const displayLabel = navigationLabel(href, label, user.roles);
             return (
               <Link
-                key={href}
+                key={`${href}-${displayLabel}`}
                 href={href}
                 onClick={() => setMenuOpen(false)}
-                className={`flex items-center gap-3 rounded-2xl px-4 py-3.5 text-sm font-semibold transition ${
+                className={`flex items-center gap-3 rounded-lg px-4 py-3.5 text-sm font-semibold transition ${
                   active
-                    ? "bg-teal-500 text-white shadow-lg shadow-teal-950/30"
-                    : "text-white/55 hover:bg-white/5 hover:text-white"
+                    ? "bg-white text-teal-900 shadow-lg shadow-teal-950/20"
+                    : "text-white/70 hover:bg-white/10 hover:text-white"
                 }`}
               >
                 <Icon size={19} />
-                {label}
+                {displayLabel}
                 {active && <ChevronRight className="ml-auto" size={16} />}
               </Link>
             );
@@ -144,20 +184,20 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           {canSchedule && (
             <Link
               href="/consultas/nova"
-              className="mb-5 flex items-center gap-3 rounded-2xl border border-teal-300/15 bg-teal-300/10 p-4 text-sm text-teal-100"
+              className="mb-5 flex items-center gap-3 rounded-lg border border-coral-100/20 bg-coral-500/15 p-4 text-sm text-coral-50"
             >
-              <span className="grid size-9 place-items-center rounded-xl bg-teal-300/15">
+              <span className="grid size-9 place-items-center rounded-lg bg-coral-500/20">
                 <Video size={18} />
               </span>
               <span>
                 <strong className="block">Nova consulta</strong>
-                <small className="text-teal-100/55">Agendar atendimento</small>
+                <small className="text-coral-50/75">Agendar atendimento</small>
               </span>
             </Link>
           )}
           <button
             onClick={logout}
-            className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm text-white/50 hover:bg-white/5 hover:text-white"
+            className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-white/60 hover:bg-white/5 hover:text-white"
           >
             <LogOut size={17} /> Sair da conta
           </button>
@@ -165,23 +205,23 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </aside>
 
       <div className="lg:pl-72">
-        <header className="sticky top-0 z-20 flex h-20 items-center justify-between border-b border-slate-200/70 bg-mist/90 px-5 backdrop-blur sm:px-8">
+        <header className="sticky top-0 z-20 flex h-20 items-center justify-between border-b border-slate-200/70 bg-paper/90 px-5 backdrop-blur sm:px-8">
           <button
-            className="grid size-10 place-items-center rounded-xl bg-white text-slate-600 shadow-sm lg:hidden"
+            className="grid size-10 place-items-center rounded-lg bg-white text-slate-600 shadow-sm lg:hidden"
             onClick={() => setMenuOpen(true)}
           >
             <Menu size={20} />
           </button>
           <div className="hidden lg:block">
-            <p className="text-xs text-slate-400">Sua central de cuidado</p>
+            <p className="text-xs text-slate-400">Central MedSync</p>
             <p className="mt-0.5 text-sm font-bold text-ink">{user.clinicName}</p>
           </div>
           <div className="flex items-center gap-3">
             <div className="hidden text-right sm:block">
               <p className="text-sm font-bold text-ink">{user.name}</p>
-              <p className="text-xs text-slate-400">{user.roles.join(" · ")}</p>
+              <p className="text-xs text-slate-400">{user.roles.join(" / ")}</p>
             </div>
-            <span className="grid size-10 place-items-center rounded-xl bg-teal-100 text-sm font-bold text-teal-700">
+            <span className="grid size-10 place-items-center rounded-lg bg-coral-50 text-sm font-bold text-coral-600 ring-1 ring-coral-100">
               {user.name
                 .split(" ")
                 .slice(0, 2)
@@ -194,4 +234,20 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </div>
     </div>
   );
+}
+
+function navigationLabel(href: string, label: string, roles: ClinicRole[]) {
+  const isPatient = roles.includes("Patient") && !roles.some((role) => role !== "Patient");
+  const isDoctor = roles.includes("Doctor") && !roles.some((role) => role !== "Doctor");
+  const isCompanyFinance = roles.includes("CompanyFinance");
+  const isCompanyAuditor = roles.includes("CompanyAuditor");
+
+  if (isPatient && href === "/consultas") return "Minhas consultas";
+  if (isPatient && href === "/patients") return "Meu cadastro";
+  if (isDoctor && href === "/consultas") return "Agenda";
+  if (isDoctor && href === "/patients") return "Pacientes vinculados";
+  if (isDoctor && href === "/doctors") return "Meu perfil";
+  if (isCompanyFinance && href === "/dashboard") return "Financeiro";
+  if (isCompanyAuditor && href === "/dashboard") return "Visao geral";
+  return label;
 }

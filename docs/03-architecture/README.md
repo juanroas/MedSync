@@ -10,6 +10,13 @@ Inclui arquitetura geral, backend, frontend, integracoes, autenticacao, autoriza
 
 - [Sprint 3 - Arquitetura](Sprint%203%20%E2%80%94%20Arquitetura.md)
 - [DOCUMENTATION_AUDIT.md](DOCUMENTATION_AUDIT.md)
+- [ARCHITECTURE_OVERVIEW.md](ARCHITECTURE_OVERVIEW.md)
+- [MODULE_BOUNDARIES.md](MODULE_BOUNDARIES.md)
+- [MULTI_TENANCY.md](MULTI_TENANCY.md)
+- [DATA_MODEL_B2B.md](DATA_MODEL_B2B.md)
+- [API_GUIDELINES.md](API_GUIDELINES.md)
+- [EVENTS.md](EVENTS.md)
+- [SPRINT_3_REPORT.md](SPRINT_3_REPORT.md)
 - [backend](backend/README.md)
 - [frontend](frontend/README.md)
 - [mobile](mobile/README.md)

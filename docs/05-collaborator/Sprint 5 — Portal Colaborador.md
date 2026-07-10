@@ -1,16 +1,18 @@
 Objetivo:
 
-Criar toda experiência do colaborador.
+Criar toda experiencia do paciente/beneficiario.
 
 Implementar:
 
 Dashboard
 
+Encontrar atendimento
+
 Agendar consulta
 
 Minhas consultas
 
-Histórico
+Historico
 
 Receitas
 
@@ -28,4 +30,4 @@ LGPD
 
 Melhorar UX.
 
-Não alterar backend.
+Nao alterar backend.

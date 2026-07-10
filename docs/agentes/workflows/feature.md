@@ -14,9 +14,12 @@ Produto, engenharia, QA, seguranca e privacidade devem validar impacto antes da 
 
 1. Confirmar objetivo e dominio.
 2. Consultar documentos canonicos.
-3. Mapear impacto em seguranca, LGPD, QA e B2B.
-4. Implementar quando autorizado.
-5. Atualizar documentacao e evidencias.
+3. Se houver referencias externas, atualizar matriz de rastreabilidade.
+4. Mapear impacto em produto, UX, seguranca, LGPD, QA e B2B.
+5. Atualizar backlog e criterios de aceite antes do codigo.
+6. Implementar quando autorizado e quando readiness permitir.
+7. Executar verificacoes aplicaveis.
+8. Atualizar documentacao e evidencias.
 
 # Checklist
 
@@ -25,6 +28,8 @@ Produto, engenharia, QA, seguranca e privacidade devem validar impacto antes da 
 - Testes definidos.
 - Documentos atualizados.
 - Pendencias registradas.
+- Referencias rastreadas.
+- Implementado, documentado e validado separados.
 
 # Referencias
 

@@ -6,18 +6,42 @@ import { api } from "@/services/api";
 import { Plus, ShieldCheck, UserCog } from "lucide-react";
 import { FormEvent, useEffect, useState } from "react";
 
+const staffRoleOptions: Array<{ value: ClinicRole; label: string }> = [
+  { value: "CompanyAdmin", label: "Empresa/parceiro admin" },
+  { value: "CompanyFinance", label: "Financeiro empresa" },
+  { value: "PlatformFinance", label: "Financeiro MedSync" },
+  { value: "Support", label: "Suporte MedSync" },
+  { value: "CompanyAuditor", label: "Auditor empresa" },
+  { value: "PlatformAuditor", label: "Auditor MedSync" },
+  { value: "DataProtectionOfficer", label: "DPO/Privacidade" },
+  { value: "OccupationalHealthAdmin", label: "ADM Medico do Trabalho" },
+  { value: "PlatformAdmin", label: "Admin plataforma" },
+];
+
 const initialForm = {
   name: "",
   email: "",
-  role: "Receptionist" as "Receptionist" | "Finance" | "ClinicAdmin" | "PrivacyAuditor",
+  role: "CompanyAdmin" as ClinicRole,
   temporaryPassword: "",
 };
 
 const roleLabel: Partial<Record<ClinicRole, string>> = {
-  Receptionist: "Recepção",
-  Finance: "Financeiro",
-  ClinicAdmin: "Administrador da clínica",
-  PrivacyAuditor: "Auditor de privacidade",
+  Patient: "Paciente/beneficiario",
+  Doctor: "Medico independente",
+  CompanyAdmin: "Empresa/parceiro admin",
+  CompanyFinance: "Financeiro empresa",
+  PlatformFinance: "Financeiro MedSync",
+  Support: "Suporte MedSync",
+  CompanyAuditor: "Auditor empresa",
+  PlatformAuditor: "Auditor MedSync",
+  DataProtectionOfficer: "DPO/Privacidade",
+  OccupationalHealthAdmin: "ADM Medico do Trabalho",
+  PlatformAdmin: "Admin plataforma",
+  Receptionist: "Recepcao legado",
+  Finance: "Financeiro legado",
+  ClinicAdmin: "Admin legado",
+  MedicalDirector: "Diretor medico legado",
+  PrivacyAuditor: "Auditor privacidade legado",
 };
 
 export default function AccessPage() {
@@ -54,9 +78,9 @@ export default function AccessPage() {
   return (
     <>
       <PageHeader
-        eyebrow="Segurança"
-        title="Equipe e acessos"
-        description="Crie contas administrativas com o menor privilégio necessário. A senha informada é temporária e deverá ser alterada no primeiro acesso."
+        eyebrow="Seguranca"
+        title="Perfis e acessos"
+        description="Crie contas com o menor privilegio necessario por CNPJ, plataforma ou privacidade."
         action={
           <button className={buttonClass} onClick={() => setShowForm((value) => !value)}>
             <Plus size={17} /> Novo acesso
@@ -77,15 +101,14 @@ export default function AccessPage() {
             </label>
             <label>
               <span className="mb-2 block text-xs font-bold text-slate-600">Perfil</span>
-              <select className={inputClass} value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value as typeof form.role })}>
-                <option value="Receptionist">Recepção</option>
-                <option value="Finance">Financeiro</option>
-                <option value="PrivacyAuditor">Auditor de privacidade</option>
-                <option value="ClinicAdmin">Administrador da clínica</option>
+              <select className={inputClass} value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value as ClinicRole })}>
+                {staffRoleOptions.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
               </select>
             </label>
             <label>
-              <span className="mb-2 block text-xs font-bold text-slate-600">Senha temporária</span>
+              <span className="mb-2 block text-xs font-bold text-slate-600">Senha temporaria</span>
               <input className={inputClass} type="password" minLength={12} value={form.temporaryPassword} onChange={(e) => setForm({ ...form, temporaryPassword: e.target.value })} required />
             </label>
           </div>
@@ -99,7 +122,7 @@ export default function AccessPage() {
       {loading ? (
         <LoadingState label="Carregando acessos..." />
       ) : users.length === 0 ? (
-        <EmptyState icon={<UserCog size={22} />} title="Nenhum acesso administrativo" description="Crie o primeiro perfil da equipe." />
+        <EmptyState icon={<UserCog size={22} />} title="Nenhum acesso administrativo" description="Crie o primeiro perfil operacional." />
       ) : (
         <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {users.map((user) => (

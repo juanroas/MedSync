@@ -1,41 +1,39 @@
 Objetivo:
 
-Projetar completamente o Portal Empresa.
+Projetar completamente o Portal Empresa/Parceiro.
 
-Implementar somente telas e navegação.
+Implementar somente telas e navegacao.
 
-Sem integração real.
+Sem integracao real.
 
 Criar:
 
-Dashboard Empresa
-
-Colaboradores
-
-Benefícios
+Dashboard Empresa/Parceiro
 
 Elegibilidade
 
-Relatórios
+Planos de acesso
 
-Utilização
+Relatorios
+
+Utilizacao
 
 Financeiro
 
 Contratos
 
-Configurações
+Configuracoes
 
 Nunca mostrar:
 
-prontuário
+prontuario
 
-diagnóstico
+diagnostico
 
-conteúdo clínico
+conteudo clinico
 
-dados médicos
+dados medicos individuais
 
-Criar componentes reutilizáveis.
+Criar componentes reutilizaveis.
 
 Seguir Design System.

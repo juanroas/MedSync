@@ -9,7 +9,11 @@ Este documento apoia homologacao tecnica. A avaliacao juridica e do encarregado 
 - [ ] Consentimento auditavel por consulta.
 - [ ] CPF mascarado em respostas padrao.
 - [ ] Minimizacao de dados em telas administrativas.
-- [ ] Prontuario bloqueado para recepcao, financeiro, admin, auditor e empresa.
+- [ ] Prontuario bloqueado para empresa/parceiro admin, suporte MedSync, financeiro, auditor e admin administrativo.
+- [ ] Perfil ADM Medico do Trabalho revisado com juridico, DPO e diretor tecnico antes de acessar diagnostico, prontuario, observacao clinica ou documentos ocupacionais.
+- [ ] Acesso clinico associado a CNPJ separado de RH, financeiro e administracao empresarial.
+- [ ] CNPJ tecnico/operacional para pessoa fisica direta validado juridicamente e com base legal/finalidade documentada.
+- [ ] Atualizacoes de dados sensiveis com autoria, motivo, data/hora e trilha de auditoria.
 - [ ] Exportacao de dados do titular implementada e revisada.
 - [ ] Processo para acesso, correcao, exclusao aplicavel, portabilidade e revogacao.
 - [ ] Retencao configuravel por categoria.

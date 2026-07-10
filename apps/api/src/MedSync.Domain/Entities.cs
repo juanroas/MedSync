@@ -8,7 +8,16 @@ public enum ClinicRole
     Finance,
     ClinicAdmin,
     MedicalDirector,
-    PrivacyAuditor
+    PrivacyAuditor,
+    CompanyAdmin,
+    CompanyFinance,
+    PlatformFinance,
+    Support,
+    CompanyAuditor,
+    PlatformAuditor,
+    DataProtectionOfficer,
+    PlatformAdmin,
+    OccupationalHealthAdmin
 }
 
 public enum AppointmentStatus

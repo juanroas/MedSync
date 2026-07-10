@@ -126,6 +126,48 @@ public sealed record PaymentResponse(
     PaymentStatus Status,
     string? CheckoutUrl);
 
+public sealed record CompanyPortalResponse(
+    CompanyPortalCompanyResponse Company,
+    CompanyPortalContractResponse? Contract,
+    CompanyPortalEligibilityResponse Eligibility,
+    CompanyPortalUsageResponse Usage,
+    CompanyPortalBillingResponse Billing,
+    IReadOnlyCollection<string> PrivacyGuards);
+
+public sealed record CompanyPortalCompanyResponse(
+    Guid Id,
+    string LegalName,
+    string? TradeName,
+    string TaxIdMasked,
+    bool IsActive);
+
+public sealed record CompanyPortalContractResponse(
+    Guid Id,
+    string PlanName,
+    CompanyContractStatus Status,
+    DateOnly StartsAt,
+    DateOnly? EndsAt,
+    int MonthlyConsultationLimit);
+
+public sealed record CompanyPortalEligibilityResponse(
+    int BeneficiaryCount,
+    int EligibleCount,
+    int InactiveCount);
+
+public sealed record CompanyPortalUsageResponse(
+    int? TotalConsultations,
+    int? ScheduledConsultations,
+    int? InProgressConsultations,
+    int? CompletedConsultations,
+    bool HiddenDueToPrivacyThreshold,
+    string? HiddenReason);
+
+public sealed record CompanyPortalBillingResponse(
+    decimal? EstimatedMonthlyFee,
+    string Currency,
+    string Status,
+    string Note);
+
 public interface IPasswordService
 {
     string Hash(string password);

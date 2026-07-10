@@ -38,7 +38,8 @@ export function ConsultationRoom({ appointmentId }: { appointmentId: string }) {
   const session = getSession();
   const isDoctor =
     session?.user.roles.includes("Doctor") ||
-    session?.user.roles.includes("MedicalDirector");
+    session?.user.roles.includes("MedicalDirector") ||
+    session?.user.roles.includes("OccupationalHealthAdmin");
   const isPatient = session?.user.roles.includes("Patient");
 
   useEffect(() => {
@@ -65,7 +66,8 @@ export function ConsultationRoom({ appointmentId }: { appointmentId: string }) {
 
         const canStart =
           currentSession.user.roles.includes("Doctor") ||
-          currentSession.user.roles.includes("MedicalDirector");
+          currentSession.user.roles.includes("MedicalDirector") ||
+          currentSession.user.roles.includes("OccupationalHealthAdmin");
         let room;
         if (canStart) {
           room = await api.startConsultation(appointmentId);

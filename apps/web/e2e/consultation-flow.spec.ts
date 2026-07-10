@@ -5,12 +5,12 @@ test.describe("fluxo completo de consulta", () => {
   test.skip(!sharedPassword, "defina MEDSYNC_E2E_PASSWORD para executar login E2E");
   test.skip(process.env.MEDSYNC_E2E_MUTATING !== "1", "defina MEDSYNC_E2E_MUTATING=1 para criar dados de homologacao");
 
-  test("recepcao agenda, paciente consente, medico inicia e encerra", async () => {
+  test("suporte agenda, paciente consente, medico inicia e encerra", async () => {
     const password = "Temp123!Temp";
     const finalPassword = "Final123!Temp";
     const suffix = Date.now();
     const reception = await request.newContext({ baseURL: baseApiURL });
-    await loginByApi(reception, users.receptionist);
+    await loginByApi(reception, users.support);
 
     const doctorsResponse = await reception.get("/doctors");
     expect(doctorsResponse.status()).toBeLessThan(400);

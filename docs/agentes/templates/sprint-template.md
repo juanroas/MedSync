@@ -16,6 +16,16 @@ Produto, engenharia, QA e seguranca devem manter a sprint rastreavel.
 
 ## Entregaveis
 
+## Referencias e rastreabilidade
+
+## Implementado
+
+## Documentado
+
+## Validado
+
+## Ainda falta
+
 ## Criterios de aceite
 
 ## Evidencias
@@ -31,6 +41,8 @@ Produto, engenharia, QA e seguranca devem manter a sprint rastreavel.
 - Evidencias registradas.
 - Riscos atualizados.
 - Proximos passos definidos.
+- Entregas documentais separadas das entregas implementadas.
+- Referencias externas rastreadas quando aplicavel.
 
 # Referencias
 

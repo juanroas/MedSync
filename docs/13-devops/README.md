@@ -13,6 +13,7 @@ Inclui templates para Docker, CI/CD, infraestrutura, logging, monitoring, observ
 - [Docker.md](Docker.md)
 - [Docker-Compose.md](Docker-Compose.md)
 - [GitHub-Actions.md](GitHub-Actions.md)
+- [COST_SIMULATION.md](COST_SIMULATION.md)
 - [Terraform.md](Terraform.md)
 - [Azure.md](Azure.md)
 - [Kubernetes.md](Kubernetes.md)
@@ -24,7 +25,8 @@ Inclui templates para Docker, CI/CD, infraestrutura, logging, monitoring, observ
 
 1. Documentar apenas ambientes e processos reais ou aprovados.
 2. Registrar evidencias operacionais quando existirem.
-3. Linkar plano de producao e riscos.
+3. Revalidar simulacoes de custo antes de qualquer proposta.
+4. Linkar plano de producao e riscos.
 
 # Boas práticas
 
@@ -42,4 +44,5 @@ Inclui templates para Docker, CI/CD, infraestrutura, logging, monitoring, observ
 
 - [Producao](../09-production/README.md)
 - [Seguranca](../07-security/README.md)
+- [Cost Simulation](COST_SIMULATION.md)
 - [Deployment workflow](../agentes/workflows/deployment.md)

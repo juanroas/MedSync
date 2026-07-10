@@ -1,3 +1,4 @@
+using System.Net;
 using System.Security.Claims;
 using System.Net.Mail;
 using MedSync.Application;
@@ -24,6 +25,7 @@ public static class ApiEndpoints
         protectedApi.MapPost("/staff-users", CreateStaffUser);
         protectedApi.MapGet("/staff-users", GetStaffUsers);
         protectedApi.MapGet("/audit-events", GetAuditEvents);
+        protectedApi.MapGet("/company-portal", GetCompanyPortal);
 
         protectedApi.MapPost("/patients", CreatePatient);
         protectedApi.MapGet("/patients", GetPatients);
@@ -53,7 +55,16 @@ public static class ApiEndpoints
         ClinicRole.Receptionist,
         ClinicRole.Finance,
         ClinicRole.ClinicAdmin,
-        ClinicRole.PrivacyAuditor
+        ClinicRole.PrivacyAuditor,
+        ClinicRole.CompanyAdmin,
+        ClinicRole.CompanyFinance,
+        ClinicRole.PlatformFinance,
+        ClinicRole.Support,
+        ClinicRole.CompanyAuditor,
+        ClinicRole.PlatformAuditor,
+        ClinicRole.DataProtectionOfficer,
+        ClinicRole.PlatformAdmin,
+        ClinicRole.OccupationalHealthAdmin
     ];
 
     private static async Task<IResult> CreateStaffUser(
@@ -65,7 +76,7 @@ public static class ApiEndpoints
         CancellationToken cancellationToken)
     {
         var actor = RequestContext.From(principal);
-        if (!actor.HasAny(ClinicRole.ClinicAdmin))
+        if (!actor.HasAny(ClinicRole.ClinicAdmin, ClinicRole.PlatformAdmin))
             return Results.Forbid();
         if (!StaffRoles.Contains(request.Role))
             return Validation("role", "Selecione um perfil administrativo permitido.");
@@ -113,7 +124,13 @@ public static class ApiEndpoints
         CancellationToken cancellationToken)
     {
         var actor = RequestContext.From(principal);
-        if (!actor.HasAny(ClinicRole.ClinicAdmin, ClinicRole.PrivacyAuditor))
+        if (!actor.HasAny(
+                ClinicRole.ClinicAdmin,
+                ClinicRole.PrivacyAuditor,
+                ClinicRole.PlatformAdmin,
+                ClinicRole.CompanyAuditor,
+                ClinicRole.PlatformAuditor,
+                ClinicRole.DataProtectionOfficer))
             return Results.Forbid();
 
         var users = await db.ClinicMemberships.AsNoTracking()
@@ -135,7 +152,13 @@ public static class ApiEndpoints
         CancellationToken cancellationToken)
     {
         var actor = RequestContext.From(principal);
-        if (!actor.HasAny(ClinicRole.PrivacyAuditor, ClinicRole.ClinicAdmin))
+        if (!actor.HasAny(
+                ClinicRole.PrivacyAuditor,
+                ClinicRole.ClinicAdmin,
+                ClinicRole.CompanyAuditor,
+                ClinicRole.PlatformAuditor,
+                ClinicRole.DataProtectionOfficer,
+                ClinicRole.PlatformAdmin))
             return Results.Forbid();
 
         var events = await db.AuditEvents.AsNoTracking()
@@ -153,6 +176,118 @@ public static class ApiEndpoints
                 x.CreatedAt))
             .ToListAsync(cancellationToken);
         return Results.Ok(events);
+    }
+
+    private static async Task<IResult> GetCompanyPortal(
+        ClaimsPrincipal principal,
+        MedSyncDbContext db,
+        AuditWriter audit,
+        CancellationToken cancellationToken)
+    {
+        var actor = RequestContext.From(principal);
+        if (!actor.HasAny(
+                ClinicRole.CompanyAdmin,
+                ClinicRole.CompanyFinance,
+                ClinicRole.CompanyAuditor,
+                ClinicRole.PlatformAdmin,
+                ClinicRole.PlatformFinance))
+            return Results.Forbid();
+
+        var company = await db.Companies.AsNoTracking()
+            .Where(x => x.ClinicId == actor.ClinicId && x.IsActive)
+            .OrderBy(x => x.CreatedAt)
+            .FirstOrDefaultAsync(cancellationToken);
+        if (company is null)
+            return Results.NotFound(new { message = "Empresa contratante nao encontrada para este ambiente." });
+
+        var contract = await db.CompanyContracts.AsNoTracking()
+            .Include(x => x.BenefitPlan)
+            .Where(x => x.ClinicId == actor.ClinicId && x.CompanyId == company.Id)
+            .OrderByDescending(x => x.StartsAt)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        var beneficiaryCount = await db.CompanyEmployees.AsNoTracking()
+            .CountAsync(x => x.ClinicId == actor.ClinicId && x.CompanyId == company.Id, cancellationToken);
+        var eligibleCount = await db.CompanyEmployees.AsNoTracking()
+            .CountAsync(
+                x => x.ClinicId == actor.ClinicId &&
+                     x.CompanyId == company.Id &&
+                     x.IsActive &&
+                     x.EligibilityRecords.Any(e => e.IsEligible),
+                cancellationToken);
+        var inactiveCount = await db.CompanyEmployees.AsNoTracking()
+            .CountAsync(
+                x => x.ClinicId == actor.ClinicId &&
+                     x.CompanyId == company.Id &&
+                     !x.IsActive,
+                cancellationToken);
+
+        const int minimumAggregationGroup = 5;
+        var hideUsage = eligibleCount < minimumAggregationGroup;
+        int? totalConsultations = null;
+        int? scheduledConsultations = null;
+        int? inProgressConsultations = null;
+        int? completedConsultations = null;
+
+        if (!hideUsage)
+        {
+            var linkedPatientIds = db.CompanyEmployees.AsNoTracking()
+                .Where(x => x.ClinicId == actor.ClinicId && x.CompanyId == company.Id && x.PatientId != null)
+                .Select(x => x.PatientId!.Value);
+            var appointments = db.Appointments.AsNoTracking()
+                .Where(x => x.ClinicId == actor.ClinicId && linkedPatientIds.Contains(x.PatientId));
+
+            totalConsultations = await appointments.CountAsync(cancellationToken);
+            scheduledConsultations = await appointments
+                .CountAsync(x => x.Status == AppointmentStatus.Scheduled, cancellationToken);
+            inProgressConsultations = await appointments
+                .CountAsync(x => x.Status == AppointmentStatus.InProgress, cancellationToken);
+            completedConsultations = await appointments
+                .CountAsync(x => x.Status == AppointmentStatus.Completed, cancellationToken);
+        }
+
+        audit.Add(actor, "CompanyPortal.View", "Company", company.Id);
+        await db.SaveChangesAsync(cancellationToken);
+
+        return Results.Ok(new CompanyPortalResponse(
+            new CompanyPortalCompanyResponse(
+                company.Id,
+                company.LegalName,
+                company.TradeName,
+                MaskTaxId(company.TaxId),
+                company.IsActive),
+            contract is null
+                ? null
+                : new CompanyPortalContractResponse(
+                    contract.Id,
+                    contract.BenefitPlan.Name,
+                    contract.Status,
+                    contract.StartsAt,
+                    contract.EndsAt,
+                    contract.BenefitPlan.MonthlyConsultationLimit),
+            new CompanyPortalEligibilityResponse(
+                beneficiaryCount,
+                eligibleCount,
+                inactiveCount),
+            new CompanyPortalUsageResponse(
+                totalConsultations,
+                scheduledConsultations,
+                inProgressConsultations,
+                completedConsultations,
+                hideUsage,
+                hideUsage
+                    ? $"Uso agregado oculto ate existir grupo minimo de {minimumAggregationGroup} elegiveis."
+                    : null),
+            new CompanyPortalBillingResponse(
+                contract?.BenefitPlan.MonthlyFee,
+                "BRL",
+                contract is null ? "Sem contrato ativo" : "Contrato em homologacao",
+                "Emissao de faturas ainda depende da especificacao financeira aprovada."),
+            [
+                "Empresas acessam apenas dados administrativos e agregados.",
+                "Uso clinico individual nao e exposto no portal empresarial.",
+                "Relatorios dependem de grupo minimo para reduzir risco de reidentificacao."
+            ]));
     }
 
     private static async Task<IResult> Login(
@@ -383,9 +518,9 @@ public static class ApiEndpoints
     {
         var actor = RequestContext.From(principal);
         var query = db.Patients.AsNoTracking().Where(x => x.ClinicId == actor.ClinicId);
-        if (actor.HasAny(AccessRules.ManagePatients))
+        if (actor.HasAny(AccessRules.ViewPatients))
         {
-            // Acesso administrativo dentro da clínica.
+            // Acesso administrativo ou auditoria dentro da clínica.
         }
         else if (actor.HasAny(ClinicRole.Doctor))
         {
@@ -506,7 +641,9 @@ public static class ApiEndpoints
         CancellationToken cancellationToken)
     {
         var actor = RequestContext.From(principal);
-        if (!actor.HasAny(AccessRules.ManageAppointments) && !actor.HasAny(ClinicRole.Doctor))
+        if (actor.HasAny(ClinicRole.Doctor, ClinicRole.PlatformAdmin))
+            return Results.Forbid();
+        if (!actor.HasAny(AccessRules.ManageAppointments))
             return Results.Forbid();
         if (request.DoctorId == Guid.Empty || request.PatientId == Guid.Empty)
             return Validation("appointment", "Paciente e médico são obrigatórios.");
@@ -528,10 +665,6 @@ public static class ApiEndpoints
             cancellationToken);
         if (doctor is null || !patientExists)
             return Results.BadRequest(new { message = "Médico ou paciente inválido." });
-        if (actor.HasAny(ClinicRole.Doctor) &&
-            !actor.HasAny(AccessRules.ManageAppointments) &&
-            doctor.UserId != actor.UserId)
-            return Results.Forbid();
         var scheduledEndsAt = scheduledAt.AddMinutes(request.DurationMinutes);
         var hasConflict = await db.Appointments.AnyAsync(
             x => x.ClinicId == actor.ClinicId &&
@@ -874,7 +1007,12 @@ public static class ApiEndpoints
         if (appointment is null)
             return Results.NotFound();
         if (!IsPatient(actor, appointment) &&
-            !actor.HasAny(ClinicRole.Finance, ClinicRole.ClinicAdmin))
+            !actor.HasAny(
+                ClinicRole.Finance,
+                ClinicRole.ClinicAdmin,
+                ClinicRole.CompanyFinance,
+                ClinicRole.PlatformFinance,
+                ClinicRole.PlatformAdmin))
             return Results.Forbid();
         if (!provider.IsConfigured)
             return Results.Problem(
@@ -928,7 +1066,13 @@ public static class ApiEndpoints
             return Results.NotFound();
         if (!IsPatient(actor, appointment) &&
             !IsAssignedDoctor(actor, appointment) &&
-            !actor.HasAny(ClinicRole.Finance, ClinicRole.ClinicAdmin, ClinicRole.MedicalDirector))
+            !actor.HasAny(
+                ClinicRole.Finance,
+                ClinicRole.ClinicAdmin,
+                ClinicRole.MedicalDirector,
+                ClinicRole.CompanyFinance,
+                ClinicRole.PlatformFinance,
+                ClinicRole.PlatformAdmin))
             return Results.Forbid();
         var payment = appointment.Payments.OrderByDescending(x => x.CreatedAt).FirstOrDefault();
         return payment is null ? Results.NotFound() : Results.Ok(ToResponse(payment));
@@ -995,7 +1139,10 @@ public static class ApiEndpoints
             query = query.Where(_ => false);
         }
 
-        var canSeeNotes = actor.HasAny(ClinicRole.Doctor, ClinicRole.MedicalDirector);
+        var canSeeNotes = actor.HasAny(
+            ClinicRole.Doctor,
+            ClinicRole.MedicalDirector,
+            ClinicRole.OccupationalHealthAdmin);
         return query.OrderBy(x => x.ScheduledAt)
             .Select(x => new AppointmentResponse(
                 x.Id,
@@ -1040,6 +1187,7 @@ public static class ApiEndpoints
 
     private static bool CanViewClinical(RequestContext actor, Appointment appointment) =>
         actor.HasAny(ClinicRole.MedicalDirector) ||
+        actor.HasAny(ClinicRole.OccupationalHealthAdmin) ||
         IsAssignedDoctor(actor, appointment) ||
         IsPatient(actor, appointment);
 
@@ -1076,7 +1224,10 @@ public static class ApiEndpoints
             out var parsed)
             ? parsed
             : SameSiteMode.Lax;
-        var secure = !http.Request.Host.Host.Contains("localhost", StringComparison.OrdinalIgnoreCase);
+        var host = http.Request.Host.Host;
+        var isLocalRequest = host.Contains("localhost", StringComparison.OrdinalIgnoreCase) ||
+            (IPAddress.TryParse(host, out var address) && IPAddress.IsLoopback(address));
+        var secure = !isLocalRequest;
         http.Response.Cookies.Append(SessionCookie, jwt, new CookieOptions
         {
             HttpOnly = true,
@@ -1163,6 +1314,12 @@ public static class ApiEndpoints
 
     private static string DigitsOnly(string value) =>
         new(value.Where(char.IsDigit).ToArray());
+
+    private static string MaskTaxId(string taxId)
+    {
+        var digits = DigitsOnly(taxId);
+        return digits.Length == 14 ? $"**.{digits[2..5]}.{digits[5..8]}/****-{digits[12..14]}" : "***";
+    }
 
     private static bool IsValidCpf(string cpf)
     {

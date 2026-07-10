@@ -118,7 +118,15 @@ O relatório HTML é gerado em `apps/web/playwright-report`.
 |---|---|---|
 | Médico | `medico@medsync.dev` | valor de `SEED_DEMO_PASSWORD` |
 | Paciente | `paciente@medsync.dev` | valor de `SEED_DEMO_PASSWORD` |
-| Administrador | `admin@medsync.dev` | valor de `SEED_DEMO_PASSWORD` |
+| Admin plataforma | `admin@medsync.dev` | valor de `SEED_DEMO_PASSWORD` |
+| Empresa/parceiro admin | `empresa.admin@medsync.dev` | valor de `SEED_DEMO_PASSWORD` |
+| Financeiro empresa | `empresa.financeiro@medsync.dev` | valor de `SEED_DEMO_PASSWORD` |
+| Financeiro MedSync | `plataforma.financeiro@medsync.dev` | valor de `SEED_DEMO_PASSWORD` |
+| Suporte MedSync | `suporte@medsync.dev` | valor de `SEED_DEMO_PASSWORD` |
+| Auditor empresa | `empresa.auditor@medsync.dev` | valor de `SEED_DEMO_PASSWORD` |
+| Auditor MedSync | `plataforma.auditor@medsync.dev` | valor de `SEED_DEMO_PASSWORD` |
+| DPO/Privacidade | `dpo@medsync.dev` | valor de `SEED_DEMO_PASSWORD` |
+| ADM Medico do Trabalho | `medico.trabalho@medsync.dev` | valor de `SEED_DEMO_PASSWORD` |
 
 O seed existe somente em `Development`. Contas criadas pelo administrador
 recebem uma senha temporária, que deve ser trocada no primeiro acesso.
@@ -264,7 +272,7 @@ projetos a partir de `apps/api`.
 - A sessão fica em cookie `HttpOnly`; nenhum JWT é salvo no `localStorage`.
 - Tokens LiveKit duram 15 minutos e são emitidos somente para o médico e o
   paciente vinculados, dentro da janela da consulta.
-- Admin, recepção, financeiro e auditor não recebem token de videochamada.
+- Perfis administrativos, financeiros, suporte e auditoria nao recebem token de videochamada.
 - A mídia e os dados da sala usam E2EE com chave por sala.
 - O MedSync não habilita gravação, egress ou transcrição.
 - Dados são escopados por clínica, perfil e vínculo com o atendimento.

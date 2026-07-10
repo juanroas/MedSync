@@ -29,18 +29,18 @@ Fora de escopo:
 
 | Segmento | Descricao | Status |
 |---|---|---|
-| Clinicas | Operacoes de saude que precisam de agenda, teleconsulta, registro clinico e cobranca | Hipotese inicial |
-| Empresas | Organizacoes que desejam oferecer beneficio de saude digital a colaboradores | Hipotese inicial |
-| Operadoras, associacoes e parceiros | Possiveis canais ou clientes institucionais | TODO: validar aplicabilidade |
+| Empresas | Organizacoes que desejam contratar acesso a cuidado digital para pessoas elegiveis | Hipotese inicial |
+| Operadoras, associacoes e parceiros | Possiveis canais, clientes institucionais ou distribuidores white label | TODO: validar aplicabilidade |
+| Pessoas fisicas via suporte | Pacientes diretos vinculados ao CNPJ tecnico/operacional | Conceitual aprovado; requer validacao juridica/operacional |
 
 ## Proposta de valor
 
 | Publico | Valor esperado |
 |---|---|
-| Empresa/RH | Acompanhar uso administrativo e agregado do beneficio sem acessar dados clinicos individuais |
-| Colaborador/Paciente | Acessar atendimento digital com privacidade e jornada simples |
-| Clinica | Operar atendimentos com controle de agenda, equipe, teleconsulta e cobranca |
-| Medico | Atender pacientes vinculados e registrar condutas de forma auditavel |
+| Empresa/Parceiro | Acompanhar contrato, elegibilidade e uso agregado permitido sem acessar dados clinicos individuais |
+| Paciente/Beneficiario | Acessar atendimento digital com privacidade e jornada simples |
+| Medico independente | Atender pacientes vinculados e registrar condutas de forma auditavel |
+| ADM Medico do Trabalho | Apoiar saude ocupacional do CNPJ associado com acesso clinico restrito |
 | Auditor/Privacidade | Ter evidencias de acesso, consentimento e controles |
 
 ## Hipoteses de receita
@@ -49,10 +49,11 @@ TODO: Validar modelo comercial.
 
 Possibilidades a avaliar:
 
-- Assinatura mensal por clinica.
 - Assinatura mensal por empresa contratante.
-- Valor por colaborador elegivel.
+- Valor por pessoa elegivel.
 - Valor por consulta realizada.
+- Fluxo financeiro para pessoa fisica via CNPJ tecnico.
+- Consulta avulsa transacional quando aprovada.
 - Plano hibrido com mensalidade e uso.
 - Modulos adicionais para auditoria, relatorios ou suporte enterprise.
 
@@ -63,8 +64,7 @@ TODO: Validar canais prioritarios.
 Hipoteses:
 
 - Venda direta B2B.
-- Parcerias com clinicas.
-- Parcerias com empresas de beneficios.
+- Parcerias com empresas de beneficios, saude corporativa ou acesso digital ao cuidado.
 - Indicacao por consultorias de saude corporativa.
 
 ## Relacionamento com cliente
@@ -73,8 +73,9 @@ TODO: Definir modelo de atendimento e suporte.
 
 Topicos a validar:
 
-- Onboarding de clinicas.
 - Onboarding de empresas.
+- Onboarding de medicos independentes.
+- Onboarding de CNPJ tecnico/operacional quando aplicavel.
 - Suporte tecnico.
 - Suporte administrativo.
 - Governanca de privacidade.
@@ -82,7 +83,7 @@ Topicos a validar:
 
 ## Custos e operacao
 
-TODO: Validar estrutura de custos.
+TODO: Validar estrutura de custos antes de proposta comercial ou compromisso operacional.
 
 Categorias esperadas:
 
@@ -94,6 +95,19 @@ Categorias esperadas:
 - Operacao juridica e privacidade.
 - QA e homologacao.
 
+Simulacao inicial documentada:
+
+- [Cost Simulation - MedSync](../13-devops/COST_SIMULATION.md)
+
+Resumo preliminar:
+
+| Fase | Estimativa mensal | Capacidade mensal estimada | Observacao |
+|---|---:|---:|---|
+| LiveKit Ship | US$ 170-270 | 370 consultas | Estimativa conservadora para piloto/homologacao |
+| LiveKit Scale | US$ 620-720 | 5.000 consultas | Estimativa sujeita a quotas, testes de carga e contrato |
+
+Esses valores nao incluem validacao juridica, suporte enterprise, impostos, cambio, incident response, pentest, observabilidade avancada ou eventuais custos adicionais por uso.
+
 ## Metricas de negocio
 
 TODO: Validar metricas finais.
@@ -101,12 +115,12 @@ TODO: Validar metricas finais.
 Metricas candidatas:
 
 - Empresas contratantes ativas.
-- Clinicas ativas.
-- Colaboradores elegiveis.
+- Medicos independentes ativos.
+- Pessoas elegiveis.
 - Consultas agendadas, iniciadas e concluidas.
 - Uso agregado por empresa.
 - Receita recorrente.
-- Churn de empresas e clinicas.
+- Churn de empresas/parceiros.
 - Tempo de onboarding.
 - Incidentes e riscos por cliente.
 
@@ -145,4 +159,7 @@ Metricas candidatas:
 - [Product Vision](PRODUCT_VISION.md)
 - [Product Blueprint B2B](PRODUCT_BLUEPRINT_B2B.md)
 - [Modelo B2B](B2B_MODEL.md)
+- [Actor and Organization Model](ACTOR_ORGANIZATION_MODEL.md)
+- [Data Management and CRUD](DATA_MANAGEMENT_CRUD.md)
+- [Cost Simulation](../13-devops/COST_SIMULATION.md)
 - [Reference Business Rules](../reference/Business-Rules.md)

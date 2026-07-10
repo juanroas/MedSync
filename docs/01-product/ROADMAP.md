@@ -4,7 +4,7 @@ Status: Product Discovery. Roadmap inicial e sujeito a validacao; nao representa
 
 ## Objetivo
 
-Organizar uma sequencia de evolucao de produto para transformar o MedSync em SaaS B2B de Saude Digital com seguranca, qualidade e governanca.
+Organizar uma sequencia de evolucao de produto para transformar o MedSync em plataforma de Saude Digital com modelo B2B, seguranca, qualidade e governanca.
 
 ## Escopo
 
@@ -24,12 +24,15 @@ Objetivo: organizar produto, arquitetura, seguranca, qualidade e operacao.
 Entregaveis documentais:
 
 - Product Vision.
+- Product Positioning.
+- Market References.
 - Business Model.
 - Personas.
 - User Journeys.
 - Feature Catalog.
 - Information Architecture.
 - B2B Model.
+- MVP Scope.
 - Roadmap.
 
 Criterios de saida:
@@ -48,19 +51,20 @@ Criterios candidatos:
 
 - QA manual e automatizado executado.
 - Permissoes por perfil testadas.
-- Isolamento multi-clinica testado.
+- Isolamento por CNPJ/tenant testado.
 - Logs sem dados sensiveis.
 - Status de homologacao mantido.
 
-## Fase 2 - Fundacao B2B
+## Fase 2 - Acesso ao cuidado e fundacao B2B
 
-Objetivo: validar empresa, colaboradores, beneficios e relatorios agregados.
+Objetivo: validar a jornada de acesso ao cuidado, empresa/parceiro, elegibilidade, planos e relatorios agregados permitidos.
 
 TODO: detalhar modelo comercial, contrato e LGPD.
 
 Criterios candidatos:
 
-- Empresa sem acesso a dado clinico individual.
+- Paciente/beneficiario com jornada clara para atendimento.
+- Empresa/parceiro sem acesso a dado clinico individual.
 - Relatorios validados por contrato e privacidade.
 - Elegibilidade documentada e testada.
 - Eventos de auditoria definidos.
@@ -115,6 +119,9 @@ Criterios candidatos:
 ## Referencias
 
 - [Product Vision](PRODUCT_VISION.md)
+- [Product Positioning](PRODUCT_POSITIONING.md)
+- [Market References](MARKET_REFERENCES.md)
+- [MVP Scope](MVP_SCOPE.md)
 - [Business Model](BUSINESS_MODEL.md)
 - [Feature Catalog](FEATURE_CATALOG.md)
 - [Roadmap geral](../14-roadmap/ROADMAP.md)

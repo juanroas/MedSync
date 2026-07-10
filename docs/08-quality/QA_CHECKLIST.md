@@ -1,10 +1,10 @@
 # Checklist de QA - MedSync
 
-Status do produto: homologacao controlada. Este checklist nao declara conformidade LGPD/CFM nem prontidao para pacientes reais.
+Status do produto: homologacao controlada. Este checklist nao declara conformidade LGPD/CFM/ANS nem prontidao para pacientes reais.
 
 ## Login
 
-- [ ] Login valido para admin clinica, recepcao, financeiro, auditor, paciente e medico.
+- [ ] Login valido para paciente/beneficiario, empresa/parceiro admin, medico independente, ADM Medico do Trabalho, financeiro empresa, financeiro plataforma, suporte MedSync, auditor empresa, auditor plataforma, DPO/privacidade e admin plataforma.
 - [ ] Mensagem generica para credenciais invalidas.
 - [ ] Rate limit retorna 429 apos tentativas excessivas.
 - [ ] Usuario com senha temporaria e redirecionado para troca de senha.
@@ -12,27 +12,30 @@ Status do produto: homologacao controlada. Este checklist nao declara conformida
 
 ## Permissoes
 
-- [ ] Recepcao cadastra pacientes e consultas, mas nao acessa prontuario.
-- [ ] Financeiro visualiza cobrancas sem dados clinicos.
-- [ ] Admin gerencia equipe, mas nao entra em videochamada nem acessa prontuario.
-- [ ] Auditor visualiza eventos e nao altera cadastros.
-- [ ] Medico acessa apenas consultas vinculadas.
-- [ ] Paciente acessa apenas as proprias consultas.
-- [ ] Dados de outra clinica nao aparecem em listas ou detalhes.
+- [ ] Empresa/parceiro gerencia contrato, plano, elegibilidade, faturas e relatorios agregados sem dado clinico individual.
+- [ ] Financeiro visualiza cobrancas e uso agregado sem dados clinicos.
+- [ ] Suporte cadastra pessoa fisica no CNPJ tecnico sem acessar prontuario.
+- [ ] Auditor visualiza eventos permitidos e nao altera cadastros operacionais.
+- [ ] Medico independente acessa apenas consultas vinculadas e dentro do ramo/especialidade autorizada.
+- [ ] ADM Medico do Trabalho acessa apenas registros ocupacionais do CNPJ associado, com finalidade auditada.
+- [ ] Paciente acessa apenas as proprias consultas e dados.
+- [ ] Dados de outro CNPJ nao aparecem em listas, detalhes, relatorios ou endpoints.
 
-## Validacao de formularios
+## Validacao de formularios e CRUD
 
-- [ ] Paciente exige nome com minimo 3 caracteres.
-- [ ] CPF obrigatorio, valido, mascarado e unico por clinica.
+- [ ] Pessoa exige nome com minimo definido pelo produto.
+- [ ] CPF obrigatorio quando aplicavel, valido, mascarado e unico conforme regra de CNPJ/base legal.
 - [ ] E-mail e telefone validos.
-- [ ] Nascimento obrigatorio e nao futuro.
-- [ ] Medico exige nome, CRM, UF do CRM, especialidade, e-mail e telefone validos.
-- [ ] Consulta exige paciente, medico, data futura e duracao entre 10 e 240 minutos.
+- [ ] Nascimento obrigatorio quando aplicavel e nao futuro.
+- [ ] Medico exige nome, CRM, UF do CRM, especialidade/ramo, e-mail e telefone validos.
+- [ ] Consulta exige paciente, medico, data futura e duracao dentro dos limites definidos.
 - [ ] Conflito de agenda do medico e bloqueado.
+- [ ] Atualizacao de dados permitidos por perfil e salva e auditada.
+- [ ] Atualizacao de campo nao permitido e bloqueada e auditada.
 
 ## Responsividade
 
-- [ ] Login, dashboard e agenda funcionam em mobile.
+- [ ] Login, dashboards e agenda funcionam em mobile.
 - [ ] Menu lateral abre/fecha sem cobrir acoes principais.
 - [ ] Videochamada funciona em 1366x768, 1440x900 e mobile.
 - [ ] Botoes primarios ficam visiveis sem zoom.
@@ -42,28 +45,31 @@ Status do produto: homologacao controlada. Este checklist nao declara conformida
 - [ ] Medico responsavel inicia a consulta.
 - [ ] Paciente sem consentimento nao recebe token LiveKit.
 - [ ] Paciente aguarda ate o medico iniciar.
-- [ ] Admin, recepcao, financeiro e auditor nao recebem token de chamada.
+- [ ] Perfis administrativos, financeiros, suporte e auditoria nao recebem token de chamada.
 - [ ] Encerramento pelo medico muda status para concluido.
-- [ ] Nome da sala nao contem CPF, nome ou especialidade.
-- [ ] E2EE esta ativo no cliente.
+- [ ] Nome da sala nao contem CPF, nome, e-mail, diagnostico ou especialidade sensivel.
+- [ ] Conteudo de chamada nao e gravado por padrao.
+- [ ] E2EE esta ativo no cliente quando aplicavel.
 
 ## Auditoria
 
 - [ ] Login e falha de login geram evento.
-- [ ] Leitura/criacao de paciente gera evento.
+- [ ] Criacao/leitura/atualizacao de pessoa ou beneficiario gera evento conforme sensibilidade.
 - [ ] Criacao e leitura de consulta geram evento.
-- [ ] Aceite de termo gera evento.
+- [ ] Aceite de termo gera evento com versao.
 - [ ] Emissao de token de video gera evento.
-- [ ] Acesso ao prontuario gera evento.
-- [ ] Eventos nao registram senha, token, CPF completo, URL sensivel ou prontuario.
+- [ ] Acesso ao prontuario ou registro ocupacional gera evento.
+- [ ] Eventos nao registram senha, token, CPF completo, URL sensivel, prontuario ou diagnostico.
 
 ## LGPD
 
 - [ ] CPF mascarado para perfis sem necessidade operacional.
-- [ ] Dados clinicos invisiveis para empregador, recepcao, financeiro e admin.
+- [ ] Dados clinicos invisiveis para empresa/parceiro, suporte, financeiro e admin administrativo.
+- [ ] ADM Medico do Trabalho tem acesso restrito ao CNPJ, finalidade e base validada.
 - [ ] Exportacao de dados do titular planejada/testada antes da producao.
 - [ ] Solicitacoes de acesso, correcao, exclusao, portabilidade e revogacao mapeadas.
 - [ ] Retencao por categoria revisada por juridico/DPO.
+- [ ] CNPJ tecnico validado por juridico, DPO e responsavel tecnico antes de producao.
 
 ## Pagamentos
 

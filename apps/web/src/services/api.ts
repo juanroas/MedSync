@@ -1,5 +1,7 @@
 import type {
   Appointment,
+  ClinicRole,
+  CompanyPortal,
   ConsultationRoom,
   Doctor,
   LoginResponse,
@@ -109,7 +111,7 @@ export const api = {
   createStaffUser: (input: {
     name: string;
     email: string;
-    role: "Receptionist" | "Finance" | "ClinicAdmin" | "PrivacyAuditor";
+    role: ClinicRole;
     temporaryPassword: string;
   }) =>
     request<StaffUser>("/staff-users", {
@@ -117,6 +119,7 @@ export const api = {
       body: JSON.stringify(input),
     }),
   getAuditEvents: () => request<AuditEvent[]>("/audit-events"),
+  getCompanyPortal: () => request<CompanyPortal>("/company-portal"),
 
   getPatients: () => request<Patient[]>("/patients"),
   createPatient: (patient: {

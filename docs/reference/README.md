@@ -11,10 +11,10 @@ Esta pasta contem templates e fontes internas de consulta. Conteudo normativo de
 - [Glossary.md](Glossary.md): TODO: glossario oficial.
 - [Business-Rules.md](Business-Rules.md): TODO: catalogo de regras aprovadas.
 - [Terminology.md](Terminology.md): TODO: convencoes terminologicas.
-- [Healthcare.md](Healthcare.md): TODO: referencias de saude.
-- [LGPD.md](LGPD.md): TODO: referencias LGPD aprovadas.
+- [Healthcare.md](Healthcare.md): referencias de saude digital, telessaude e telemedicina.
+- [LGPD.md](LGPD.md): referencias LGPD e pontos de atencao.
 - [ANS.md](ANS.md): TODO: referencias ANS aprovadas.
-- [CFM.md](CFM.md): TODO: referencias CFM aprovadas.
+- [CFM.md](CFM.md): referencias CFM para telemedicina.
 
 # Fluxo
 

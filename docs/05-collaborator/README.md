@@ -1,14 +1,14 @@
 # Objetivo
 
-Organizar documentacao da jornada do colaborador vinculada ao produto B2B.
+Organizar documentacao da jornada do paciente/beneficiario vinculada ao produto B2B.
 
 # Escopo
 
-Inclui documentos existentes sobre portal colaborador e referencias a testes B2B.
+Inclui documentos existentes sobre portal paciente/beneficiario e referencias a testes B2B.
 
 # Estrutura
 
-- [Sprint 5 - Portal Colaborador](Sprint%205%20%E2%80%94%20Portal%20Colaborador.md)
+- [Sprint 5 - Portal Paciente/Beneficiario](Sprint%205%20%E2%80%94%20Portal%20Colaborador.md)
 
 # Fluxo
 
@@ -31,5 +31,6 @@ Inclui documentos existentes sobre portal colaborador e referencias a testes B2B
 # Referências
 
 - [Modelo B2B](../01-product/B2B_MODEL.md)
+- [Product Positioning](../01-product/PRODUCT_POSITIONING.md)
 - [Casos B2B](../../qa/b2b-test-cases.md)
 - [Specifications](../16-specifications/README.md)

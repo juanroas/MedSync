@@ -37,7 +37,7 @@ docs/
         Sprint 4 — Portal Empresa.md
 
     05-collaborator/
-        Sprint 5 — Portal Colaborador.md
+        Sprint 5 - Portal Paciente/Beneficiario.md
 
     06-medical/
         Sprint 6 — Portal Médico.md

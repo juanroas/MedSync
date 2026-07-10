@@ -10,10 +10,10 @@ Descrever jornadas principais por persona para orientar produto, UX, QA, seguran
 
 Inclui jornadas de alto nivel para:
 
-- Empresa/RH.
-- Colaborador/Paciente.
-- Clinica/Admin.
+- Empresa/Parceiro.
+- Paciente/Beneficiario.
 - Medico.
+- ADM Medico do Trabalho.
 - Financeiro.
 - Auditor/Privacidade.
 
@@ -24,12 +24,12 @@ Fora de escopo:
 - Endpoints.
 - Estados detalhados de UI.
 
-## Jornada: Empresa/RH
+## Jornada: Empresa/Parceiro
 
 1. TODO: empresa e cadastrada ou convidada.
-2. TODO: contrato e plano de beneficio sao configurados.
-3. TODO: colaboradores elegiveis sao vinculados.
-4. Empresa acompanha uso administrativo e agregado.
+2. TODO: contrato, plano e linhas de cuidado sao configurados.
+3. TODO: beneficiarios elegiveis sao vinculados.
+4. Empresa ou parceiro acompanha uso administrativo e agregado permitido.
 5. Empresa nao acessa dado clinico individual.
 
 Pontos de controle:
@@ -38,38 +38,26 @@ Pontos de controle:
 - Relatorios precisam ser agregados ou administrativos.
 - Permissoes devem ser auditaveis.
 
-## Jornada: Colaborador/Paciente
+## Jornada: Paciente/Beneficiario
 
-1. TODO: colaborador recebe acesso ou elegibilidade.
-2. TODO: colaborador agenda ou acessa consulta disponivel.
-3. Paciente aceita termo quando aplicavel.
-4. Paciente acessa sala de espera.
-5. Paciente entra na teleconsulta somente quando autorizado.
-6. Paciente acompanha status ou historico permitido.
+1. Paciente recebe acesso via empresa/parceiro ou via suporte MedSync/CNPJ tecnico.
+2. Paciente encontra atendimento disponivel.
+3. TODO: paciente agenda, inicia pronto atendimento ou acessa consulta disponivel.
+4. Paciente aceita termo quando aplicavel.
+5. Paciente acessa sala de espera.
+6. Paciente entra na teleconsulta somente quando autorizado.
+7. Paciente acompanha status ou historico permitido.
 
 Pontos de controle:
 
 - Consentimento deve ser claro quando exigido.
 - Paciente nao acessa consulta de outro paciente.
 - Empresa nao visualiza condicao individual.
-
-## Jornada: Clinica/Admin
-
-1. TODO: clinica configura operacao e usuarios.
-2. Admin acompanha agenda, pacientes e equipe conforme permissao.
-3. Admin gerencia usuarios e perfis.
-4. Admin nao acessa prontuario quando nao autorizado.
-5. Eventos relevantes sao auditados.
-
-Pontos de controle:
-
-- Separacao por clinica.
-- Menor privilegio.
-- Acoes sensiveis auditadas.
+- Pessoa fisica cadastrada via suporte deve estar vinculada ao CNPJ tecnico.
 
 ## Jornada: Medico
 
-1. Medico acessa agenda vinculada.
+1. Medico independente acessa agenda vinculada.
 2. Medico visualiza consulta autorizada.
 3. Medico inicia atendimento quando permitido.
 4. Medico registra informacao clinica conforme regra aprovada.
@@ -78,8 +66,23 @@ Pontos de controle:
 Pontos de controle:
 
 - Medico acessa somente atendimentos vinculados.
+- Medico deve atuar dentro do ramo de atividade/especialidade autorizada.
 - Registro clinico e sensivel.
 - Teleconsulta segue janela, status e consentimento.
+
+## Jornada: ADM Medico do Trabalho
+
+1. ADM Medico do Trabalho acessa CNPJ associado.
+2. Visualiza somente registros clinicos ocupacionais permitidos.
+3. Consulta ou atualiza informacao clinica ocupacional quando houver permissao e finalidade.
+4. Eventos relevantes sao auditados.
+5. Nao libera dado clinico para RH, financeiro ou empresa administrativa.
+
+Pontos de controle:
+
+- Perfil e clinico, nao administrativo/RH.
+- Acesso depende de finalidade, permissao e auditoria.
+- Conteudo de chamada so existe se houver gravacao/transcricao aprovada, o que nao e padrao.
 
 ## Jornada: Financeiro
 
@@ -93,6 +96,7 @@ Pontos de controle:
 - Retorno de pagamento nao e fonte de verdade.
 - Webhook deve ser idempotente quando implementado.
 - Dados clinicos permanecem ocultos.
+- Financeiro do CNPJ tecnico esta aprovado conceitualmente para pagamentos de pacientes diretos.
 
 ## Jornada: Auditor/Privacidade
 
@@ -127,6 +131,9 @@ Pontos de controle:
 ## Referencias
 
 - [Personas](PERSONAS.md)
+- [Product Positioning](PRODUCT_POSITIONING.md)
+- [Actor and Organization Model](ACTOR_ORGANIZATION_MODEL.md)
+- [Data Management and CRUD](DATA_MANAGEMENT_CRUD.md)
 - [Feature Catalog](FEATURE_CATALOG.md)
 - [Modelo B2B](B2B_MODEL.md)
 - [QA Checklist](../08-quality/QA_CHECKLIST.md)

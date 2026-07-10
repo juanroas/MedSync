@@ -21,12 +21,20 @@ Esta pasta contem templates para entidades e conceitos de dominio. Nao devem ser
 - [Tenant.md](Tenant.md)
 - [Role.md](Role.md)
 - [Permission.md](Permission.md)
+- [IDENTITY_ACCESS_SPEC.md](IDENTITY_ACCESS_SPEC.md)
+- [B2B_COMPANY_SPEC.md](B2B_COMPANY_SPEC.md)
+- [PATIENT_CARE_SPEC.md](PATIENT_CARE_SPEC.md)
+- [MEDICAL_ATTENDANCE_SPEC.md](MEDICAL_ATTENDANCE_SPEC.md)
+- [OCCUPATIONAL_HEALTH_SPEC.md](OCCUPATIONAL_HEALTH_SPEC.md)
+- [FINANCE_SPEC.md](FINANCE_SPEC.md)
+- [AUDIT_PRIVACY_SPEC.md](AUDIT_PRIVACY_SPEC.md)
 
 # Fluxo
 
 1. Validar fonte da especificacao.
-2. Preencher somente campos e regras aprovadas.
-3. Linkar arquitetura, API, database e QA quando aplicavel.
+2. Consultar [Permission Matrix](../07-security/PERMISSION_MATRIX.md).
+3. Preencher somente campos e regras aprovadas.
+4. Linkar arquitetura, API, database e QA quando aplicavel.
 
 # Boas práticas
 
@@ -44,5 +52,6 @@ Esta pasta contem templates para entidades e conceitos de dominio. Nao devem ser
 # Referências
 
 - [Reference](../reference/README.md)
+- [Permission Matrix](../07-security/PERMISSION_MATRIX.md)
 - [Database](../12-database/README.md)
 - [API](../11-api/README.md)

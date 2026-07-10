@@ -5,7 +5,16 @@ export type ClinicRole =
   | "Finance"
   | "ClinicAdmin"
   | "MedicalDirector"
-  | "PrivacyAuditor";
+  | "PrivacyAuditor"
+  | "CompanyAdmin"
+  | "CompanyFinance"
+  | "PlatformFinance"
+  | "Support"
+  | "CompanyAuditor"
+  | "PlatformAuditor"
+  | "DataProtectionOfficer"
+  | "PlatformAdmin"
+  | "OccupationalHealthAdmin";
 
 export type User = {
   id: string;
@@ -120,4 +129,49 @@ export type Payment = {
   currency: string;
   status: PaymentStatus;
   checkoutUrl?: string;
+};
+
+export type CompanyContractStatus =
+  | "Draft"
+  | "Active"
+  | "Suspended"
+  | "Ended"
+  | "Cancelled";
+
+export type CompanyPortal = {
+  company: {
+    id: string;
+    legalName: string;
+    tradeName?: string;
+    taxIdMasked: string;
+    isActive: boolean;
+  };
+  contract?: {
+    id: string;
+    planName: string;
+    status: CompanyContractStatus;
+    startsAt: string;
+    endsAt?: string;
+    monthlyConsultationLimit: number;
+  };
+  eligibility: {
+    beneficiaryCount: number;
+    eligibleCount: number;
+    inactiveCount: number;
+  };
+  usage: {
+    totalConsultations?: number;
+    scheduledConsultations?: number;
+    inProgressConsultations?: number;
+    completedConsultations?: number;
+    hiddenDueToPrivacyThreshold: boolean;
+    hiddenReason?: string;
+  };
+  billing: {
+    estimatedMonthlyFee?: number;
+    currency: string;
+    status: string;
+    note: string;
+  };
+  privacyGuards: string[];
 };

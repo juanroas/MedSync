@@ -29,16 +29,57 @@ public sealed record RequestContext(
 public static class AccessRules
 {
     public static readonly ClinicRole[] ManagePatients =
-        [ClinicRole.Receptionist, ClinicRole.ClinicAdmin, ClinicRole.MedicalDirector];
+    [
+        ClinicRole.Receptionist,
+        ClinicRole.ClinicAdmin,
+        ClinicRole.MedicalDirector,
+        ClinicRole.Support,
+        ClinicRole.PlatformAdmin
+    ];
+
+    public static readonly ClinicRole[] ViewPatients =
+    [
+        ClinicRole.Receptionist,
+        ClinicRole.ClinicAdmin,
+        ClinicRole.MedicalDirector,
+        ClinicRole.Support,
+        ClinicRole.PlatformAdmin,
+        ClinicRole.CompanyAuditor,
+        ClinicRole.PlatformAuditor,
+        ClinicRole.OccupationalHealthAdmin
+    ];
 
     public static readonly ClinicRole[] ManageDoctors =
-        [ClinicRole.ClinicAdmin, ClinicRole.MedicalDirector];
+    [
+        ClinicRole.ClinicAdmin,
+        ClinicRole.MedicalDirector,
+        ClinicRole.PlatformAdmin
+    ];
 
     public static readonly ClinicRole[] ManageAppointments =
-        [ClinicRole.Receptionist, ClinicRole.ClinicAdmin, ClinicRole.MedicalDirector];
+    [
+        ClinicRole.Receptionist,
+        ClinicRole.ClinicAdmin,
+        ClinicRole.MedicalDirector,
+        ClinicRole.Support,
+        ClinicRole.OccupationalHealthAdmin
+    ];
 
     public static readonly ClinicRole[] ViewAllAppointments =
-        [ClinicRole.Receptionist, ClinicRole.Finance, ClinicRole.ClinicAdmin, ClinicRole.MedicalDirector];
+    [
+        ClinicRole.Receptionist,
+        ClinicRole.Finance,
+        ClinicRole.ClinicAdmin,
+        ClinicRole.MedicalDirector,
+        ClinicRole.Support,
+        ClinicRole.PlatformAdmin,
+        ClinicRole.OccupationalHealthAdmin,
+        ClinicRole.CompanyAdmin,
+        ClinicRole.CompanyFinance,
+        ClinicRole.CompanyAuditor,
+        ClinicRole.PlatformAuditor,
+        ClinicRole.PlatformFinance
+    ];
 }
 
 public static class PasswordPolicy

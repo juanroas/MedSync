@@ -3,7 +3,7 @@
 import { ErrorBanner, LoadingState, PageHeader, buttonClass, inputClass } from "@/components/ui";
 import type { Doctor, Patient } from "@/lib/types";
 import { isFutureLocalDateTime } from "@/lib/validation";
-import { api } from "@/services/api";
+import { api, getSession } from "@/services/api";
 import { ArrowLeft, CalendarPlus, CheckCircle2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -11,6 +11,10 @@ import { FormEvent, useEffect, useState } from "react";
 
 export default function NewAppointmentPage() {
   const router = useRouter();
+  const roles = getSession()?.user.roles ?? [];
+  const canSchedule = roles.some((role) =>
+    ["Receptionist", "ClinicAdmin", "MedicalDirector", "Support", "OccupationalHealthAdmin"].includes(role),
+  );
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [patients, setPatients] = useState<Patient[]>([]);
   const [form, setForm] = useState({
@@ -27,6 +31,10 @@ export default function NewAppointmentPage() {
   const [error, setError] = useState("");
 
   useEffect(() => {
+    if (!canSchedule) {
+      setLoading(false);
+      return;
+    }
     Promise.all([api.getDoctors(), api.getPatients()])
       .then(([doctorData, patientData]) => {
         setDoctors(doctorData);
@@ -39,7 +47,7 @@ export default function NewAppointmentPage() {
       })
       .catch((err) => setError(err instanceof Error ? err.message : "Erro ao carregar cadastros."))
       .finally(() => setLoading(false));
-  }, []);
+  }, [canSchedule]);
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -89,7 +97,11 @@ export default function NewAppointmentPage() {
         description="Escolha o médico, o paciente e o melhor horário. A sala será preparada no momento do acesso."
       />
       {error && <ErrorBanner message={error} />}
-      {loading ? (
+      {!canSchedule ? (
+        <div className="rounded-3xl border border-amber-100 bg-amber-50 p-6 text-sm text-amber-800">
+          Este perfil nao cria agenda. No modelo B2B, o atendimento deve nascer da elegibilidade, suporte ou fluxo autorizado por especialidade.
+        </div>
+      ) : loading ? (
         <LoadingState label="Preparando formulário..." />
       ) : doctors.length === 0 || patients.length === 0 ? (
         <div className="rounded-3xl border border-amber-100 bg-amber-50 p-6 text-sm text-amber-800">

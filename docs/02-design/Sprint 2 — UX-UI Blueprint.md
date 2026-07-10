@@ -24,7 +24,7 @@ Landing
 
 Portal Empresa
 
-Portal Colaborador
+Portal Paciente/Beneficiario
 
 Portal Médico
 

@@ -37,7 +37,7 @@ Definir:
 
 - MedSync Business
 - MedSync Care
-- MedSync Clinic
+- MedSync Medical
 - MedSync Admin
 
 Gerar relatório final contendo:
