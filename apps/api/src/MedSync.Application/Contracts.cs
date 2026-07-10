@@ -3,7 +3,16 @@ using MedSync.Domain;
 namespace MedSync.Application;
 
 public sealed record LoginRequest(string Email, string Password);
-public sealed record RegisterClinicRequest(string ClinicName, string Name, string Email, string Password);
+public sealed record RegisterClinicRequest(
+    string ClinicName,
+    string Name,
+    string Email,
+    string Password,
+    string? TradeName,
+    string? TaxId,
+    string? PlanName,
+    decimal? MonthlyFee,
+    int? MonthlyConsultationLimit);
 public sealed record ChangePasswordRequest(string CurrentPassword, string NewPassword);
 public sealed record LoginResponse(UserSummary User);
 public sealed record UserSummary(
@@ -259,6 +268,29 @@ public sealed record BusinessReportCompanyResponse(
     string? HiddenReason,
     decimal? MonthlyFee,
     decimal PaidAmount,
+    string Currency,
+    string BillingStatus);
+
+public sealed record FinancialExportResponse(
+    string Period,
+    bool IsGlobal,
+    DateTime GeneratedAt,
+    IReadOnlyCollection<FinancialExportRowResponse> Rows,
+    IReadOnlyCollection<string> PrivacyGuards);
+
+public sealed record FinancialExportRowResponse(
+    Guid CompanyId,
+    Guid TenantId,
+    string TenantName,
+    string CompanyName,
+    string TaxIdMasked,
+    string? PlanName,
+    CompanyContractStatus? ContractStatus,
+    int BeneficiaryCount,
+    int EligibleCount,
+    decimal MonthlyFee,
+    decimal PaidAmount,
+    decimal OpenAmount,
     string Currency,
     string BillingStatus);
 

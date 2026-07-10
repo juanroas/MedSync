@@ -29,6 +29,7 @@ public static class ApiEndpoints
         protectedApi.MapGet("/company-beneficiaries", GetCompanyBeneficiaries);
         protectedApi.MapPut("/company-beneficiaries/{id:guid}/eligibility", UpdateCompanyBeneficiaryEligibility);
         protectedApi.MapGet("/finance/invoices", GetFinanceInvoices);
+        protectedApi.MapGet("/finance/export", GetFinancialExport);
         protectedApi.MapGet("/privacy/requests", GetPrivacyRequests);
         protectedApi.MapPost("/privacy/requests", CreatePrivacyRequest);
         protectedApi.MapPut("/privacy/requests/{id:guid}/status", UpdatePrivacyRequestStatus);
@@ -85,10 +86,14 @@ public static class ApiEndpoints
         CancellationToken cancellationToken)
     {
         var actor = RequestContext.From(principal);
-        if (!actor.HasAny(ClinicRole.ClinicAdmin, ClinicRole.PlatformAdmin))
+        if (!actor.HasAny(ClinicRole.ClinicAdmin, ClinicRole.PlatformAdmin, ClinicRole.CompanyAdmin))
             return Results.Forbid();
         if (!StaffRoles.Contains(request.Role))
             return Validation("role", "Selecione um perfil administrativo permitido.");
+        if (actor.HasAny(ClinicRole.CompanyAdmin) &&
+            !actor.HasAny(ClinicRole.ClinicAdmin, ClinicRole.PlatformAdmin) &&
+            request.Role is not (ClinicRole.CompanyAdmin or ClinicRole.CompanyFinance or ClinicRole.CompanyAuditor))
+            return Validation("role", "Empresa admin pode criar apenas perfis da propria empresa.");
         if (string.IsNullOrWhiteSpace(request.Name) || string.IsNullOrWhiteSpace(request.Email))
             return Validation("user", "Nome e e-mail são obrigatórios.");
         if (PasswordPolicy.Validate(request.TemporaryPassword) is { } passwordError)
@@ -135,6 +140,7 @@ public static class ApiEndpoints
         var actor = RequestContext.From(principal);
         if (!actor.HasAny(
                 ClinicRole.ClinicAdmin,
+                ClinicRole.CompanyAdmin,
                 ClinicRole.PrivacyAuditor,
                 ClinicRole.PlatformAdmin,
                 ClinicRole.CompanyAuditor,
@@ -518,6 +524,107 @@ public static class ApiEndpoints
         });
     }
 
+    private static async Task<IResult> GetFinancialExport(
+        string? period,
+        ClaimsPrincipal principal,
+        MedSyncDbContext db,
+        AuditWriter audit,
+        CancellationToken cancellationToken)
+    {
+        var actor = RequestContext.From(principal);
+        if (!actor.HasAny(
+                ClinicRole.CompanyAdmin,
+                ClinicRole.CompanyFinance,
+                ClinicRole.PlatformAdmin,
+                ClinicRole.PlatformFinance))
+        {
+            audit.Add(actor, "FinanceExport.Generate", "Company", null, "Denied", "Perfil sem permissao para exportacao financeira.");
+            await db.SaveChangesAsync(cancellationToken);
+            return Results.Forbid();
+        }
+
+        if (!TryResolvePeriod(period, out var periodStart))
+            return Validation("period", "Periodo deve usar o formato yyyy-MM.");
+
+        var nextPeriodStart = periodStart.AddMonths(1);
+        var periodLabel = $"{periodStart:yyyy-MM}";
+        var isGlobal = actor.HasAny(ClinicRole.PlatformAdmin, ClinicRole.PlatformFinance);
+        var companiesQuery = db.Companies.AsNoTracking()
+            .Include(x => x.Clinic)
+            .Where(x => x.IsActive);
+        if (!isGlobal)
+            companiesQuery = companiesQuery.Where(x => x.ClinicId == actor.ClinicId);
+
+        var companies = await companiesQuery
+            .OrderBy(x => x.TradeName ?? x.LegalName)
+            .ToListAsync(cancellationToken);
+
+        var rows = new List<FinancialExportRowResponse>();
+        foreach (var company in companies)
+        {
+            var contract = await db.CompanyContracts.AsNoTracking()
+                .Include(x => x.BenefitPlan)
+                .Where(x => x.ClinicId == company.ClinicId && x.CompanyId == company.Id)
+                .OrderByDescending(x => x.StartsAt)
+                .FirstOrDefaultAsync(cancellationToken);
+            var beneficiaryCount = await db.CompanyEmployees.AsNoTracking()
+                .CountAsync(x => x.ClinicId == company.ClinicId && x.CompanyId == company.Id, cancellationToken);
+            var eligibleCount = await db.CompanyEmployees.AsNoTracking()
+                .CountAsync(
+                    x => x.ClinicId == company.ClinicId &&
+                         x.CompanyId == company.Id &&
+                         x.IsActive &&
+                         x.EligibilityRecords.Any(e => e.IsEligible),
+                    cancellationToken);
+            var linkedPatientIds = db.CompanyEmployees.AsNoTracking()
+                .Where(x => x.ClinicId == company.ClinicId && x.CompanyId == company.Id && x.PatientId != null)
+                .Select(x => x.PatientId!.Value);
+            var paidAmount = await db.Payments.AsNoTracking()
+                .Where(x =>
+                    x.ClinicId == company.ClinicId &&
+                    x.CreatedAt >= periodStart &&
+                    x.CreatedAt < nextPeriodStart &&
+                    x.Status == PaymentStatus.Paid &&
+                    linkedPatientIds.Contains(x.Appointment.PatientId))
+                .SumAsync(x => (decimal?)x.Amount, cancellationToken) ?? 0m;
+            var monthlyFee = contract?.BenefitPlan.MonthlyFee ?? 0m;
+            var openAmount = Math.Max(0m, monthlyFee - paidAmount);
+            var billingStatus = contract is null
+                ? "Sem contrato"
+                : openAmount <= 0 ? "Pago" : "Aberta";
+
+            rows.Add(new FinancialExportRowResponse(
+                company.Id,
+                company.ClinicId,
+                company.Clinic.Name,
+                company.TradeName ?? company.LegalName,
+                MaskTaxId(company.TaxId),
+                contract?.BenefitPlan.Name,
+                contract?.Status,
+                beneficiaryCount,
+                eligibleCount,
+                monthlyFee,
+                paidAmount,
+                openAmount,
+                "BRL",
+                billingStatus));
+        }
+
+        audit.Add(actor, "FinanceExport.Generate", isGlobal ? "Platform" : "Company", isGlobal ? null : rows.FirstOrDefault()?.CompanyId);
+        await db.SaveChangesAsync(cancellationToken);
+
+        return Results.Ok(new FinancialExportResponse(
+            periodLabel,
+            isGlobal,
+            DateTime.UtcNow,
+            rows,
+            [
+                "Exportacao financeira minimizada por CNPJ.",
+                "Nao inclui CPF, prontuario, diagnostico, observacao clinica, conteudo de chamada ou lista individual sensivel.",
+                "Empresa contratante exporta apenas o proprio CNPJ; MedSync exporta visao global conforme perfil autorizado."
+            ]));
+    }
+
     private static async Task<IResult> GetPrivacyRequests(
         ClaimsPrincipal principal,
         MedSyncDbContext db,
@@ -847,6 +954,21 @@ public static class ApiEndpoints
         if (PasswordPolicy.Validate(request.Password) is { } passwordError)
             return Validation("password", passwordError);
 
+        var taxId = DigitsOnly(request.TaxId ?? string.Empty);
+        if (!IsValidCnpj(taxId))
+            return Validation("taxId", "Informe um CNPJ valido para a empresa contratante.");
+        var monthlyFee = request.MonthlyFee ?? 0m;
+        if (monthlyFee <= 0)
+            return Validation("monthlyFee", "Informe um valor mensal maior que zero.");
+        var monthlyConsultationLimit = request.MonthlyConsultationLimit ?? 0;
+        if (monthlyConsultationLimit <= 0)
+            return Validation("monthlyConsultationLimit", "Informe um limite mensal de consultas maior que zero.");
+        var planName = string.IsNullOrWhiteSpace(request.PlanName)
+            ? "Plano empresarial inicial"
+            : request.PlanName.Trim();
+        if (planName.Length < 3)
+            return Validation("planName", "Informe o nome do plano contratado.");
+
         var email = request.Email.Trim().ToLowerInvariant();
         if (await db.Users.AnyAsync(x => x.Email == email, cancellationToken))
             return Results.Conflict(new { message = "Já existe uma conta com este e-mail." });
@@ -866,17 +988,40 @@ public static class ApiEndpoints
         {
             Clinic = clinic,
             User = user,
-            Role = ClinicRole.ClinicAdmin
+            Role = ClinicRole.CompanyAdmin
         };
-        db.AddRange(clinic, user, membership);
-        var roles = new[] { ClinicRole.ClinicAdmin };
+        var company = new Company
+        {
+            Clinic = clinic,
+            LegalName = request.ClinicName.Trim(),
+            TradeName = string.IsNullOrWhiteSpace(request.TradeName) ? request.ClinicName.Trim() : request.TradeName.Trim(),
+            TaxId = taxId
+        };
+        var plan = new BenefitPlan
+        {
+            Clinic = clinic,
+            Name = planName,
+            Description = "Plano empresarial criado no cadastro de homologacao.",
+            MonthlyFee = monthlyFee,
+            MonthlyConsultationLimit = monthlyConsultationLimit
+        };
+        var contract = new CompanyContract
+        {
+            ClinicId = clinic.Id,
+            Company = company,
+            BenefitPlan = plan,
+            Status = CompanyContractStatus.Active,
+            StartsAt = DateOnly.FromDateTime(DateTime.UtcNow.Date)
+        };
+        db.AddRange(clinic, user, membership, company, plan, contract);
+        var roles = new[] { ClinicRole.CompanyAdmin };
         var actor = new RequestContext(user.Id, clinic.Id, roles.ToHashSet());
-        audit.Add(actor, "Clinic.Register", "Clinic", clinic.Id);
+        audit.Add(actor, "Company.Register", "Company", company.Id);
         await db.SaveChangesAsync(cancellationToken);
 
         SetSessionCookie(http, tokens.CreateJwt(user, clinic, roles), configuration);
         return Results.Created(
-            $"/clinics/{clinic.Id}",
+            $"/companies/{company.Id}",
             new LoginResponse(ToUserSummary(user, clinic, roles)));
     }
 
@@ -1180,8 +1325,15 @@ public static class ApiEndpoints
         CancellationToken cancellationToken)
     {
         var actor = RequestContext.From(principal);
-        var doctors = await db.Doctors.AsNoTracking()
-            .Where(x => x.ClinicId == actor.ClinicId)
+        if (!actor.HasAny(AccessRules.ManageAppointments) && !actor.HasAny(ClinicRole.Doctor))
+            return Results.Forbid();
+
+        var query = db.Doctors.AsNoTracking()
+            .Where(x => x.ClinicId == actor.ClinicId);
+        if (actor.HasAny(ClinicRole.Doctor) && !actor.HasAny(AccessRules.ManageAppointments))
+            query = query.Where(x => x.UserId == actor.UserId);
+
+        var doctors = await query
             .OrderBy(x => x.Name)
             .Select(x => new DoctorResponse(
                 x.Id, x.Name, x.Email, x.Crm, x.CrmUf, x.Specialty, x.Phone))
@@ -1323,9 +1475,14 @@ public static class ApiEndpoints
         CancellationToken cancellationToken)
     {
         var actor = RequestContext.From(principal);
-        var query = AppointmentQuery(db, actor);
-        if (query is null)
+        if (!actor.HasAny(AccessRules.ViewAllAppointments) &&
+            !actor.HasAny(ClinicRole.Doctor, ClinicRole.Patient))
+        {
+            audit.Add(actor, "Appointment.List", "Appointment", null, "Denied", "Perfil sem permissao para lista individual de consultas.");
+            await db.SaveChangesAsync(cancellationToken);
             return Results.Forbid();
+        }
+        var query = AppointmentQuery(db, actor);
         var appointments = await query.ToListAsync(cancellationToken);
         audit.Add(actor, "Appointment.List", "Appointment", null);
         await db.SaveChangesAsync(cancellationToken);
@@ -2058,5 +2215,26 @@ public static class ApiEndpoints
             .Sum();
         var secondDigit = secondSum % 11 < 2 ? 0 : 11 - secondSum % 11;
         return secondDigit == cpf[10] - '0';
+    }
+
+    private static bool IsValidCnpj(string cnpj)
+    {
+        if (cnpj.Length != 14 || cnpj.Distinct().Count() == 1)
+            return false;
+
+        int CheckDigit(string value, int[] weights)
+        {
+            var sum = value
+                .Take(weights.Length)
+                .Select((digit, index) => (digit - '0') * weights[index])
+                .Sum();
+            var remainder = sum % 11;
+            return remainder < 2 ? 0 : 11 - remainder;
+        }
+
+        var firstWeights = new[] { 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2 };
+        var secondWeights = new[] { 6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2 };
+        return CheckDigit(cnpj, firstWeights) == cnpj[12] - '0' &&
+            CheckDigit(cnpj, secondWeights) == cnpj[13] - '0';
     }
 }

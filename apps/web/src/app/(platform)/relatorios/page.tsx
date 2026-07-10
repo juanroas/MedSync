@@ -13,7 +13,7 @@ import {
 } from "@/components/ui";
 import type { BusinessReportCompany } from "@/lib/types";
 import { api, getSession } from "@/services/api";
-import { Building2, ChartNoAxesColumn, EyeOff, FileBarChart, ShieldCheck, WalletCards } from "lucide-react";
+import { Building2, ChartNoAxesColumn, Download, EyeOff, FileBarChart, ShieldCheck, WalletCards } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 const currency = new Intl.NumberFormat("pt-BR", {
@@ -32,6 +32,7 @@ export default function ReportsPage() {
   const [privacyGuards, setPrivacyGuards] = useState<string[]>([]);
   const [isGlobal, setIsGlobal] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [exporting, setExporting] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -63,6 +64,59 @@ export default function ReportsPage() {
     );
   }, [companies]);
 
+  async function exportFinancialCsv() {
+    setExporting(true);
+    setError("");
+    try {
+      const result = await api.getFinancialExport(appliedPeriod);
+      const csv = toCsv([
+        [
+          "periodo",
+          "tenant",
+          "empresa",
+          "cnpj_mascarado",
+          "plano",
+          "status_contrato",
+          "beneficiarios",
+          "elegiveis",
+          "mensalidade",
+          "pago",
+          "em_aberto",
+          "moeda",
+          "status_financeiro",
+        ],
+        ...result.rows.map((row) => [
+          result.period,
+          row.tenantName,
+          row.companyName,
+          row.taxIdMasked,
+          row.planName ?? "",
+          row.contractStatus ?? "",
+          row.beneficiaryCount,
+          row.eligibleCount,
+          row.monthlyFee,
+          row.paidAmount,
+          row.openAmount,
+          row.currency,
+          row.billingStatus,
+        ]),
+      ]);
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `medsync-financeiro-${result.period}${result.isGlobal ? "-global" : ""}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro ao exportar financeiro.");
+    } finally {
+      setExporting(false);
+    }
+  }
+
   return (
     <>
       <PageHeader
@@ -75,7 +129,7 @@ export default function ReportsPage() {
         }
         action={
           <form
-            className="flex items-end gap-2"
+            className="flex flex-wrap items-end justify-end gap-2"
             onSubmit={(event) => {
               event.preventDefault();
               setAppliedPeriod(period);
@@ -92,6 +146,14 @@ export default function ReportsPage() {
             </label>
             <button className="h-11 rounded-lg bg-teal-700 px-4 text-sm font-bold text-white hover:bg-teal-800">
               Aplicar
+            </button>
+            <button
+              type="button"
+              className="inline-flex h-11 items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 hover:border-teal-200 hover:text-teal-700"
+              onClick={exportFinancialCsv}
+              disabled={exporting}
+            >
+              <Download size={16} /> {exporting ? "Exportando..." : "Exportar CSV"}
             </button>
           </form>
         }
@@ -189,4 +251,14 @@ function CompanyReportRow({ company }: { company: BusinessReportCompany }) {
 function currentPeriod() {
   const now = new Date();
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function toCsv(rows: Array<Array<string | number>>) {
+  return rows
+    .map((row) =>
+      row
+        .map((cell) => `"${String(cell).replaceAll('"', '""')}"`)
+        .join(","),
+    )
+    .join("\n");
 }

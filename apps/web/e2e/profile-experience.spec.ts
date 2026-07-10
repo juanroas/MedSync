@@ -32,15 +32,16 @@ test.describe("experiencia por perfil", () => {
     await expect(page.getByRole("link", { name: /equipe e acessos/i })).toBeVisible();
   });
 
-  test("auditor empresa enxerga modulos assistenciais e auditoria", async ({ page }) => {
+  test("auditor empresa enxerga relatorios e auditoria sem modulos assistenciais individuais", async ({ page }) => {
     await loginByUi(page, users.companyAuditor);
 
     await expect(page.getByRole("heading", { name: /visao operacional autorizada/i })).toBeVisible();
-    await expect(page.getByText(/sem prontuario, diagnostico ou conteudo de chamada/i)).toBeVisible();
+    await expect(page.getByText(/sem lista individual clinica/i)).toBeVisible();
     const navigation = page.getByRole("navigation");
-    await expect(navigation.getByRole("link", { name: /^consultas$/i })).toBeVisible();
-    await expect(navigation.getByRole("link", { name: /pacientes/i })).toBeVisible();
-    await expect(navigation.getByRole("link", { name: /^medicos$/i })).toBeVisible();
+    await expect(navigation.getByRole("link", { name: /^consultas$/i })).toHaveCount(0);
+    await expect(navigation.getByRole("link", { name: /pacientes/i })).toHaveCount(0);
+    await expect(navigation.getByRole("link", { name: /^medicos$/i })).toHaveCount(0);
+    await expect(navigation.getByRole("link", { name: /^relatorios$/i })).toBeVisible();
     await expect(navigation.getByRole("link", { name: /^auditoria$/i })).toBeVisible();
   });
 

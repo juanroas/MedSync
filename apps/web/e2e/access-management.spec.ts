@@ -20,4 +20,17 @@ test.describe("gestao de equipe e acessos", () => {
 
     await expect(page.getByRole("link", { name: /equipe e acessos/i })).toHaveCount(0);
   });
+
+  test("empresa admin cria apenas perfis empresariais", async ({ page }) => {
+    await loginByUi(page, users.companyAdmin);
+    await page.getByRole("link", { name: /equipe e acessos/i }).click();
+
+    await expect(page.getByRole("heading", { name: /equipe e acessos/i })).toBeVisible();
+    await page.getByRole("button", { name: /novo acesso/i }).click();
+    await expect(page.getByLabel(/perfil/i)).toContainText(/empresa\/parceiro admin/i);
+    await expect(page.getByLabel(/perfil/i)).toContainText(/financeiro empresa/i);
+    await expect(page.getByLabel(/perfil/i)).toContainText(/auditor empresa/i);
+    await expect(page.getByLabel(/perfil/i)).not.toContainText(/financeiro medsync/i);
+    await expect(page.getByLabel(/perfil/i)).not.toContainText(/admin plataforma/i);
+  });
 });

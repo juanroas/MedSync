@@ -6,6 +6,14 @@ Senha local atual do Docker: `MedSyncLocal123!`
 
 Em outros ambientes, usar o valor configurado em `SEED_DEMO_PASSWORD`.
 
+Para HML, configurar:
+
+- `ASPNETCORE_ENVIRONMENT=Homologation`
+- `SEED_DEMO_PASSWORD=<senha forte de homologacao>`
+- opcional em ambiente nao-producao: `ENABLE_HOMOLOGATION_SEED=true`
+
+O seed demo fica bloqueado em `Production`.
+
 ## MedSync / Operacao da Plataforma
 
 | Perfil | E-mail | Escopo esperado |
@@ -50,6 +58,7 @@ Em outros ambientes, usar o valor configurado em `SEED_DEMO_PASSWORD`.
 ## Regras de Uso
 
 - Cada empresa demo usa um tenant separado para testar isolamento por CNPJ.
+- Cada empresa demo possui cinco beneficiarios administrativos ficticios para demonstrar elegibilidade e relatorios agregados.
 - Relatorios empresariais nao devem exibir prontuario, diagnostico, observacao clinica ou conteudo de chamada.
 - Financeiro nao acessa elegibilidade individual nem fluxo de privacidade.
 - Auditoria deve exibir tentativas negadas de forma minimizada.

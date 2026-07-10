@@ -36,7 +36,8 @@ test.describe("seed multiempresa para homologacao", () => {
       const portal = await response.json();
       expect(portal.company.tradeName).toBe(scenario.companyName);
       expect(portal.contract.planName).toBe(scenario.planName);
-      expect(portal.eligibility.beneficiaryCount).toBe(1);
+      expect(portal.eligibility.beneficiaryCount).toBe(5);
+      expect(portal.eligibility.eligibleCount).toBe(5);
     }
   });
 

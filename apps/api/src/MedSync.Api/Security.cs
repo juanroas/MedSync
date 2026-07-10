@@ -73,12 +73,7 @@ public static class AccessRules
         ClinicRole.MedicalDirector,
         ClinicRole.Support,
         ClinicRole.PlatformAdmin,
-        ClinicRole.OccupationalHealthAdmin,
-        ClinicRole.CompanyAdmin,
-        ClinicRole.CompanyFinance,
-        ClinicRole.CompanyAuditor,
-        ClinicRole.PlatformAuditor,
-        ClinicRole.PlatformFinance
+        ClinicRole.OccupationalHealthAdmin
     ];
 }
 

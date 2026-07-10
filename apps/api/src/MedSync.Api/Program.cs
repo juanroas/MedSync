@@ -172,7 +172,15 @@ await using (var scope = app.Services.CreateAsyncScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<MedSyncDbContext>();
     await db.Database.MigrateAsync();
-    if (app.Environment.IsDevelopment())
+    var homologationSeedEnabled = string.Equals(
+        Environment.GetEnvironmentVariable("ENABLE_HOMOLOGATION_SEED"),
+        "true",
+        StringComparison.OrdinalIgnoreCase);
+    var canSeedDemo =
+        app.Environment.IsDevelopment() ||
+        app.Environment.IsEnvironment("Homologation") ||
+        (homologationSeedEnabled && !app.Environment.IsProduction());
+    if (canSeedDemo)
     {
         var demoPassword = Environment.GetEnvironmentVariable("SEED_DEMO_PASSWORD");
         if (string.IsNullOrWhiteSpace(demoPassword))

@@ -12,6 +12,11 @@ export default function RegisterCompanyPage() {
   const router = useRouter();
   const [form, setForm] = useState({
     clinicName: "",
+    tradeName: "",
+    taxId: "",
+    planName: "Plano empresarial inicial",
+    monthlyFee: "499.90",
+    monthlyConsultationLimit: "100",
     name: "",
     email: "",
     password: "",
@@ -24,7 +29,11 @@ export default function RegisterCompanyPage() {
     setLoading(true);
     setError("");
     try {
-      const session = await api.registerClinic(form);
+      const session = await api.registerClinic({
+        ...form,
+        monthlyFee: Number(form.monthlyFee),
+        monthlyConsultationLimit: Number(form.monthlyConsultationLimit),
+      });
       saveSession(session);
       router.push("/dashboard");
     } catch (err) {
@@ -36,7 +45,7 @@ export default function RegisterCompanyPage() {
 
   return (
     <main className="min-h-[100dvh] bg-mist px-6 py-8">
-      <div className="mx-auto max-w-xl">
+      <div className="mx-auto max-w-2xl">
         <Logo />
         <Link href="/login" className="mt-8 inline-flex items-center gap-2 text-sm font-bold text-slate-500">
           <ArrowLeft size={16} /> Voltar ao login
@@ -52,9 +61,42 @@ export default function RegisterCompanyPage() {
           <div className="mt-8 space-y-5">
             {error && <ErrorBanner message={error} />}
             <Field
-              label="Nome da empresa"
+              label="Razao social"
               value={form.clinicName}
               onChange={(clinicName) => setForm({ ...form, clinicName })}
+            />
+            <Field
+              label="Nome fantasia"
+              value={form.tradeName}
+              onChange={(tradeName) => setForm({ ...form, tradeName })}
+            />
+            <Field
+              label="CNPJ"
+              value={form.taxId}
+              onChange={(taxId) => setForm({ ...form, taxId })}
+              placeholder="00.000.000/0000-00"
+            />
+            <div className="grid gap-5 md:grid-cols-2">
+              <Field
+                label="Plano contratado"
+                value={form.planName}
+                onChange={(planName) => setForm({ ...form, planName })}
+              />
+              <Field
+                label="Limite mensal de consultas"
+                type="number"
+                min={1}
+                value={form.monthlyConsultationLimit}
+                onChange={(monthlyConsultationLimit) => setForm({ ...form, monthlyConsultationLimit })}
+              />
+            </div>
+            <Field
+              label="Valor mensal"
+              type="number"
+              min={1}
+              step="0.01"
+              value={form.monthlyFee}
+              onChange={(monthlyFee) => setForm({ ...form, monthlyFee })}
             />
             <Field
               label="Seu nome"
@@ -93,12 +135,18 @@ function Field({
   onChange,
   type = "text",
   minLength,
+  min,
+  step,
+  placeholder,
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
   type?: string;
   minLength?: number;
+  min?: number;
+  step?: string;
+  placeholder?: string;
 }) {
   return (
     <label className="block">
@@ -109,6 +157,9 @@ function Field({
         value={value}
         onChange={(event) => onChange(event.target.value)}
         minLength={minLength}
+        min={min}
+        step={step}
+        placeholder={placeholder}
         required
       />
     </label>

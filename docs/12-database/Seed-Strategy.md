@@ -16,7 +16,11 @@ Criar dados ficticios suficientes para testar o MedSync como plataforma B2B2C:
 
 ## Ambientes
 
-O seed roda apenas em `Development`, condicionado a `SEED_DEMO_PASSWORD`.
+O seed roda automaticamente em `Development` ou quando `ASPNETCORE_ENVIRONMENT=Homologation`, condicionado a `SEED_DEMO_PASSWORD`.
+
+Tambem pode rodar em ambiente nao-producao com `ENABLE_HOMOLOGATION_SEED=true`.
+
+Em `Production`, o seed demo permanece bloqueado mesmo que a variavel seja informada.
 
 Em producao:
 
@@ -40,6 +44,7 @@ As contas estao documentadas em [DEMO_ACCOUNTS.md](../08-quality/DEMO_ACCOUNTS.m
 - Nao registrar CPF real, prontuario, diagnostico, token ou conteudo de chamada.
 - Senha local atual existe apenas para Docker/homologacao e vem de `SEED_DEMO_PASSWORD`.
 - Cada empresa deve consultar apenas dados do proprio tenant.
+- A base de homologacao cria cinco beneficiarios administrativos por CNPJ para permitir demonstracao de relatorios agregados com grupo minimo.
 
 ## Evidencias Esperadas
 
@@ -53,5 +58,6 @@ As contas estao documentadas em [DEMO_ACCOUNTS.md](../08-quality/DEMO_ACCOUNTS.m
 - [x] Seed multiempresa local criado.
 - [x] Contas demo documentadas.
 - [x] Teste automatizado de isolamento multiempresa criado.
-- [ ] TODO: expandir relatorios agregados cross-CNPJ para perfil MedSync quando a especificacao global for aprovada.
-- [ ] TODO: remover ou bloquear seed demo fora de `Development`.
+- [x] Seed habilitado para `Homologation` com `SEED_DEMO_PASSWORD`.
+- [x] Seed bloqueado em `Production`.
+- [x] Relatorios agregados cross-CNPJ para perfis MedSync implementados em homologacao.

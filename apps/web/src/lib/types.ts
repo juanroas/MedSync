@@ -259,3 +259,28 @@ export type BusinessReportCompany = {
   currency: string;
   billingStatus: string;
 };
+
+export type FinancialExport = {
+  period: string;
+  isGlobal: boolean;
+  generatedAt: string;
+  rows: FinancialExportRow[];
+  privacyGuards: string[];
+};
+
+export type FinancialExportRow = {
+  companyId: string;
+  tenantId: string;
+  tenantName: string;
+  companyName: string;
+  taxIdMasked: string;
+  planName?: string;
+  contractStatus?: CompanyContractStatus;
+  beneficiaryCount: number;
+  eligibleCount: number;
+  monthlyFee: number;
+  paidAmount: number;
+  openAmount: number;
+  currency: string;
+  billingStatus: string;
+};

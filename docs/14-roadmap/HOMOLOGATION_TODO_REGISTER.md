@@ -20,7 +20,7 @@ TODO nao pode desaparecer sem uma das saidas abaixo:
 | HTD-P0-003 | Medico atualizar perfil profissional permitido | Validado | `profile-crud.spec.ts`; `PUT /doctors/{id}` |
 | HTD-P0-004 | Admin Plataforma acessar equipe e acessos | Validado | `access-management.spec.ts`; menu `/acessos` liberado para `PlatformAdmin` |
 | HTD-P0-005 | Empresa/financeiro/auditor sem acesso clinico individual | Validado parcial | Testes negativos existentes; ampliar por endpoint quando novos fluxos surgirem |
-| HTD-P0-006 | Ambiente Docker local com API atualizada | Validado parcial | `medsync-api-local` em `8080`; validar a cada nova fatia |
+| HTD-P0-006 | Ambiente Docker/local/HML com API atualizada | Validado parcial | `medsync-api-local` em `8080`; HML usa `ASPNETCORE_ENVIRONMENT=Homologation` e `SEED_DEMO_PASSWORD`; validar a cada nova fatia |
 
 ## P1 - Necessario para piloto robusto
 
@@ -38,7 +38,7 @@ TODO nao pode desaparecer sem uma das saidas abaixo:
 
 | ID | TODO | Status | Restricao |
 |---|---|---|---|
-| HTD-P2-001 | Exportacao financeira | Pendente | Teste manual pode usar tela enquanto exportacao nao existir |
+| HTD-P2-001 | Exportacao financeira | Validado | `business-reports.spec.ts`; `GET /finance/export`; botao CSV em `/relatorios`; empresa exporta proprio CNPJ; MedSync exporta visao global minimizada |
 | HTD-P2-002 | Relatorios avancados por periodo | Validado parcial | Relatorio B2B agregado implementado; ainda falta detalhar cortes avancados aprovados |
 | HTD-P2-003 | Disponibilidade por especialidade | Pendente | Agenda demo fixa enquanto regra final nao for aprovada |
 

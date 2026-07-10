@@ -54,7 +54,7 @@ const navigation: Array<{
     href: "/consultas",
     label: "Consultas",
     icon: CalendarDays,
-    roles: ["Patient", "Doctor", "MedicalDirector", "OccupationalHealthAdmin", "Support", "CompanyAuditor"],
+    roles: ["Patient", "Doctor", "MedicalDirector", "OccupationalHealthAdmin", "Support"],
   },
   {
     href: "/patients",
@@ -68,7 +68,6 @@ const navigation: Array<{
       "MedicalDirector",
       "Support",
       "OccupationalHealthAdmin",
-      "CompanyAuditor",
     ],
   },
   {
@@ -82,14 +81,13 @@ const navigation: Array<{
       "MedicalDirector",
       "Support",
       "OccupationalHealthAdmin",
-      "CompanyAuditor",
     ],
   },
   {
     href: "/acessos",
     label: "Equipe e acessos",
     icon: UserCog,
-    roles: ["ClinicAdmin", "PlatformAdmin"],
+    roles: ["ClinicAdmin", "CompanyAdmin", "PlatformAdmin"],
   },
   {
     href: "/auditoria",

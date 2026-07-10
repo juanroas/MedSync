@@ -6,6 +6,7 @@ import type {
   CompanyPortal,
   ConsultationRoom,
   Doctor,
+  FinancialExport,
   FinanceInvoice,
   LoginResponse,
   Patient,
@@ -96,6 +97,11 @@ export const api = {
 
   registerClinic: (input: {
     clinicName: string;
+    tradeName?: string;
+    taxId: string;
+    planName: string;
+    monthlyFee: number;
+    monthlyConsultationLimit: number;
     name: string;
     email: string;
     password: string;
@@ -136,6 +142,8 @@ export const api = {
       body: JSON.stringify(input),
     }),
   getFinanceInvoices: () => request<FinanceInvoice[]>("/finance/invoices"),
+  getFinancialExport: (period?: string) =>
+    request<FinancialExport>(`/finance/export${period ? `?period=${encodeURIComponent(period)}` : ""}`),
   getBusinessReport: (period?: string) =>
     request<BusinessReport>(`/reports/business-summary${period ? `?period=${encodeURIComponent(period)}` : ""}`),
   getPrivacyRequests: () => request<PrivacyRequest[]>("/privacy/requests"),

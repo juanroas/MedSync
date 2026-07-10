@@ -39,6 +39,16 @@ test.describe("autorizacao por perfil", () => {
     await context.dispose();
   });
 
+  test("perfis empresariais nao acessam lista individual de consultas por API", async () => {
+    for (const email of [users.companyAdmin, users.companyFinance, users.companyAuditor]) {
+      const context = await request.newContext({ baseURL: baseApiURL });
+      await loginByApi(context, email);
+      const response = await context.get("/appointments");
+      expect(response.status(), email).toBe(403);
+      await context.dispose();
+    }
+  });
+
   test("admin plataforma nao recebe token de videochamada", async () => {
     const context = await request.newContext({ baseURL: baseApiURL });
     await loginByApi(context, users.platformAdmin);

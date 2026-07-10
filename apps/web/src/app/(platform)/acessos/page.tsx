@@ -46,7 +46,15 @@ const roleLabel: Partial<Record<ClinicRole, string>> = {
 
 export default function AccessPage() {
   const roles = getSession()?.user.roles ?? [];
-  const canCreateAccess = roles.some((role) => role === "ClinicAdmin" || role === "PlatformAdmin");
+  const canCreateAccess = roles.some((role) => role === "ClinicAdmin" || role === "PlatformAdmin" || role === "CompanyAdmin");
+  const isCompanyAdminOnly =
+    roles.includes("CompanyAdmin") &&
+    !roles.some((role) => role === "ClinicAdmin" || role === "PlatformAdmin");
+  const availableRoleOptions = isCompanyAdminOnly
+    ? staffRoleOptions.filter((option) =>
+        ["CompanyAdmin", "CompanyFinance", "CompanyAuditor"].includes(option.value),
+      )
+    : staffRoleOptions;
   const [users, setUsers] = useState<StaffUser[]>([]);
   const [form, setForm] = useState(initialForm);
   const [showForm, setShowForm] = useState(false);
@@ -109,7 +117,7 @@ export default function AccessPage() {
             <label>
               <span className="mb-2 block text-xs font-bold text-slate-600">Perfil</span>
               <select className={inputClass} value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value as ClinicRole })}>
-                {staffRoleOptions.map((option) => (
+                {availableRoleOptions.map((option) => (
                   <option key={option.value} value={option.value}>{option.label}</option>
                 ))}
               </select>

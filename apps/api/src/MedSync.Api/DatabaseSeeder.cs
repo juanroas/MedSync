@@ -429,6 +429,73 @@ public static class DatabaseSeeder
             eligibility.IsEligible = true;
             eligibility.Reason = "Seed de homologacao B2B";
         }
+
+        await EnsurePresentationBeneficiariesAsync(db, tenant, cancellationToken);
+    }
+
+    private static async Task EnsurePresentationBeneficiariesAsync(
+        MedSyncDbContext db,
+        DemoTenant tenant,
+        CancellationToken cancellationToken)
+    {
+        var prefix = tenant.EmployeeCode.Contains('-')
+            ? tenant.EmployeeCode.Split('-', 2)[0]
+            : tenant.EmployeeCode;
+        var slug = tenant.ClinicSlug.Replace("-homologacao", string.Empty, StringComparison.OrdinalIgnoreCase);
+        var today = DateOnly.FromDateTime(DateTime.UtcNow.Date);
+
+        for (var index = 2; index <= 5; index++)
+        {
+            var employeeCode = $"{prefix}-{index:000}";
+            var employee = await db.CompanyEmployees
+                .Include(x => x.EligibilityRecords)
+                .SingleOrDefaultAsync(
+                    x => x.CompanyId == tenant.CompanyId && x.EmployeeCode == employeeCode,
+                    cancellationToken);
+            if (employee is null)
+            {
+                employee = new CompanyEmployee
+                {
+                    ClinicId = tenant.ClinicId,
+                    CompanyId = tenant.CompanyId,
+                    Name = $"{tenant.CompanyTradeName} Beneficiario {index}",
+                    Email = $"beneficiario.{slug}.{index:000}@medsync.dev",
+                    EmployeeCode = employeeCode
+                };
+                db.CompanyEmployees.Add(employee);
+            }
+            else
+            {
+                employee.ClinicId = tenant.ClinicId;
+                employee.CompanyId = tenant.CompanyId;
+                employee.Name = $"{tenant.CompanyTradeName} Beneficiario {index}";
+                employee.Email = $"beneficiario.{slug}.{index:000}@medsync.dev";
+                employee.IsActive = true;
+            }
+
+            var eligibility = employee.EligibilityRecords
+                .OrderByDescending(x => x.EligibleFrom)
+                .FirstOrDefault(x => x.BenefitPlanId == tenant.BenefitPlanId);
+            if (eligibility is null)
+            {
+                db.EmployeeEligibilities.Add(new EmployeeEligibility
+                {
+                    ClinicId = tenant.ClinicId,
+                    CompanyEmployee = employee,
+                    BenefitPlanId = tenant.BenefitPlanId,
+                    IsEligible = true,
+                    EligibleFrom = today,
+                    Reason = "Seed de homologacao para relatorios agregados"
+                });
+            }
+            else
+            {
+                eligibility.ClinicId = tenant.ClinicId;
+                eligibility.IsEligible = true;
+                eligibility.EligibleUntil = null;
+                eligibility.Reason = "Seed de homologacao para relatorios agregados";
+            }
+        }
     }
 
     private sealed record DemoTenant(

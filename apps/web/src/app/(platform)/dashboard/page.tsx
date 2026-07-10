@@ -44,7 +44,8 @@ const schedulingRoles = [
 ];
 
 const joinRoles = ["Doctor", "Patient", "MedicalDirector", "OccupationalHealthAdmin"];
-const patientLoadRoles = [...schedulingRoles, "Patient", "Doctor", "CompanyAuditor"];
+const appointmentLoadRoles = [...schedulingRoles, "Patient", "Doctor", "PlatformAdmin"];
+const patientLoadRoles = [...schedulingRoles, "Patient", "Doctor"];
 const companyPortalRoles: ClinicRole[] = ["CompanyAdmin"];
 
 export default function DashboardPage() {
@@ -58,8 +59,9 @@ export default function DashboardPage() {
   const isPlatformFinanceHome = roles.includes("PlatformFinance");
   const canSchedule = roles.some((role) => schedulingRoles.includes(role));
   const canJoin = roles.some((role) => joinRoles.includes(role));
+  const canLoadAppointments = roles.some((role) => appointmentLoadRoles.includes(role));
   const canLoadPatients = roles.some((role) => patientLoadRoles.includes(role));
-  const canLoadDoctors = roles.some((role) => [...schedulingRoles, "CompanyAuditor"].includes(role));
+  const canLoadDoctors = roles.some((role) => schedulingRoles.includes(role));
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [patients, setPatients] = useState<Patient[]>([]);
@@ -70,10 +72,10 @@ export default function DashboardPage() {
 
   useEffect(() => {
     Promise.all([
-      api.getAppointments(),
+      canLoadAppointments ? api.getAppointments() : Promise.resolve([]),
       canLoadDoctors ? api.getDoctors() : Promise.resolve([]),
       canLoadPatients ? api.getPatients() : Promise.resolve([]),
-      isCompanyPortal || isCompanyFinanceHome || isPlatformFinanceHome ? api.getCompanyPortal() : Promise.resolve(null),
+      isCompanyPortal || isCompanyFinanceHome || isCompanyAuditorHome || isPlatformFinanceHome ? api.getCompanyPortal() : Promise.resolve(null),
       isCompanyFinanceHome || isPlatformFinanceHome ? api.getFinanceInvoices() : Promise.resolve([]),
     ])
       .then(([appointmentData, doctorData, patientData, portalData, invoiceData]) => {
@@ -85,7 +87,7 @@ export default function DashboardPage() {
       })
       .catch((err) => setError(err instanceof Error ? err.message : "Erro ao carregar painel."))
       .finally(() => setLoading(false));
-  }, [canLoadDoctors, canLoadPatients, isCompanyFinanceHome, isCompanyPortal, isPlatformFinanceHome]);
+  }, [canLoadAppointments, canLoadDoctors, canLoadPatients, isCompanyAuditorHome, isCompanyFinanceHome, isCompanyPortal, isPlatformFinanceHome]);
 
   const upcoming = useMemo(
     () =>
@@ -131,9 +133,7 @@ export default function DashboardPage() {
   if (isCompanyAuditorHome) {
     return (
       <CompanyAuditorProductHome
-        appointments={appointments}
-        patients={patients}
-        doctors={doctors}
+        portal={companyPortal}
         loading={loading}
         error={error}
       />
@@ -598,15 +598,11 @@ function CompanyFinanceHome({
 }
 
 function CompanyAuditorProductHome({
-  appointments,
-  patients,
-  doctors,
+  portal,
   loading,
   error,
 }: {
-  appointments: Appointment[];
-  patients: Patient[];
-  doctors: Doctor[];
+  portal: CompanyPortal | null;
   loading: boolean;
   error: string;
 }) {
@@ -615,7 +611,7 @@ function CompanyAuditorProductHome({
       <PageHeader
         eyebrow="Auditoria empresarial"
         title="Visao operacional autorizada"
-        description="Acompanhe agenda, cadastros e eventos permitidos para fiscalizacao do CNPJ, sem prontuario, diagnostico ou conteudo de chamada."
+        description="Acompanhe contrato, uso agregado e eventos permitidos para fiscalizacao do CNPJ, sem lista individual clinica."
       />
       {error && <ErrorBanner message={error} />}
       {loading ? (
@@ -638,9 +634,31 @@ function CompanyAuditorProductHome({
           </section>
 
           <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <MetricCard label="Consultas" value={appointments.length} detail="eventos operacionais" icon={<CalendarCheck2 size={20} />} tone="success" />
-            <MetricCard label="Pacientes" value={patients.length} detail="cadastros permitidos" icon={<Users size={20} />} tone="info" />
-            <MetricCard label="Medicos" value={doctors.length} detail="rede vinculada" icon={<Stethoscope size={20} />} tone="neutral" />
+            <MetricCard
+              label="Beneficiarios"
+              value={portal?.eligibility.beneficiaryCount ?? "-"}
+              detail="quantidade agregada"
+              icon={<Users size={20} />}
+              tone="info"
+            />
+            <MetricCard
+              label="Elegiveis"
+              value={portal?.eligibility.eligibleCount ?? "-"}
+              detail="acesso administrativo"
+              icon={<UserCheck size={20} />}
+              tone="success"
+            />
+            <MetricCard
+              label="Uso agregado"
+              value={
+                portal?.usage.hiddenDueToPrivacyThreshold
+                  ? "Privado"
+                  : portal?.usage.totalConsultations ?? "-"
+              }
+              detail="sem lista individual"
+              icon={<BarChart3 size={20} />}
+              tone="warning"
+            />
             <MetricCard label="Auditoria" value="Ativa" detail="trilha de acesso" icon={<ShieldCheck size={20} />} tone="warning" />
           </section>
 
@@ -649,17 +667,11 @@ function CompanyAuditorProductHome({
               <p className="text-xs font-bold uppercase text-teal-600">Rastreabilidade do CNPJ</p>
               <h2 className="mt-3 text-xl font-bold text-ink">Fiscalizacao sem exposicao clinica indevida.</h2>
               <p className="mt-3 text-sm leading-6 text-slate-500">
-                O auditor empresarial consulta agenda, pacientes vinculados, medicos e eventos para verificar uso e acesso. Ele nao altera dados operacionais.
+                O auditor empresarial acompanha eventos, contrato e indicadores agregados para verificar uso e acesso. Ele nao altera dados operacionais e nao acessa lista clinica individual.
               </p>
               <div className="mt-6 grid gap-3 sm:grid-cols-2">
-                <Link href="/consultas" className="rounded-lg border border-slate-200 p-4 text-sm font-semibold text-ink hover:border-teal-300 hover:text-teal-700">
-                  Consultas
-                </Link>
-                <Link href="/patients" className="rounded-lg border border-slate-200 p-4 text-sm font-semibold text-ink hover:border-teal-300 hover:text-teal-700">
-                  Pacientes vinculados
-                </Link>
-                <Link href="/doctors" className="rounded-lg border border-slate-200 p-4 text-sm font-semibold text-ink hover:border-teal-300 hover:text-teal-700">
-                  Medicos
+                <Link href="/relatorios" className="rounded-lg border border-slate-200 p-4 text-sm font-semibold text-ink hover:border-teal-300 hover:text-teal-700">
+                  Relatorios agregados
                 </Link>
                 <Link href="/auditoria" className="rounded-lg border border-slate-200 p-4 text-sm font-semibold text-ink hover:border-teal-300 hover:text-teal-700">
                   Auditoria

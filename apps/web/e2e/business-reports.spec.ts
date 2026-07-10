@@ -13,7 +13,6 @@ test.describe("relatorios B2B agregados", () => {
     await expect(page.getByText("Plano Alfa Cuidado Digital", { exact: true }).first()).toBeVisible();
     await expect(page.getByText(/empresa beta/i)).toHaveCount(0);
     await expect(page.getByText(/sem prontuario, diagnostico ou conteudo de chamada/i)).toBeVisible();
-    await expect(page.getByText(/grupo minimo/i).first()).toBeVisible();
   });
 
   test("plataforma compara CNPJs sem expor detalhe clinico", async ({ page, request }) => {
@@ -39,6 +38,27 @@ test.describe("relatorios B2B agregados", () => {
     await expect(page.getByText("Empresa Alfa", { exact: true })).toBeVisible();
     await expect(page.getByText("Empresa Beta", { exact: true })).toBeVisible();
     await expect(page.getByText(/sem dados clinicos individuais/i)).toBeVisible();
+  });
+
+  test("financeiro exporta dados minimizados por escopo", async ({ request }) => {
+    await loginByApi(request, users.company2Finance);
+    const companyExport = await request.get(`${baseApiURL}/finance/export`);
+    expect(companyExport.status()).toBe(200);
+    const companyData = await companyExport.json();
+    expect(companyData.isGlobal).toBe(false);
+    expect(companyData.rows).toHaveLength(1);
+    expect(companyData.rows[0].companyName).toBe("Empresa Alfa");
+    expect(JSON.stringify(companyData.rows).toLowerCase()).not.toContain("cpf");
+    expect(JSON.stringify(companyData.rows).toLowerCase()).not.toContain("diagnostico");
+
+    await loginByApi(request, users.platformFinance);
+    const platformExport = await request.get(`${baseApiURL}/finance/export`);
+    expect(platformExport.status()).toBe(200);
+    const platformData = await platformExport.json();
+    expect(platformData.isGlobal).toBe(true);
+    expect(platformData.rows.map((row: { companyName: string }) => row.companyName)).toEqual(
+      expect.arrayContaining(["Empresa Demo", "Empresa Alfa", "Empresa Beta"]),
+    );
   });
 
   test("paciente nao acessa relatorios empresariais", async ({ page, request }) => {

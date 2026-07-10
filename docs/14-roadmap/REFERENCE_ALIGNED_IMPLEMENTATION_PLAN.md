@@ -150,6 +150,12 @@ Evidencia registrada:
 - Seed multiempresa com Empresa Demo, Empresa Alfa e Empresa Beta em tenants separados para homologacao de perfis e isolamento.
 - Relatorios B2B agregados em `/relatorios`, com comparativo por CNPJ para perfis MedSync e escopo proprio para empresa contratante.
 - Endpoint `GET /reports/business-summary`, com ocultacao de uso quando nao ha grupo minimo e sem retorno de dado clinico individual.
+- Exportacao financeira minimizada em `/relatorios`, com `GET /finance/export`.
+- Cadastro empresarial em `/cadastro` cria empresa, CNPJ, plano, valor mensal, contrato ativo e usuario `CompanyAdmin`.
+- Seed de homologacao habilitado para `ASPNETCORE_ENVIRONMENT=Homologation` com `SEED_DEMO_PASSWORD`, bloqueado em `Production`.
+- Seed multiempresa expandido para cinco beneficiarios administrativos ficticios por CNPJ, permitindo demonstracao de relatorios agregados.
+- Perfis empresariais administrativos nao acessam lista individual de consultas por API.
+- Empresa admin acessa equipe e acessos, mas cria apenas `CompanyAdmin`, `CompanyFinance` e `CompanyAuditor`.
 - Registro de TODOs de homologacao em [Homologation TODO Register](HOMOLOGATION_TODO_REGISTER.md).
 - Teste negativo: Empresa Admin recebe `403` ao tentar atualizar paciente.
 - Teste negativo: Financeiro Empresa recebe `403` ao tentar atualizar medico.
@@ -171,6 +177,8 @@ Evidencia registrada:
 - E2E: Empresa Demo, Alfa e Beta acessam o proprio portal por tenant; Empresa Alfa nao exibe dados da Empresa Beta.
 - `npm run test:e2e --workspace=@medsync/web -- --project=chromium --workers=1 business-reports.spec.ts multi-company-seed.spec.ts finance-invoices.spec.ts eligibility-management.spec.ts audit-events.spec.ts privacy-requests.spec.ts`
 - E2E: Empresa ve somente o proprio CNPJ; plataforma compara Empresa Demo, Alfa e Beta; paciente recebe `403` e nao ve menu de relatorios.
+- `npm run test:e2e --workspace=@medsync/web -- --project=chromium --workers=1`
+- E2E completo: 42 passed, 1 skipped (`consultation-flow.spec.ts` exige `MEDSYNC_E2E_MUTATING=1`).
 
 ## Trilha P1 - Profundidade assistencial
 
