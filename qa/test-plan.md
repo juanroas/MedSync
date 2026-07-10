@@ -14,6 +14,7 @@ Status: plano para homologacao controlada. Este documento nao declara conformida
 - CRUD e atualizacao de dados permitidos por perfil.
 - Teleconsulta com consentimento e token LiveKit.
 - Auditoria, LGPD, pagamentos e relatorios B2B agregados.
+- Homologacao por perfil com conversa cruzada entre empresa, paciente, medico, financeiro, auditoria e MedSync.
 
 ## Fora de escopo nesta fase
 
@@ -36,6 +37,7 @@ Status: plano para homologacao controlada. Este documento nao declara conformida
 - Logs do GitHub Actions ou terminal local.
 - Prints de falhas anexados ao relatorio.
 - Registro manual em `docs/08-quality/QA_CHECKLIST.md`.
+- Roteiro de UAT por perfil em `docs/08-quality/PROFILE_UAT_HOMOLOGATION_PLAN.md`.
 - Evidencia sanitizada de auditoria para acessos sensiveis.
 
 ## Bloqueadores de homologacao

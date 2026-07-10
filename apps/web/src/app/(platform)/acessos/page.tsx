@@ -2,7 +2,7 @@
 
 import { EmptyState, ErrorBanner, LoadingState, PageHeader, buttonClass, inputClass } from "@/components/ui";
 import type { ClinicRole, StaffUser } from "@/lib/types";
-import { api } from "@/services/api";
+import { api, getSession } from "@/services/api";
 import { Plus, ShieldCheck, UserCog } from "lucide-react";
 import { FormEvent, useEffect, useState } from "react";
 
@@ -45,6 +45,8 @@ const roleLabel: Partial<Record<ClinicRole, string>> = {
 };
 
 export default function AccessPage() {
+  const roles = getSession()?.user.roles ?? [];
+  const canCreateAccess = roles.some((role) => role === "ClinicAdmin" || role === "PlatformAdmin");
   const [users, setUsers] = useState<StaffUser[]>([]);
   const [form, setForm] = useState(initialForm);
   const [showForm, setShowForm] = useState(false);
@@ -78,16 +80,21 @@ export default function AccessPage() {
   return (
     <>
       <PageHeader
-        eyebrow="Seguranca"
-        title="Perfis e acessos"
-        description="Crie contas com o menor privilegio necessario por CNPJ, plataforma ou privacidade."
-        action={
+        eyebrow="Governanca de acesso"
+        title="Equipe e acessos"
+        description="Gerencie perfis administrativos do ambiente de teste com menor privilegio e separacao B2B."
+        action={canCreateAccess ? (
           <button className={buttonClass} onClick={() => setShowForm((value) => !value)}>
             <Plus size={17} /> Novo acesso
           </button>
-        }
+        ) : undefined}
       />
       {error && <ErrorBanner message={error} />}
+      <div className="mb-5 rounded-lg border border-teal-100 bg-teal-50 p-5 text-sm leading-6 text-teal-900">
+        Perfis administrativos, financeiros e de auditoria nao recebem acesso a prontuario,
+        diagnostico, observacao clinica ou conteudo de chamada. Tentativas indevidas devem
+        ser tratadas como evento de auditoria.
+      </div>
       {showForm && (
         <form onSubmit={submit} className="mb-7 rounded-3xl border border-teal-100 bg-white p-6 shadow-soft">
           <div className="grid gap-4 md:grid-cols-2">

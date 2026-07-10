@@ -8,7 +8,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
 
-export default function RegisterClinicPage() {
+export default function RegisterCompanyPage() {
   const router = useRouter();
   const [form, setForm] = useState({
     clinicName: "",
@@ -28,7 +28,7 @@ export default function RegisterClinicPage() {
       saveSession(session);
       router.push("/dashboard");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Não foi possível criar a clínica.");
+      setError(err instanceof Error ? err.message : "Não foi possível criar a conta empresarial.");
     } finally {
       setLoading(false);
     }
@@ -45,14 +45,14 @@ export default function RegisterClinicPage() {
           <span className="grid size-12 place-items-center rounded-2xl bg-teal-50 text-teal-600">
             <Building2 size={22} />
           </span>
-          <h1 className="mt-6 text-3xl font-bold text-ink">Cadastrar clínica</h1>
+          <h1 className="mt-6 text-3xl font-bold text-ink">Cadastrar empresa</h1>
           <p className="mt-2 text-sm text-slate-500">
-            Esta conta será criada como administradora da clínica.
+            Esta conta será criada como administradora de uma empresa parceira do MedSync.
           </p>
           <div className="mt-8 space-y-5">
             {error && <ErrorBanner message={error} />}
             <Field
-              label="Nome da clínica"
+              label="Nome da empresa"
               value={form.clinicName}
               onChange={(clinicName) => setForm({ ...form, clinicName })}
             />
@@ -78,7 +78,7 @@ export default function RegisterClinicPage() {
               Use ao menos 12 caracteres, com maiúscula, minúscula, número e símbolo.
             </p>
             <button className={`${buttonClass} w-full`} disabled={loading}>
-              {loading ? "Criando..." : "Criar clínica"}
+              {loading ? "Criando..." : "Criar empresa"}
             </button>
           </div>
         </form>

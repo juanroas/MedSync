@@ -1,0 +1,52 @@
+import { expect, test } from "@playwright/test";
+import { baseApiURL, loginByApi, loginByUi, sharedPassword, users } from "./fixtures";
+
+test.describe("relatorios B2B agregados", () => {
+  test.skip(!sharedPassword, "defina MEDSYNC_E2E_PASSWORD para executar login E2E");
+
+  test("empresa acessa somente relatorio do proprio CNPJ", async ({ page }) => {
+    await loginByUi(page, users.company2Admin);
+    await page.getByRole("navigation").getByRole("link", { name: /relatorios/i }).click();
+
+    await expect(page.getByRole("heading", { name: /relatorios da empresa/i })).toBeVisible();
+    await expect(page.getByText("Empresa Alfa", { exact: true })).toBeVisible();
+    await expect(page.getByText("Plano Alfa Cuidado Digital", { exact: true }).first()).toBeVisible();
+    await expect(page.getByText(/empresa beta/i)).toHaveCount(0);
+    await expect(page.getByText(/sem prontuario, diagnostico ou conteudo de chamada/i)).toBeVisible();
+    await expect(page.getByText(/grupo minimo/i).first()).toBeVisible();
+  });
+
+  test("plataforma compara CNPJs sem expor detalhe clinico", async ({ page, request }) => {
+    await loginByApi(request, users.platformFinance);
+    const response = await request.get(`${baseApiURL}/reports/business-summary`);
+    expect(response.status()).toBe(200);
+    const report = await response.json();
+    expect(report.isGlobal).toBe(true);
+    expect(report.companies.map((company: { companyName: string }) => company.companyName)).toEqual(
+      expect.arrayContaining(["Empresa Demo", "Empresa Alfa", "Empresa Beta"]),
+    );
+    const rawReport = JSON.stringify(report).toLowerCase();
+    expect(rawReport).not.toContain("patientname");
+    expect(rawReport).not.toContain("notes");
+    expect(rawReport).not.toContain("clinicalrecord");
+    expect(rawReport).not.toContain("cpf");
+
+    await loginByUi(page, users.platformFinance);
+    await page.getByRole("navigation").getByRole("link", { name: /relatorios/i }).click();
+
+    await expect(page.getByRole("heading", { name: /relatorios por cnpj/i })).toBeVisible();
+    await expect(page.getByText("Empresa Demo", { exact: true })).toBeVisible();
+    await expect(page.getByText("Empresa Alfa", { exact: true })).toBeVisible();
+    await expect(page.getByText("Empresa Beta", { exact: true })).toBeVisible();
+    await expect(page.getByText(/sem dados clinicos individuais/i)).toBeVisible();
+  });
+
+  test("paciente nao acessa relatorios empresariais", async ({ page, request }) => {
+    await loginByApi(request, users.patient);
+    const response = await request.get(`${baseApiURL}/reports/business-summary`);
+    expect(response.status()).toBe(403);
+
+    await loginByUi(page, users.patient);
+    await expect(page.getByRole("link", { name: /relatorios/i })).toHaveCount(0);
+  });
+});

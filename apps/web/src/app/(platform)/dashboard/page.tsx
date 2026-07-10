@@ -12,7 +12,7 @@ import {
   buttonClass,
 } from "@/components/ui";
 import { formatDateTime, statusClass, statusLabel } from "@/lib/format";
-import type { Appointment, ClinicRole, CompanyPortal, Doctor, Patient } from "@/lib/types";
+import type { Appointment, ClinicRole, CompanyPortal, Doctor, FinanceInvoice, Patient } from "@/lib/types";
 import { api, getSession } from "@/services/api";
 import {
   ArrowRight,
@@ -64,6 +64,7 @@ export default function DashboardPage() {
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [patients, setPatients] = useState<Patient[]>([]);
   const [companyPortal, setCompanyPortal] = useState<CompanyPortal | null>(null);
+  const [financeInvoices, setFinanceInvoices] = useState<FinanceInvoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -73,12 +74,14 @@ export default function DashboardPage() {
       canLoadDoctors ? api.getDoctors() : Promise.resolve([]),
       canLoadPatients ? api.getPatients() : Promise.resolve([]),
       isCompanyPortal || isCompanyFinanceHome || isPlatformFinanceHome ? api.getCompanyPortal() : Promise.resolve(null),
+      isCompanyFinanceHome || isPlatformFinanceHome ? api.getFinanceInvoices() : Promise.resolve([]),
     ])
-      .then(([appointmentData, doctorData, patientData, portalData]) => {
+      .then(([appointmentData, doctorData, patientData, portalData, invoiceData]) => {
         setAppointments(appointmentData);
         setDoctors(doctorData);
         setPatients(patientData);
         setCompanyPortal(portalData);
+        setFinanceInvoices(invoiceData);
       })
       .catch((err) => setError(err instanceof Error ? err.message : "Erro ao carregar painel."))
       .finally(() => setLoading(false));
@@ -118,6 +121,7 @@ export default function DashboardPage() {
     return (
       <CompanyFinanceHome
         portal={companyPortal}
+        invoices={financeInvoices}
         loading={loading}
         error={error}
       />
@@ -151,6 +155,7 @@ export default function DashboardPage() {
     return (
       <PlatformFinanceHome
         portal={companyPortal}
+        invoices={financeInvoices}
         loading={loading}
         error={error}
       />
@@ -488,10 +493,12 @@ function CompanyPortalHome({
 
 function CompanyFinanceHome({
   portal,
+  invoices,
   loading,
   error,
 }: {
   portal: CompanyPortal | null;
+  invoices: FinanceInvoice[];
   loading: boolean;
   error: string;
 }) {
@@ -500,7 +507,7 @@ function CompanyFinanceHome({
       <PageHeader
         eyebrow="MedSync Finance"
         title="Financeiro Empresa"
-        description="Acompanhe faturas, contrato e uso agregado do CNPJ contratante. Este perfil nao acessa consultas individuais."
+        description="Acompanhe faturas e uso agregado do CNPJ contratante. Este perfil nao acessa consultas individuais."
       />
       {error && <ErrorBanner message={error} />}
       {loading ? (
@@ -560,32 +567,21 @@ function CompanyFinanceHome({
           <section className="mt-7 grid gap-6 xl:grid-cols-[1fr_1fr]">
             <Card className="p-6">
               <p className="text-xs font-bold uppercase text-teal-600">Historico financeiro</p>
-              <h2 className="mt-3 text-xl font-bold text-ink">Faturas e uso agregado</h2>
+              <h2 className="mt-3 text-xl font-bold text-ink">Faturas do CNPJ</h2>
               <p className="mt-3 text-sm leading-6 text-slate-500">
-                Esta visao foi separada do portal administrativo para focar em contrato, cobranca e indicadores financeiros permitidos.
+                Competencias financeiras do contrato ativo, sem detalhes clinicos ou lista individual de consultas.
               </p>
-              <div className="mt-6 grid gap-3 sm:grid-cols-2">
-                <InfoTile
-                  icon={<ReceiptText size={18} />}
-                  label="Status"
-                  value={portal.billing.status}
-                />
-                <InfoTile
-                  icon={<CalendarCheck2 size={18} />}
-                  label="Limite mensal"
-                  value={portal.contract?.monthlyConsultationLimit ?? "-"}
-                />
-              </div>
+              <InvoiceList invoices={invoices} />
             </Card>
 
             <Card className="p-6">
               <p className="text-xs font-bold uppercase text-amber-600">Limite de acesso</p>
               <h2 className="mt-3 text-xl font-bold text-ink">Sem prontuario, diagnostico ou sala.</h2>
               <p className="mt-3 text-sm leading-6 text-slate-500">
-                O financeiro empresarial nao ve conteudo clinico, lista sensivel individual, observacao medica ou detalhes da chamada.
+                O financeiro empresarial consulta informacoes administrativas, sem abrir conteudo assistencial ou lista sensivel individual.
               </p>
               <p className="mt-4 rounded-lg border border-amber-100 bg-amber-50 p-4 text-sm text-amber-800">
-                Relatorios exportaveis por periodo e centro de custo ainda dependem de validacao juridica, DPO e regra de minimo agregado.
+                Exportacao financeira minimizada ainda depende de validacao juridica, DPO e regra de minimo agregado.
               </p>
             </Card>
           </section>
@@ -759,10 +755,12 @@ function DoctorHome({
 
 function PlatformFinanceHome({
   portal,
+  invoices,
   loading,
   error,
 }: {
   portal: CompanyPortal | null;
+  invoices: FinanceInvoice[];
   loading: boolean;
   error: string;
 }) {
@@ -790,7 +788,10 @@ function PlatformFinanceHome({
             <h2 className="mt-3 text-xl font-bold text-ink">
               {portal?.billing.estimatedMonthlyFee === undefined ? "-" : formatCurrency(portal.billing.estimatedMonthlyFee, portal.billing.currency)}
             </h2>
-            <p className="mt-3 text-sm leading-6 text-slate-500">{portal?.billing.note ?? "Faturas reais ainda nao implementadas."}</p>
+            <p className="mt-3 text-sm leading-6 text-slate-500">
+              Faturas de homologacao por CNPJ, sem prontuario, diagnostico ou detalhes individuais de consulta.
+            </p>
+            <InvoiceList invoices={invoices} />
           </Card>
         </section>
       )}
@@ -835,6 +836,56 @@ function PlatformOverviewHome({
         </>
       )}
     </>
+  );
+}
+
+function InvoiceList({ invoices }: { invoices: FinanceInvoice[] }) {
+  if (invoices.length === 0) {
+    return (
+      <div className="mt-6 rounded-lg border border-dashed border-slate-200 bg-slate-50 p-5 text-sm text-slate-500">
+        Nenhuma fatura encontrada para o contrato ativo deste ambiente.
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-6 space-y-3">
+      {invoices.map((invoice) => (
+        <article key={invoice.id} className="rounded-lg border border-slate-100 bg-slate-50/70 p-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <p className="text-xs font-bold uppercase text-slate-400">Competencia {invoice.period}</p>
+              <h3 className="mt-1 font-bold text-ink">{invoice.description}</h3>
+              <p className="mt-2 text-xs leading-5 text-slate-500">{invoice.note}</p>
+            </div>
+            <span className={`w-fit rounded-lg px-3 py-2 text-xs font-bold ${
+              invoice.status === "Pago"
+                ? "bg-emerald-50 text-emerald-700"
+                : "bg-amber-50 text-amber-700"
+            }`}>
+              {invoice.status}
+            </span>
+          </div>
+          <div className="mt-4 grid gap-3 sm:grid-cols-3">
+            <InfoTile
+              icon={<ReceiptText size={18} />}
+              label="Valor"
+              value={formatCurrency(invoice.amount, invoice.currency)}
+            />
+            <InfoTile
+              icon={<CheckCircle2 size={18} />}
+              label="Pago"
+              value={formatCurrency(invoice.paidAmount, invoice.currency)}
+            />
+            <InfoTile
+              icon={<CalendarCheck2 size={18} />}
+              label="Vencimento"
+              value={formatDateOnly(invoice.dueDate)}
+            />
+          </div>
+        </article>
+      ))}
+    </div>
   );
 }
 

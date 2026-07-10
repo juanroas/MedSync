@@ -5,11 +5,14 @@ import type { ClinicRole, User } from "@/lib/types";
 import { api, clearSession, getSession, saveSession } from "@/services/api";
 import {
   CalendarDays,
+  ChartNoAxesColumn,
   ChevronRight,
+  ClipboardCheck,
   LayoutDashboard,
   ListChecks,
   LogOut,
   Menu,
+  ShieldCheck,
   Stethoscope,
   Users,
   UserCog,
@@ -27,6 +30,26 @@ const navigation: Array<{
   roles?: ClinicRole[];
 }> = [
   { href: "/dashboard", label: "Painel", icon: LayoutDashboard },
+  {
+    href: "/elegibilidade",
+    label: "Elegibilidade",
+    icon: ClipboardCheck,
+    roles: ["CompanyAdmin", "Support", "PlatformAdmin"],
+  },
+  {
+    href: "/relatorios",
+    label: "Relatorios",
+    icon: ChartNoAxesColumn,
+    roles: [
+      "CompanyAdmin",
+      "CompanyFinance",
+      "CompanyAuditor",
+      "PlatformAdmin",
+      "PlatformFinance",
+      "PlatformAuditor",
+      "DataProtectionOfficer",
+    ],
+  },
   {
     href: "/consultas",
     label: "Consultas",
@@ -66,7 +89,7 @@ const navigation: Array<{
     href: "/acessos",
     label: "Equipe e acessos",
     icon: UserCog,
-    roles: ["ClinicAdmin"],
+    roles: ["ClinicAdmin", "PlatformAdmin"],
   },
   {
     href: "/auditoria",
@@ -78,6 +101,19 @@ const navigation: Array<{
       "CompanyAuditor",
       "PlatformAuditor",
       "DataProtectionOfficer",
+    ],
+  },
+  {
+    href: "/privacidade",
+    label: "Privacidade",
+    icon: ShieldCheck,
+    roles: [
+      "Patient",
+      "Support",
+      "PrivacyAuditor",
+      "PlatformAuditor",
+      "DataProtectionOfficer",
+      "PlatformAdmin",
     ],
   },
 ];
@@ -123,7 +159,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   const isPlatformAdminProfile = user.roles.includes("PlatformAdmin");
   const visibleNavigation = navigation.filter((item) => {
-    if (isPlatformAdminProfile && item.href !== "/dashboard") {
+    const platformAdminAllowed =
+      item.href === "/dashboard" ||
+      item.href === "/acessos" ||
+      item.href === "/elegibilidade" ||
+      item.href === "/privacidade" ||
+      item.href === "/relatorios";
+    if (isPlatformAdminProfile && !platformAdminAllowed) {
       return false;
     }
     return !item.roles || item.roles.some((role) => user.roles.includes(role));

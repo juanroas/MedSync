@@ -10,6 +10,16 @@ Status do produto: homologacao controlada. Este checklist nao declara conformida
 - [ ] Usuario com senha temporaria e redirecionado para troca de senha.
 - [ ] Logout remove a sessao e impede retorno por historico do navegador.
 
+## Homologacao por perfis
+
+- [ ] Roteiro `PROFILE_UAT_HOMOLOGATION_PLAN.md` executado com empresa de teste.
+- [ ] Cada perfil registrou resultado esperado, resultado obtido e evidencia.
+- [ ] Conversa cruzada entre empresa, paciente, medico, financeiro, auditoria e MedSync registrada.
+- [ ] Falhas classificadas como P0, P1, P2 ou P3.
+- [ ] Nenhum P0 aberto antes de liberar empresa piloto de teste.
+- [ ] Nenhum P1 aberto na jornada testada antes de liberar empresa piloto de teste.
+- [ ] Ambiente identificado como homologacao/teste e sem dados reais.
+
 ## Permissoes
 
 - [ ] Empresa/parceiro gerencia contrato, plano, elegibilidade, faturas e relatorios agregados sem dado clinico individual.

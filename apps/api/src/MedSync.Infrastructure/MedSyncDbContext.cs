@@ -22,6 +22,7 @@ public sealed class MedSyncDbContext(DbContextOptions<MedSyncDbContext> options)
     public DbSet<CompanyContract> CompanyContracts => Set<CompanyContract>();
     public DbSet<EmployeeEligibility> EmployeeEligibilities => Set<EmployeeEligibility>();
     public DbSet<AuditEvent> AuditEvents => Set<AuditEvent>();
+    public DbSet<PrivacyRequest> PrivacyRequests => Set<PrivacyRequest>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -209,6 +210,21 @@ public sealed class MedSyncDbContext(DbContextOptions<MedSyncDbContext> options)
             entity.Property(x => x.Reason).HasMaxLength(500);
             entity.Property(x => x.IpAddress).HasMaxLength(64);
             entity.Property(x => x.UserAgent).HasMaxLength(512);
+        });
+
+        modelBuilder.Entity<PrivacyRequest>(entity =>
+        {
+            entity.HasIndex(x => new { x.ClinicId, x.CreatedAt });
+            entity.HasIndex(x => new { x.ClinicId, x.RequesterEmail });
+            entity.Property(x => x.RequesterName).HasMaxLength(160);
+            entity.Property(x => x.RequesterEmail).HasMaxLength(180);
+            entity.Property(x => x.SubjectReference).HasMaxLength(160);
+            entity.Property(x => x.Type).HasConversion<string>().HasMaxLength(40);
+            entity.Property(x => x.Status).HasConversion<string>().HasMaxLength(40);
+            entity.Property(x => x.Description).HasMaxLength(1000);
+            entity.Property(x => x.ResolutionNote).HasMaxLength(1000);
+            entity.HasOne(x => x.Clinic).WithMany().HasForeignKey(x => x.ClinicId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
     }
 }

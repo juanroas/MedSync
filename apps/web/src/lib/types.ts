@@ -175,3 +175,87 @@ export type CompanyPortal = {
   };
   privacyGuards: string[];
 };
+
+export type CompanyBeneficiary = {
+  id: string;
+  name: string;
+  email: string;
+  employeeCode?: string;
+  isActive: boolean;
+  planName?: string;
+  isEligible: boolean;
+  eligibleFrom?: string;
+  eligibleUntil?: string;
+  reason?: string;
+};
+
+export type FinanceInvoice = {
+  id: string;
+  period: string;
+  description: string;
+  amount: number;
+  paidAmount: number;
+  currency: string;
+  status: string;
+  dueDate: string;
+  issuedAt: string;
+  note: string;
+};
+
+export type PrivacyRequestType =
+  | "Access"
+  | "Correction"
+  | "Deletion"
+  | "Portability"
+  | "ConsentRevocation"
+  | "Other";
+
+export type PrivacyRequestStatus =
+  | "New"
+  | "InReview"
+  | "WaitingRequester"
+  | "Resolved"
+  | "Rejected";
+
+export type PrivacyRequest = {
+  id: string;
+  requesterName: string;
+  requesterEmail: string;
+  subjectReference: string;
+  type: PrivacyRequestType;
+  status: PrivacyRequestStatus;
+  description: string;
+  resolutionNote?: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type BusinessReport = {
+  period: string;
+  isGlobal: boolean;
+  companies: BusinessReportCompany[];
+  privacyGuards: string[];
+};
+
+export type BusinessReportCompany = {
+  companyId: string;
+  tenantId: string;
+  tenantName: string;
+  companyName: string;
+  taxIdMasked: string;
+  planName?: string;
+  contractStatus?: CompanyContractStatus;
+  beneficiaryCount: number;
+  eligibleCount: number;
+  inactiveCount: number;
+  totalConsultations?: number;
+  scheduledConsultations?: number;
+  inProgressConsultations?: number;
+  completedConsultations?: number;
+  hiddenDueToPrivacyThreshold: boolean;
+  hiddenReason?: string;
+  monthlyFee?: number;
+  paidAmount: number;
+  currency: string;
+  billingStatus: string;
+};

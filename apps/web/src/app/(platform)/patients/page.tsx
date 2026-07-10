@@ -4,7 +4,7 @@ import { ErrorBanner, EmptyState, LoadingState, PageHeader, buttonClass, inputCl
 import { formatDate } from "@/lib/format";
 import type { Patient } from "@/lib/types";
 import { isValidCpf, isValidOptionalPhone, maskCpf } from "@/lib/validation";
-import { api, getSession } from "@/services/api";
+import { api, getSession, saveSession } from "@/services/api";
 import { Mail, Phone, Plus, Search, UserRound } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
@@ -15,6 +15,13 @@ const initialForm = {
   birthDate: "",
   phone: "",
   temporaryPassword: "",
+};
+
+const initialEditForm = {
+  name: "",
+  email: "",
+  birthDate: "",
+  phone: "",
 };
 
 export default function PatientsPage() {
@@ -29,11 +36,14 @@ export default function PatientsPage() {
   );
   const [patients, setPatients] = useState<Patient[]>([]);
   const [form, setForm] = useState(initialForm);
+  const [editForm, setEditForm] = useState(initialEditForm);
   const [query, setQuery] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [updating, setUpdating] = useState(false);
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
 
   useEffect(() => {
     api
@@ -42,6 +52,18 @@ export default function PatientsPage() {
       .catch((err) => setError(err instanceof Error ? err.message : "Erro ao carregar pacientes."))
       .finally(() => setLoading(false));
   }, []);
+
+  const ownPatient = isPatient ? patients[0] : undefined;
+
+  useEffect(() => {
+    if (!ownPatient) return;
+    setEditForm({
+      name: ownPatient.name,
+      email: ownPatient.email,
+      birthDate: ownPatient.birthDate,
+      phone: ownPatient.phone ?? "",
+    });
+  }, [ownPatient]);
 
   const filtered = useMemo(
     () =>
@@ -87,6 +109,39 @@ export default function PatientsPage() {
     }
   }
 
+  async function submitUpdate(event: FormEvent) {
+    event.preventDefault();
+    if (!ownPatient) return;
+    setUpdating(true);
+    setError("");
+    setSuccess("");
+    if (editForm.name.trim().length < 3) {
+      setError("Informe o nome completo com pelo menos 3 caracteres.");
+      setUpdating(false);
+      return;
+    }
+    if (editForm.birthDate && new Date(`${editForm.birthDate}T00:00:00`).getTime() > Date.now()) {
+      setError("A data de nascimento nao pode estar no futuro.");
+      setUpdating(false);
+      return;
+    }
+    if (!isValidOptionalPhone(editForm.phone)) {
+      setError("Informe um telefone valido com DDD.");
+      setUpdating(false);
+      return;
+    }
+    try {
+      const updated = await api.updatePatient(ownPatient.id, editForm);
+      setPatients((items) => items.map((patient) => patient.id === updated.id ? updated : patient));
+      saveSession(await api.me());
+      setSuccess("Cadastro atualizado com seguranca.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro ao atualizar cadastro.");
+    } finally {
+      setUpdating(false);
+    }
+  }
+
   return (
     <>
       <PageHeader
@@ -96,7 +151,7 @@ export default function PatientsPage() {
           isDoctor
             ? "Pacientes aparecem aqui somente quando existe consulta vinculada ao seu atendimento."
             : isPatient
-              ? "Confira seus dados cadastrais. Edicao de dados permitidos sera liberada em etapa de CRUD."
+              ? "Confira e atualize seus dados cadastrais permitidos."
               : "Mantenha os dados essenciais dos pacientes disponiveis para os atendimentos."
         }
         action={canManage ? (
@@ -106,10 +161,67 @@ export default function PatientsPage() {
         ) : undefined}
       />
       {error && <ErrorBanner message={error} />}
-      {isPatient && (
-        <div className="mb-5 rounded-lg border border-amber-100 bg-amber-50 p-5 text-sm text-amber-800">
-          Edicao do proprio cadastro ainda nao foi implementada. Proximo passo: endpoint de atualizacao com campos permitidos e auditoria.
+      {success && (
+        <div className="mb-5 rounded-lg border border-emerald-100 bg-emerald-50 p-5 text-sm font-semibold text-emerald-800">
+          {success}
         </div>
+      )}
+      {isPatient && ownPatient && (
+        <form onSubmit={submitUpdate} className="mb-7 rounded-lg border border-teal-100 bg-white p-6 shadow-soft">
+          <div className="mb-5">
+            <h2 className="font-bold text-ink">Dados cadastrais permitidos</h2>
+            <p className="mt-1 text-xs leading-5 text-slate-400">
+              CPF, elegibilidade, faturas e registros clinicos nao sao alterados por este formulario.
+            </p>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <label className="block">
+              <span className="mb-2 block text-xs font-bold text-slate-600">Nome completo</span>
+              <input
+                className={inputClass}
+                value={editForm.name}
+                onChange={(event) => setEditForm({ ...editForm, name: event.target.value })}
+                required
+              />
+            </label>
+            <label className="block">
+              <span className="mb-2 block text-xs font-bold text-slate-600">E-mail</span>
+              <input
+                className={inputClass}
+                type="email"
+                value={editForm.email}
+                onChange={(event) => setEditForm({ ...editForm, email: event.target.value })}
+                required
+              />
+            </label>
+            <label className="block">
+              <span className="mb-2 block text-xs font-bold text-slate-600">Nascimento</span>
+              <input
+                className={inputClass}
+                type="date"
+                value={editForm.birthDate}
+                onChange={(event) => setEditForm({ ...editForm, birthDate: event.target.value })}
+                max={new Date().toISOString().slice(0, 10)}
+                required
+              />
+            </label>
+            <label className="block">
+              <span className="mb-2 block text-xs font-bold text-slate-600">Telefone</span>
+              <input
+                className={inputClass}
+                type="tel"
+                value={editForm.phone}
+                onChange={(event) => setEditForm({ ...editForm, phone: event.target.value })}
+              />
+            </label>
+          </div>
+          <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-xs text-slate-400">Atualizacoes geram trilha de auditoria.</p>
+            <button className={buttonClass} disabled={updating}>
+              {updating ? "Atualizando..." : "Atualizar cadastro"}
+            </button>
+          </div>
+        </form>
       )}
       {isDoctor && (
         <div className="mb-5 rounded-lg border border-blue-100 bg-blue-50 p-5 text-sm text-blue-800">

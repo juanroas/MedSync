@@ -113,6 +113,65 @@ Evidencia adicional:
 - [Profile Experience Restructure](../01-product/PROFILE_EXPERIENCE_RESTRUCTURE.md)
 - `npm run test:e2e --workspace=@medsync/web -- --project=chromium --workers=1 profile-experience.spec.ts company-business-dashboard.spec.ts patient-care-dashboard.spec.ts`
 
+### P0.5 Homologacao por perfil para empresa de teste
+
+Objetivo: liberar uma empresa piloto somente em ambiente de homologacao, com roteiro por perfil, conversa cruzada e evidencias.
+
+Escopo:
+
+- Corrigir linguagem remanescente de clinica/admin clinica na experiencia B2B principal.
+- Executar QA por perfil: empresa admin, paciente, medico, financeiro, auditoria, plataforma, DPO e suporte.
+- Validar jornada cruzada empresa -> paciente -> medico -> financeiro -> auditoria.
+- Registrar evidencias, falhas P0/P1/P2/P3 e decisao go/no-go.
+
+Evidencia esperada:
+
+- [Plano de Homologacao por Perfis](../08-quality/PROFILE_UAT_HOMOLOGATION_PLAN.md)
+- [Casos UAT por perfil](../../qa/profile-uat-test-cases.md)
+- Teste de regressao da tela de cadastro empresarial.
+- Ata curta da conversa entre perfis.
+
+Status: `Implementado parcial`.
+
+Evidencia registrada:
+
+- Cadastro empresarial sem linguagem de clinica na tela `/cadastro`.
+- Formularios de atualizacao permitida para Paciente e Medico.
+- Endpoints `PUT /patients/{id}` e `PUT /doctors/{id}` com auditoria.
+- Admin Plataforma com acesso a tela `Equipe e acessos`.
+- Elegibilidade administrativa da empresa em `/elegibilidade`.
+- Endpoints `GET /company-beneficiaries` e `PUT /company-beneficiaries/{id}/eligibility`.
+- Historico financeiro minimizado no dashboard de Financeiro Empresa.
+- Endpoint `GET /finance/invoices`.
+- Auditoria operacional com busca, filtro por resultado e destaque de tentativas negadas.
+- Eventos negados para acesso indevido a elegibilidade e financeiro, com motivo minimizado.
+- Fluxo DPO/direitos do titular em `/privacidade`, com registro, fila, status e nota operacional minimizada.
+- Endpoints `GET/POST /privacy/requests` e `PUT /privacy/requests/{id}/status`.
+- Seed multiempresa com Empresa Demo, Empresa Alfa e Empresa Beta em tenants separados para homologacao de perfis e isolamento.
+- Relatorios B2B agregados em `/relatorios`, com comparativo por CNPJ para perfis MedSync e escopo proprio para empresa contratante.
+- Endpoint `GET /reports/business-summary`, com ocultacao de uso quando nao ha grupo minimo e sem retorno de dado clinico individual.
+- Registro de TODOs de homologacao em [Homologation TODO Register](HOMOLOGATION_TODO_REGISTER.md).
+- Teste negativo: Empresa Admin recebe `403` ao tentar atualizar paciente.
+- Teste negativo: Financeiro Empresa recebe `403` ao tentar atualizar medico.
+- `dotnet build apps/api/MedSync.sln`
+- `npm run typecheck:web`
+- `npm run test:e2e --workspace=@medsync/web -- --project=chromium --workers=1 profile-crud.spec.ts profile-experience.spec.ts`
+- `npm run test:e2e --workspace=@medsync/web -- --project=chromium --workers=1 access-management.spec.ts profile-experience.spec.ts`
+- `npm run test:e2e --workspace=@medsync/web -- --project=chromium --workers=1 eligibility-management.spec.ts access-management.spec.ts profile-experience.spec.ts`
+- API: Company Admin lista/atualiza elegibilidade com `200`; Financeiro Empresa recebe `403` na lista individual.
+- `npm run test:e2e --workspace=@medsync/web -- --project=chromium --workers=1 finance-invoices.spec.ts eligibility-management.spec.ts`
+- API: Financeiro Empresa lista faturas com `200`; Medico recebe `403` em faturas.
+- `npm run test:e2e --workspace=@medsync/web -- --project=chromium --workers=1 audit-events.spec.ts finance-invoices.spec.ts eligibility-management.spec.ts`
+- E2E: Financeiro Empresa recebe `403` em elegibilidade individual; Auditor Empresa ve `CompanyEligibility.List` negado, sem dado clinico.
+- Migration `20260710132637_AddPrivacyRequests`.
+- `npm run test:e2e --workspace=@medsync/web -- --project=chromium --workers=1 privacy-requests.spec.ts audit-events.spec.ts`
+- E2E: Paciente registra solicitacao de privacidade; DPO atualiza status; Financeiro Empresa recebe `403` e nao ve menu de privacidade.
+- [Contas Demo de Homologacao](../08-quality/DEMO_ACCOUNTS.md)
+- `npm run test:e2e --workspace=@medsync/web -- --project=chromium --workers=1 multi-company-seed.spec.ts finance-invoices.spec.ts eligibility-management.spec.ts audit-events.spec.ts privacy-requests.spec.ts`
+- E2E: Empresa Demo, Alfa e Beta acessam o proprio portal por tenant; Empresa Alfa nao exibe dados da Empresa Beta.
+- `npm run test:e2e --workspace=@medsync/web -- --project=chromium --workers=1 business-reports.spec.ts multi-company-seed.spec.ts finance-invoices.spec.ts eligibility-management.spec.ts audit-events.spec.ts privacy-requests.spec.ts`
+- E2E: Empresa ve somente o proprio CNPJ; plataforma compara Empresa Demo, Alfa e Beta; paciente recebe `403` e nao ve menu de relatorios.
+
 ## Trilha P1 - Profundidade assistencial
 
 ### P1.1 Perfil medico confiavel

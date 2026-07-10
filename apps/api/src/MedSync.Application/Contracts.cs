@@ -54,6 +54,12 @@ public sealed record PatientResponse(
     DateOnly BirthDate,
     string? Phone);
 
+public sealed record UpdatePatientRequest(
+    string Name,
+    string Email,
+    DateOnly BirthDate,
+    string? Phone);
+
 public sealed record CreateDoctorRequest(
     string Name,
     string Email,
@@ -65,6 +71,14 @@ public sealed record CreateDoctorRequest(
 
 public sealed record DoctorResponse(
     Guid Id,
+    string Name,
+    string Email,
+    string Crm,
+    string CrmUf,
+    string Specialty,
+    string? Phone);
+
+public sealed record UpdateDoctorRequest(
     string Name,
     string Email,
     string Crm,
@@ -167,6 +181,86 @@ public sealed record CompanyPortalBillingResponse(
     string Currency,
     string Status,
     string Note);
+
+public sealed record CompanyBeneficiaryResponse(
+    Guid Id,
+    string Name,
+    string Email,
+    string? EmployeeCode,
+    bool IsActive,
+    string? PlanName,
+    bool IsEligible,
+    DateOnly? EligibleFrom,
+    DateOnly? EligibleUntil,
+    string? Reason);
+
+public sealed record UpdateCompanyBeneficiaryEligibilityRequest(
+    bool IsEligible,
+    DateOnly? EligibleUntil,
+    string? Reason);
+
+public sealed record FinanceInvoiceResponse(
+    string Id,
+    string Period,
+    string Description,
+    decimal Amount,
+    decimal PaidAmount,
+    string Currency,
+    string Status,
+    DateOnly DueDate,
+    DateTime IssuedAt,
+    string Note);
+
+public sealed record PrivacyRequestResponse(
+    Guid Id,
+    string RequesterName,
+    string RequesterEmail,
+    string SubjectReference,
+    PrivacyRequestType Type,
+    PrivacyRequestStatus Status,
+    string Description,
+    string? ResolutionNote,
+    DateTime CreatedAt,
+    DateTime UpdatedAt);
+
+public sealed record CreatePrivacyRequestRequest(
+    string RequesterName,
+    string RequesterEmail,
+    string SubjectReference,
+    PrivacyRequestType Type,
+    string Description);
+
+public sealed record UpdatePrivacyRequestStatusRequest(
+    PrivacyRequestStatus Status,
+    string? ResolutionNote);
+
+public sealed record BusinessReportResponse(
+    string Period,
+    bool IsGlobal,
+    IReadOnlyCollection<BusinessReportCompanyResponse> Companies,
+    IReadOnlyCollection<string> PrivacyGuards);
+
+public sealed record BusinessReportCompanyResponse(
+    Guid CompanyId,
+    Guid TenantId,
+    string TenantName,
+    string CompanyName,
+    string TaxIdMasked,
+    string? PlanName,
+    CompanyContractStatus? ContractStatus,
+    int BeneficiaryCount,
+    int EligibleCount,
+    int InactiveCount,
+    int? TotalConsultations,
+    int? ScheduledConsultations,
+    int? InProgressConsultations,
+    int? CompletedConsultations,
+    bool HiddenDueToPrivacyThreshold,
+    string? HiddenReason,
+    decimal? MonthlyFee,
+    decimal PaidAmount,
+    string Currency,
+    string BillingStatus);
 
 public interface IPasswordService
 {

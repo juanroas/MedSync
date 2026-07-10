@@ -196,7 +196,7 @@ export function ConsultationRoom({ appointmentId }: { appointmentId: string }) {
       <GateCard
         icon={<CreditCard size={24} />}
         title="Pagamento pendente"
-        description="A clínica exige a confirmação do pagamento antes da videochamada."
+        description="A política do atendimento exige a confirmação do pagamento antes da videochamada."
       >
         <button className={`${buttonClass} w-full`} onClick={openCheckout} disabled={paying}>
           {paying ? "Abrindo checkout..." : "Pagar em ambiente seguro"}

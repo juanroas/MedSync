@@ -60,6 +60,25 @@ public enum CompanyContractStatus
     Cancelled
 }
 
+public enum PrivacyRequestType
+{
+    Access,
+    Correction,
+    Deletion,
+    Portability,
+    ConsentRevocation,
+    Other
+}
+
+public enum PrivacyRequestStatus
+{
+    New,
+    InReview,
+    WaitingRequester,
+    Resolved,
+    Rejected
+}
+
 public sealed class User
 {
     public Guid Id { get; set; } = Guid.NewGuid();
@@ -305,4 +324,22 @@ public sealed class AuditEvent
     public string? IpAddress { get; set; }
     public string? UserAgent { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+}
+
+public sealed class PrivacyRequest
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid ClinicId { get; set; }
+    public Clinic Clinic { get; set; } = null!;
+    public Guid CreatedByUserId { get; set; }
+    public required string RequesterName { get; set; }
+    public required string RequesterEmail { get; set; }
+    public required string SubjectReference { get; set; }
+    public PrivacyRequestType Type { get; set; }
+    public PrivacyRequestStatus Status { get; set; } = PrivacyRequestStatus.New;
+    public required string Description { get; set; }
+    public string? ResolutionNote { get; set; }
+    public Guid? UpdatedByUserId { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 }

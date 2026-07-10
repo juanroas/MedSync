@@ -29,7 +29,7 @@ test.describe("experiencia por perfil", () => {
     await expect(page.getByText(/este perfil nao cria agenda/i)).toBeVisible();
     await expect(page.getByRole("link", { name: /nova consulta/i })).toHaveCount(0);
     await expect(page.getByRole("link", { name: /auditoria/i })).toHaveCount(0);
-    await expect(page.getByRole("link", { name: /equipe e acessos/i })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: /equipe e acessos/i })).toBeVisible();
   });
 
   test("auditor empresa enxerga modulos assistenciais e auditoria", async ({ page }) => {

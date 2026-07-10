@@ -1,12 +1,18 @@
 import type {
   Appointment,
+  BusinessReport,
   ClinicRole,
+  CompanyBeneficiary,
   CompanyPortal,
   ConsultationRoom,
   Doctor,
+  FinanceInvoice,
   LoginResponse,
   Patient,
   Payment,
+  PrivacyRequest,
+  PrivacyRequestStatus,
+  PrivacyRequestType,
   StaffUser,
   AuditEvent,
   User,
@@ -120,6 +126,38 @@ export const api = {
     }),
   getAuditEvents: () => request<AuditEvent[]>("/audit-events"),
   getCompanyPortal: () => request<CompanyPortal>("/company-portal"),
+  getCompanyBeneficiaries: () => request<CompanyBeneficiary[]>("/company-beneficiaries"),
+  updateCompanyBeneficiaryEligibility: (
+    id: string,
+    input: { isEligible: boolean; eligibleUntil?: string; reason?: string },
+  ) =>
+    request<CompanyBeneficiary>(`/company-beneficiaries/${id}/eligibility`, {
+      method: "PUT",
+      body: JSON.stringify(input),
+    }),
+  getFinanceInvoices: () => request<FinanceInvoice[]>("/finance/invoices"),
+  getBusinessReport: (period?: string) =>
+    request<BusinessReport>(`/reports/business-summary${period ? `?period=${encodeURIComponent(period)}` : ""}`),
+  getPrivacyRequests: () => request<PrivacyRequest[]>("/privacy/requests"),
+  createPrivacyRequest: (input: {
+    requesterName: string;
+    requesterEmail: string;
+    subjectReference: string;
+    type: PrivacyRequestType;
+    description: string;
+  }) =>
+    request<PrivacyRequest>("/privacy/requests", {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
+  updatePrivacyRequestStatus: (
+    id: string,
+    input: { status: PrivacyRequestStatus; resolutionNote?: string },
+  ) =>
+    request<PrivacyRequest>(`/privacy/requests/${id}/status`, {
+      method: "PUT",
+      body: JSON.stringify(input),
+    }),
 
   getPatients: () => request<Patient[]>("/patients"),
   createPatient: (patient: {
@@ -132,6 +170,16 @@ export const api = {
   }) =>
     request<Patient>("/patients", {
       method: "POST",
+      body: JSON.stringify(patient),
+    }),
+  updatePatient: (id: string, patient: {
+    name: string;
+    email: string;
+    birthDate: string;
+    phone?: string;
+  }) =>
+    request<Patient>(`/patients/${id}`, {
+      method: "PUT",
       body: JSON.stringify(patient),
     }),
 
@@ -147,6 +195,18 @@ export const api = {
   }) =>
     request<Doctor>("/doctors", {
       method: "POST",
+      body: JSON.stringify(doctor),
+    }),
+  updateDoctor: (id: string, doctor: {
+    name: string;
+    email: string;
+    crm: string;
+    crmUf: string;
+    specialty: string;
+    phone?: string;
+  }) =>
+    request<Doctor>(`/doctors/${id}`, {
+      method: "PUT",
       body: JSON.stringify(doctor),
     }),
 

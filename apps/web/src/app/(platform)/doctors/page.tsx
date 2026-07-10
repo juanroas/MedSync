@@ -3,7 +3,7 @@
 import { Card, EmptyState, ErrorBanner, LoadingState, PageHeader, buttonClass, inputClass } from "@/components/ui";
 import type { Doctor } from "@/lib/types";
 import { isValidOptionalPhone } from "@/lib/validation";
-import { api, getSession } from "@/services/api";
+import { api, getSession, saveSession } from "@/services/api";
 import { BadgeCheck, Mail, Plus, Search, Stethoscope } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
@@ -17,6 +17,15 @@ const initialForm = {
   temporaryPassword: "",
 };
 
+const initialEditForm = {
+  name: "",
+  email: "",
+  crm: "",
+  crmUf: "",
+  specialty: "",
+  phone: "",
+};
+
 export default function DoctorsPage() {
   const session = getSession();
   const roles = session?.user.roles ?? [];
@@ -24,11 +33,14 @@ export default function DoctorsPage() {
   const canManage = roles.some((role) => role === "ClinicAdmin" || role === "MedicalDirector");
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [form, setForm] = useState(initialForm);
+  const [editForm, setEditForm] = useState(initialEditForm);
   const [query, setQuery] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [updating, setUpdating] = useState(false);
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
 
   useEffect(() => {
     api
@@ -37,6 +49,22 @@ export default function DoctorsPage() {
       .catch((err) => setError(err instanceof Error ? err.message : "Erro ao carregar medicos."))
       .finally(() => setLoading(false));
   }, []);
+
+  const ownDoctor = isDoctorProfile
+    ? doctors.find((doctor) => doctor.email.toLowerCase() === session?.user.email.toLowerCase())
+    : undefined;
+
+  useEffect(() => {
+    if (!ownDoctor) return;
+    setEditForm({
+      name: ownDoctor.name,
+      email: ownDoctor.email,
+      crm: ownDoctor.crm,
+      crmUf: ownDoctor.crmUf,
+      specialty: ownDoctor.specialty,
+      phone: ownDoctor.phone ?? "",
+    });
+  }, [ownDoctor]);
 
   const filtered = useMemo(() => {
     const source = isDoctorProfile
@@ -81,6 +109,52 @@ export default function DoctorsPage() {
     }
   }
 
+  async function submitUpdate(event: FormEvent) {
+    event.preventDefault();
+    if (!ownDoctor) return;
+    setUpdating(true);
+    setError("");
+    setSuccess("");
+    if (editForm.name.trim().length < 3) {
+      setError("Informe o nome completo do medico.");
+      setUpdating(false);
+      return;
+    }
+    if (!/^[A-Za-z]{2}$/.test(editForm.crmUf.trim())) {
+      setError("Informe a UF do CRM com duas letras.");
+      setUpdating(false);
+      return;
+    }
+    if (!editForm.crm.trim()) {
+      setError("CRM e obrigatorio.");
+      setUpdating(false);
+      return;
+    }
+    if (!editForm.specialty.trim()) {
+      setError("Especialidade e obrigatoria.");
+      setUpdating(false);
+      return;
+    }
+    if (!isValidOptionalPhone(editForm.phone)) {
+      setError("Informe um telefone valido com DDD.");
+      setUpdating(false);
+      return;
+    }
+    try {
+      const updated = await api.updateDoctor(ownDoctor.id, {
+        ...editForm,
+        crmUf: editForm.crmUf.toUpperCase(),
+      });
+      setDoctors((items) => items.map((doctor) => doctor.id === updated.id ? updated : doctor));
+      saveSession(await api.me());
+      setSuccess("Perfil medico atualizado com auditoria.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro ao atualizar perfil medico.");
+    } finally {
+      setUpdating(false);
+    }
+  }
+
   return (
     <>
       <PageHeader
@@ -98,9 +172,85 @@ export default function DoctorsPage() {
         ) : undefined}
       />
       {error && <ErrorBanner message={error} />}
-      <div className="mb-5 rounded-lg border border-amber-100 bg-amber-50 p-5 text-sm text-amber-800">
-        Edicao do proprio cadastro medico ainda nao foi implementada. A liberacao depende de endpoint de atualizacao com campos permitidos, validacao de CRM e trilha de auditoria.
-      </div>
+      {success && (
+        <div className="mb-5 rounded-lg border border-emerald-100 bg-emerald-50 p-5 text-sm font-semibold text-emerald-800">
+          {success}
+        </div>
+      )}
+      {isDoctorProfile && ownDoctor && (
+        <form onSubmit={submitUpdate} className="mb-7 rounded-lg border border-teal-100 bg-white p-6 shadow-soft">
+          <div className="mb-5">
+            <h2 className="font-bold text-ink">Dados profissionais permitidos</h2>
+            <p className="mt-1 text-xs leading-5 text-slate-400">
+              Esta atualizacao nao altera faturas, elegibilidade empresarial, prontuario ou registro clinico.
+            </p>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            <label className="block">
+              <span className="mb-2 block text-xs font-bold text-slate-600">Nome completo</span>
+              <input
+                className={inputClass}
+                value={editForm.name}
+                onChange={(event) => setEditForm({ ...editForm, name: event.target.value })}
+                required
+              />
+            </label>
+            <label className="block">
+              <span className="mb-2 block text-xs font-bold text-slate-600">E-mail</span>
+              <input
+                className={inputClass}
+                type="email"
+                value={editForm.email}
+                onChange={(event) => setEditForm({ ...editForm, email: event.target.value })}
+                required
+              />
+            </label>
+            <label className="block">
+              <span className="mb-2 block text-xs font-bold text-slate-600">CRM</span>
+              <input
+                className={inputClass}
+                value={editForm.crm}
+                onChange={(event) => setEditForm({ ...editForm, crm: event.target.value })}
+                required
+              />
+            </label>
+            <label className="block">
+              <span className="mb-2 block text-xs font-bold text-slate-600">UF do CRM</span>
+              <input
+                className={inputClass}
+                value={editForm.crmUf}
+                onChange={(event) => setEditForm({ ...editForm, crmUf: event.target.value.toUpperCase().slice(0, 2) })}
+                maxLength={2}
+                required
+              />
+            </label>
+            <label className="block">
+              <span className="mb-2 block text-xs font-bold text-slate-600">Especialidade</span>
+              <input
+                className={inputClass}
+                value={editForm.specialty}
+                onChange={(event) => setEditForm({ ...editForm, specialty: event.target.value })}
+                required
+              />
+            </label>
+            <label className="block">
+              <span className="mb-2 block text-xs font-bold text-slate-600">Telefone</span>
+              <input
+                className={inputClass}
+                type="tel"
+                value={editForm.phone}
+                onChange={(event) => setEditForm({ ...editForm, phone: event.target.value })}
+              />
+            </label>
+          </div>
+          <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-xs text-slate-400">Atualizacoes geram trilha de auditoria e ficam restritas ao perfil autorizado.</p>
+            <button className={buttonClass} disabled={updating}>
+              {updating ? "Atualizando..." : "Atualizar perfil medico"}
+            </button>
+          </div>
+        </form>
+      )}
 
       {showForm && (
         <form onSubmit={submit} className="mb-7 rounded-lg border border-teal-100 bg-white p-6 shadow-soft">

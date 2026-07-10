@@ -7,6 +7,7 @@ Status: planejamento de QA. Nenhum teste deve ser marcado como aprovado sem evid
 ## Documentos
 
 - [Plano de teste](test-plan.md)
+- [Casos UAT por perfil](profile-uat-test-cases.md)
 - [Casos funcionais](test-cases.md)
 - [Casos de autorizacao](authorization-test-cases.md)
 - [Casos de seguranca](security-test-cases.md)
@@ -18,6 +19,7 @@ Status: planejamento de QA. Nenhum teste deve ser marcado como aprovado sem evid
 - [Matriz de autorizacao](../docs/08-quality/AUTHORIZATION_TEST_MATRIX.md)
 - [Matriz de permissoes](../docs/07-security/PERMISSION_MATRIX.md)
 - [Checklist QA](../docs/08-quality/QA_CHECKLIST.md)
+- [Plano de Homologacao por Perfis](../docs/08-quality/PROFILE_UAT_HOMOLOGATION_PLAN.md)
 
 ## Comandos principais
 
