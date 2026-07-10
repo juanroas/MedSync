@@ -166,44 +166,88 @@ app.MapGet("/health", () => Results.Ok(new
     service = "MedSync.Api",
     timestamp = DateTimeOffset.UtcNow
 })).AllowAnonymous();
+
+app.MapPost("/ops/presentation-seed", async (
+    HttpContext http,
+    IServiceScopeFactory scopeFactory,
+    IPasswordService passwords,
+    IWebHostEnvironment environment,
+    CancellationToken cancellationToken) =>
+{
+    var seedMode = ResolveDemoSeedMode(environment);
+    if (!seedMode.Enabled)
+        return Results.Problem(
+            "Seed demo nao esta habilitado para este ambiente.",
+            statusCode: StatusCodes.Status403Forbidden);
+
+    var configuredKey = Environment.GetEnvironmentVariable("PRESENTATION_SEED_KEY");
+    if (string.IsNullOrWhiteSpace(configuredKey))
+        return Results.NotFound();
+
+    var providedKey = http.Request.Headers["x-medsync-seed-key"].ToString();
+    if (!FixedTimeEquals(configuredKey, providedKey))
+        return Results.NotFound();
+
+    var demoPassword = Environment.GetEnvironmentVariable("SEED_DEMO_PASSWORD");
+    if (ValidateDemoPassword(environment, demoPassword) is { } passwordError)
+        return Results.Problem(passwordError, statusCode: StatusCodes.Status400BadRequest);
+
+    await using var scope = scopeFactory.CreateAsyncScope();
+    var db = scope.ServiceProvider.GetRequiredService<MedSyncDbContext>();
+    await db.Database.MigrateAsync(cancellationToken);
+    await DatabaseSeeder.SeedAsync(db, passwords, demoPassword!, cancellationToken);
+
+    var users = await db.Users.CountAsync(cancellationToken);
+    var companies = await db.Companies.CountAsync(cancellationToken);
+    var beneficiaries = await db.CompanyEmployees.CountAsync(cancellationToken);
+
+    app.Logger.LogInformation(
+        "Presentation seed executed manually. Environment: {Environment}; Mode: {Mode}; Users: {Users}; Companies: {Companies}; Beneficiaries: {Beneficiaries}",
+        environment.EnvironmentName,
+        seedMode.Mode,
+        users,
+        companies,
+        beneficiaries);
+
+    return Results.Ok(new
+    {
+        status = "seeded",
+        environment = environment.EnvironmentName,
+        mode = seedMode.Mode,
+        users,
+        companies,
+        beneficiaries
+    });
+}).AllowAnonymous().RequireRateLimiting("auth");
 app.MapMedSyncEndpoints();
 
 await using (var scope = app.Services.CreateAsyncScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<MedSyncDbContext>();
     await db.Database.MigrateAsync();
-    var homologationSeedEnabled = string.Equals(
-        Environment.GetEnvironmentVariable("ENABLE_HOMOLOGATION_SEED"),
-        "true",
-        StringComparison.OrdinalIgnoreCase);
-    var presentationSeedInProduction =
-        app.Environment.IsProduction() &&
-        homologationSeedEnabled &&
-        string.Equals(
-            Environment.GetEnvironmentVariable("ALLOW_PRESENTATION_SEED_IN_PRODUCTION"),
-            "true",
-            StringComparison.OrdinalIgnoreCase) &&
-        string.Equals(
-            Environment.GetEnvironmentVariable("PRESENTATION_SEED_ACK"),
-            "DEMO_ONLY_NO_REAL_PATIENTS",
-            StringComparison.Ordinal);
-    var canSeedDemo =
-        app.Environment.IsDevelopment() ||
-        app.Environment.IsEnvironment("Homologation") ||
-        (homologationSeedEnabled && !app.Environment.IsProduction()) ||
-        presentationSeedInProduction;
-    if (canSeedDemo)
+    var seedMode = ResolveDemoSeedMode(app.Environment);
+    if (seedMode.Enabled)
     {
         var demoPassword = Environment.GetEnvironmentVariable("SEED_DEMO_PASSWORD");
-        if (string.IsNullOrWhiteSpace(demoPassword))
-            throw new InvalidOperationException("Configure SEED_DEMO_PASSWORD para criar o seed.");
-        if (app.Environment.IsProduction() &&
-            string.Equals(demoPassword, "MedSyncLocal123!", StringComparison.Ordinal))
-            throw new InvalidOperationException("Nao use a senha local padrao em ambiente publico. Configure uma SEED_DEMO_PASSWORD forte.");
+        if (ValidateDemoPassword(app.Environment, demoPassword) is { } passwordError)
+            throw new InvalidOperationException(passwordError);
+
+        app.Logger.LogInformation(
+            "Running demo seed. Environment: {Environment}; Mode: {Mode}",
+            app.Environment.EnvironmentName,
+            seedMode.Mode);
         await DatabaseSeeder.SeedAsync(
             db,
             scope.ServiceProvider.GetRequiredService<IPasswordService>(),
-            demoPassword);
+            demoPassword!);
+        app.Logger.LogInformation("Demo seed completed.");
+    }
+    else
+    {
+        app.Logger.LogInformation(
+            "Demo seed skipped. Environment: {Environment}; Reason: {Reason}",
+            app.Environment.EnvironmentName,
+            seedMode.Reason);
     }
 }
 
@@ -236,3 +280,56 @@ static ConfigurationOptions RedisConfiguration(string value)
     }
     return options;
 }
+
+static SeedMode ResolveDemoSeedMode(IWebHostEnvironment environment)
+{
+    var homologationSeedEnabled = string.Equals(
+        Environment.GetEnvironmentVariable("ENABLE_HOMOLOGATION_SEED"),
+        "true",
+        StringComparison.OrdinalIgnoreCase);
+    var presentationSeedInProduction =
+        environment.IsProduction() &&
+        homologationSeedEnabled &&
+        string.Equals(
+            Environment.GetEnvironmentVariable("ALLOW_PRESENTATION_SEED_IN_PRODUCTION"),
+            "true",
+            StringComparison.OrdinalIgnoreCase) &&
+        string.Equals(
+            Environment.GetEnvironmentVariable("PRESENTATION_SEED_ACK"),
+            "DEMO_ONLY_NO_REAL_PATIENTS",
+            StringComparison.Ordinal);
+
+    if (environment.IsDevelopment())
+        return new SeedMode(true, "Development", "Ambiente Development.");
+    if (environment.IsEnvironment("Homologation"))
+        return new SeedMode(true, "Homologation", "Ambiente Homologation.");
+    if (homologationSeedEnabled && !environment.IsProduction())
+        return new SeedMode(true, "NonProductionFlag", "Seed habilitado em ambiente nao-producao.");
+    if (presentationSeedInProduction)
+        return new SeedMode(true, "PresentationProduction", "Seed demo habilitado explicitamente em ambiente unico.");
+
+    return new SeedMode(false, "Disabled", "Variaveis de seed demo ausentes ou ambiente nao autorizado.");
+}
+
+static string? ValidateDemoPassword(IWebHostEnvironment environment, string? demoPassword)
+{
+    if (string.IsNullOrWhiteSpace(demoPassword))
+        return "Configure SEED_DEMO_PASSWORD para criar o seed.";
+    if (environment.IsProduction() &&
+        string.Equals(demoPassword, "MedSyncLocal123!", StringComparison.Ordinal))
+        return "Nao use a senha local padrao em ambiente publico. Configure uma SEED_DEMO_PASSWORD forte.";
+    return null;
+}
+
+static bool FixedTimeEquals(string expected, string actual)
+{
+    if (string.IsNullOrEmpty(actual))
+        return false;
+
+    var expectedBytes = Encoding.UTF8.GetBytes(expected);
+    var actualBytes = Encoding.UTF8.GetBytes(actual);
+    return expectedBytes.Length == actualBytes.Length &&
+        System.Security.Cryptography.CryptographicOperations.FixedTimeEquals(expectedBytes, actualBytes);
+}
+
+internal sealed record SeedMode(bool Enabled, string Mode, string Reason);
