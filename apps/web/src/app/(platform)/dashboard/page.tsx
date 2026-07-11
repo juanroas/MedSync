@@ -935,8 +935,8 @@ function PatientCareHome({
         title="Acesse seu cuidado digital"
         description="Consulte seus atendimentos, termos e entrada na sala em um ambiente privado."
         action={(
-          <Link href="/consultas" className={buttonClass}>
-            <HeartPulse size={17} /> Ver consultas
+          <Link href="/consultas/nova" className={buttonClass}>
+            <HeartPulse size={17} /> Solicitar consulta
           </Link>
         )}
       />
@@ -984,10 +984,10 @@ function PatientCareHome({
                   )
                 ) : (
                   <Link
-                    href="/consultas"
+                    href="/consultas/nova"
                     className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-white px-5 text-sm font-bold text-teal-800 hover:bg-teal-50"
                   >
-                    <CalendarCheck2 size={17} /> Abrir consultas
+                    <CalendarCheck2 size={17} /> Solicitar consulta
                   </Link>
                 )}
               </div>
@@ -1054,8 +1054,8 @@ function PatientCareHome({
                     title="Voce ainda nao tem consultas"
                     description="Se houver elegibilidade ou cadastro direto aprovado, seus atendimentos aparecem aqui."
                     action={(
-                      <Link href="/consultas" className="text-sm font-bold text-teal-600">
-                        Abrir consultas
+                      <Link href="/consultas/nova" className="text-sm font-bold text-teal-600">
+                        Solicitar consulta
                       </Link>
                     )}
                   />

@@ -1,6 +1,7 @@
 import type {
   Appointment,
   BusinessReport,
+  CareSpecialty,
   ClinicRole,
   CompanyActivation,
   CompanyBeneficiary,
@@ -215,6 +216,7 @@ export const api = {
     }),
 
   getDoctors: () => request<Doctor[]>("/doctors"),
+  getCareSpecialties: () => request<CareSpecialty[]>("/care/specialties"),
   createDoctor: (doctor: {
     name: string;
     email: string;
@@ -253,6 +255,16 @@ export const api = {
     paymentRequired: boolean;
   }) =>
     request<Appointment>("/appointments", {
+      method: "POST",
+      body: JSON.stringify(appointment),
+    }),
+  requestAppointment: (appointment: {
+    specialty: string;
+    scheduledAt: string;
+    durationMinutes: number;
+    notes?: string;
+  }) =>
+    request<Appointment>("/appointments/request", {
       method: "POST",
       body: JSON.stringify(appointment),
     }),

@@ -99,6 +99,14 @@ Empresa/Parceiro Admin, Financeiro Empresa/Parceiro e Auditor Empresa/Parceiro n
 - especialidade sensivel associada a pessoa identificavel;
 - lista individual sensivel do tipo "pessoa X realizou consulta Y".
 
+Empresa/Parceiro Admin, em configuracao de equipe e acessos, pode criar ou visualizar apenas perfis empresariais do proprio CNPJ:
+
+- Empresa/Parceiro Admin;
+- Financeiro Empresa/Parceiro;
+- Auditor Empresa/Parceiro.
+
+Empresa/Parceiro Admin nao pode criar, listar ou administrar perfis MedSync, incluindo Suporte MedSync, Financeiro Plataforma, Auditor Plataforma, DPO/Privacidade, Admin Plataforma e ADM Medico do Trabalho.
+
 ## Regras para ADM Medico do Trabalho
 
 O ADM Medico do Trabalho:

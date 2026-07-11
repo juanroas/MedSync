@@ -100,17 +100,47 @@ Empresas nao podem acessar:
 ## Regras conceituais
 
 - Uma empresa ou parceiro pode contratar o MedSync para pessoas elegiveis.
+- O primeiro cadastro empresarial e assistido pelo suporte MedSync: empresa, CNPJ, plano, valor, limite e conta ADM da empresa.
+- O cadastro assistido nao habilita o CNPJ automaticamente.
+- Somente ADM MedSync pode habilitar ou desabilitar o CNPJ contratante em Elegibilidade.
+- Suporte MedSync pode cadastrar e orientar, mas nao pode liberar CNPJ para uso.
+- A empresa recebe as primeiras informacoes operacionais por canal aprovado. No produto atual existe previa operacional de e-mail; envio real depende de provedor transacional aprovado.
 - Um paciente/beneficiario pode ser elegivel a um acesso contratado.
 - Uma pessoa fisica pode ser cadastrada via suporte no CNPJ tecnico/operacional.
 - Um paciente/beneficiario pode ser vinculado a uma jornada de paciente quando aplicavel.
+- Paciente/beneficiario elegivel pode solicitar consulta pela plataforma escolhendo especialidade ou area disponivel.
+- Paciente/beneficiario tambem pode acionar suporte MedSync quando nao conseguir usar o fluxo digital ou quando nao houver especialidade disponivel.
 - A empresa nao pode acessar dados clinicos individuais do paciente/beneficiario.
+- Empresa contratante nao cria, gerencia ou credencia medico comum/generalista/especialista.
+- MedSync cria, credencia e opera o pool assistencial de medicos comuns/generalistas/especialistas.
 - Medico independente pode atender pacientes de diferentes CNPJs quando houver consulta vinculada e escopo profissional autorizado.
 - ADM Medico do Trabalho pode acessar dados clinicos ocupacionais no CNPJ associado somente com regra aprovada, finalidade, permissao e auditoria.
 - Relatorios para empresas devem ser agregados ou administrativos.
 - Perfis administrativos nao devem acessar prontuario quando nao houver permissao clinica.
+- ADM MedSync, em Equipe e acessos, gerencia apenas perfis associados a MedSync.
+- ADM Empresa, em Equipe e acessos, gerencia apenas perfis empresariais do proprio CNPJ.
 - Toda tentativa de acesso indevido deve ser considerada evento de auditoria quando aplicavel.
+- Campos de cadastro devem ter limites, validacao e mascara visual quando aplicavel; dados persistidos podem ser normalizados sem mascara.
 
 TODO: validar regras finais com produto, juridico, privacidade e engenharia.
+
+## Onboarding empresarial assistido
+
+Fluxo aprovado para homologacao:
+
+1. Suporte MedSync cadastra empresa e ADM inicial em tela operacional.
+2. Sistema valida campos obrigatorios, aplica limites e mascara visual para CNPJ.
+3. Sistema cria empresa inativa, plano, contrato inicial e conta ADM com senha temporaria.
+4. Sistema gera uma previa operacional das informacoes que devem ser enviadas a empresa.
+5. ADM MedSync acessa Elegibilidade e habilita ou mantem bloqueado o CNPJ.
+6. Empresa ADM acessa a plataforma, cria perfis empresariais permitidos e segue com elegibilidade de funcionarios/beneficiarios.
+
+Restricoes:
+
+- Suporte nao habilita CNPJ.
+- Publico externo nao realiza autocadastro empresarial direto.
+- Envio real de e-mail exige provedor transacional, template aprovado e politica de segredo/senha temporaria.
+- Pessoa fisica direta via CNPJ tecnico segue bloqueada para uso real ate validacao juridica, DPO e responsavel tecnico.
 
 ## Relatorios B2B
 
@@ -176,6 +206,7 @@ TODO: validar com UX, seguranca, LGPD e QA antes de qualquer implementacao.
 - [x] Entidades iniciais listadas.
 - [x] Dados permitidos e proibidos separados.
 - [x] Produtos internos relacionados.
+- [x] Fluxo de onboarding empresarial assistido definido.
 - [ ] TODO: validar campos das entidades.
 - [ ] TODO: validar relatorios permitidos.
 - [x] Matriz de permissoes inicial criada.

@@ -44,6 +44,8 @@ public static class ApiEndpoints
         protectedApi.MapPost("/doctors", CreateDoctor);
         protectedApi.MapGet("/doctors", GetDoctors);
         protectedApi.MapPut("/doctors/{id:guid}", UpdateDoctor);
+        protectedApi.MapGet("/care/specialties", GetCareSpecialties);
+        protectedApi.MapPost("/appointments/request", RequestAppointment);
         protectedApi.MapPost("/appointments", CreateAppointment);
         protectedApi.MapGet("/appointments", GetAppointments);
         protectedApi.MapGet("/appointments/{id:guid}", GetAppointment);
@@ -1626,6 +1628,111 @@ public static class ApiEndpoints
         return Results.Ok(ToResponse(doctor));
     }
 
+    private static async Task<IResult> GetCareSpecialties(
+        ClaimsPrincipal principal,
+        MedSyncDbContext db,
+        AuditWriter audit,
+        CancellationToken cancellationToken)
+    {
+        var actor = RequestContext.From(principal);
+        if (!actor.HasAny(ClinicRole.Patient, ClinicRole.Support, ClinicRole.PlatformAdmin))
+            return Results.Forbid();
+
+        if (actor.HasAny(ClinicRole.Patient) &&
+            !await HasEligibleBenefitAsync(db, actor, cancellationToken))
+        {
+            audit.Add(actor, "CareSpecialty.List", "Doctor", null, "Denied", "Paciente sem elegibilidade ativa.");
+            await db.SaveChangesAsync(cancellationToken);
+            return Results.Conflict(new { message = "Seu beneficio nao esta elegivel para solicitar consulta. Entre em contato com o suporte MedSync." });
+        }
+
+        var specialties = await db.Doctors.AsNoTracking()
+            .GroupBy(x => x.Specialty)
+            .OrderBy(x => x.Key)
+            .Select(x => new CareSpecialtyResponse(x.Key, x.Count()))
+            .ToListAsync(cancellationToken);
+
+        audit.Add(actor, "CareSpecialty.List", "Doctor", null);
+        await db.SaveChangesAsync(cancellationToken);
+        return Results.Ok(specialties);
+    }
+
+    private static async Task<IResult> RequestAppointment(
+        RequestAppointmentRequest request,
+        ClaimsPrincipal principal,
+        MedSyncDbContext db,
+        AuditWriter audit,
+        CancellationToken cancellationToken)
+    {
+        var actor = RequestContext.From(principal);
+        if (!actor.HasAny(ClinicRole.Patient))
+            return Results.Forbid();
+
+        var specialty = request.Specialty.Trim();
+        if (specialty.Length < 3)
+            return Validation("specialty", "Selecione uma especialidade disponivel.");
+        if (request.ScheduledAt == default)
+            return Validation("scheduledAt", "Data e hora sao obrigatorias.");
+        if (request.DurationMinutes is < 10 or > 120)
+            return Validation("durationMinutes", "A duracao deve estar entre 10 e 120 minutos.");
+        if (request.Notes?.Length > 240)
+            return Validation("notes", "Observacao deve ter ate 240 caracteres.");
+
+        var scheduledAt = request.ScheduledAt.ToUniversalTime();
+        if (scheduledAt <= DateTime.UtcNow)
+            return Validation("scheduledAt", "Nao e permitido solicitar consulta no passado.");
+
+        var patient = await db.Patients.SingleOrDefaultAsync(
+            x => x.ClinicId == actor.ClinicId && x.UserId == actor.UserId,
+            cancellationToken);
+        if (patient is null)
+            return Results.NotFound(new { message = "Paciente nao encontrado para este ambiente." });
+
+        if (!await HasEligibleBenefitAsync(db, actor, cancellationToken))
+        {
+            audit.Add(actor, "Appointment.Request", "Appointment", null, "Denied", "Paciente sem elegibilidade ativa.");
+            await db.SaveChangesAsync(cancellationToken);
+            return Results.Conflict(new { message = "Seu beneficio nao esta elegivel para solicitar consulta. Entre em contato com o suporte MedSync." });
+        }
+
+        var scheduledEndsAt = scheduledAt.AddMinutes(request.DurationMinutes);
+        var specialtyKey = specialty.ToLowerInvariant();
+        var doctor = await db.Doctors
+            .Where(x =>
+                x.Specialty.ToLower() == specialtyKey &&
+                !db.Appointments.Any(a =>
+                    a.DoctorId == x.Id &&
+                    a.Status != AppointmentStatus.Cancelled &&
+                    a.Status != AppointmentStatus.Completed &&
+                    a.ScheduledAt < scheduledEndsAt &&
+                    a.ScheduledAt.AddMinutes(a.DurationMinutes) > scheduledAt))
+            .OrderBy(x => x.Name)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (doctor is null)
+            return Results.Conflict(new { message = "Nao ha medico disponivel para esta especialidade no horario escolhido." });
+
+        var appointment = new Appointment
+        {
+            ClinicId = actor.ClinicId,
+            DoctorId = doctor.Id,
+            PatientId = patient.Id,
+            ScheduledAt = scheduledAt,
+            DurationMinutes = request.DurationMinutes,
+            Notes = string.IsNullOrWhiteSpace(request.Notes)
+                ? $"Solicitacao do paciente por especialidade: {specialty}."
+                : request.Notes.Trim(),
+            PaymentRequired = false
+        };
+        db.Appointments.Add(appointment);
+        audit.Add(actor, "Appointment.Request", "Appointment", appointment.Id);
+        await db.SaveChangesAsync(cancellationToken);
+
+        return Results.Created(
+            $"/appointments/{appointment.Id}",
+            await AppointmentQuery(db, actor, appointment.Id).SingleAsync(cancellationToken));
+    }
+
     private static async Task<IResult> CreateAppointment(
         CreateAppointmentRequest request,
         ClaimsPrincipal principal,
@@ -1756,7 +1863,7 @@ public static class ApiEndpoints
         {
             db.ConsentRecords.Add(new ConsentRecord
             {
-                ClinicId = actor.ClinicId,
+                ClinicId = appointment.ClinicId,
                 AppointmentId = id,
                 PatientId = appointment.PatientId,
                 UserId = actor.UserId,
@@ -1829,7 +1936,7 @@ public static class ApiEndpoints
         {
             record = new ClinicalRecord
             {
-                ClinicId = actor.ClinicId,
+                ClinicId = appointment.ClinicId,
                 AppointmentId = id,
                 CreatedByUserId = actor.UserId,
                 Content = request.Content.Trim()
@@ -1844,7 +1951,7 @@ public static class ApiEndpoints
         }
         db.ClinicalRecordRevisions.Add(new ClinicalRecordRevision
         {
-            ClinicId = actor.ClinicId,
+            ClinicId = appointment.ClinicId,
             ClinicalRecord = record,
             CreatedByUserId = actor.UserId,
             Content = record.Content,
@@ -1881,7 +1988,7 @@ public static class ApiEndpoints
         {
             room = new ConsultationRoom
             {
-                ClinicId = actor.ClinicId,
+                ClinicId = appointment.ClinicId,
                 AppointmentId = appointmentId,
                 RoomName = $"medsync-{Guid.NewGuid():N}",
                 Status = VideoSessionStatus.Ready,
@@ -2031,7 +2138,7 @@ public static class ApiEndpoints
 
         var payment = existing ?? new Payment
         {
-            ClinicId = actor.ClinicId,
+            ClinicId = appointment.ClinicId,
             AppointmentId = appointmentId,
             Provider = "MercadoPago",
             Amount = appointment.Price.Value
@@ -2116,12 +2223,13 @@ public static class ApiEndpoints
         RequestContext actor,
         Guid? appointmentId = null)
     {
-        var query = db.Appointments.AsNoTracking().Where(x => x.ClinicId == actor.ClinicId);
+        var query = db.Appointments.AsNoTracking();
         if (appointmentId.HasValue)
             query = query.Where(x => x.Id == appointmentId.Value);
 
         if (actor.HasAny(AccessRules.ViewAllAppointments))
         {
+            query = query.Where(x => x.ClinicId == actor.ClinicId);
             // Escopo integral do ambiente; campos sensíveis ainda são filtrados abaixo.
         }
         else if (actor.HasAny(ClinicRole.Doctor))
@@ -2130,7 +2238,7 @@ public static class ApiEndpoints
         }
         else if (actor.HasAny(ClinicRole.Patient))
         {
-            query = query.Where(x => x.Patient.UserId == actor.UserId);
+            query = query.Where(x => x.ClinicId == actor.ClinicId && x.Patient.UserId == actor.UserId);
         }
         else
         {
@@ -2163,20 +2271,55 @@ public static class ApiEndpoints
                 x.ConsultationRoom == null ? null : x.ConsultationRoom.Status));
     }
 
+    private static Task<bool> HasEligibleBenefitAsync(
+        MedSyncDbContext db,
+        RequestContext actor,
+        CancellationToken cancellationToken)
+    {
+        var today = DateOnly.FromDateTime(DateTime.UtcNow.Date);
+        return db.CompanyEmployees.AsNoTracking()
+            .AnyAsync(
+                x => x.ClinicId == actor.ClinicId &&
+                     x.Patient != null &&
+                     x.Patient.UserId == actor.UserId &&
+                     x.IsActive &&
+                     x.Company.IsActive &&
+                     x.EligibilityRecords.Any(e =>
+                         e.IsEligible &&
+                         e.EligibleFrom <= today &&
+                         (e.EligibleUntil == null || e.EligibleUntil >= today)) &&
+                     db.CompanyContracts.Any(c =>
+                         c.ClinicId == actor.ClinicId &&
+                         c.CompanyId == x.CompanyId &&
+                         c.Status == CompanyContractStatus.Active),
+                cancellationToken);
+    }
+
     private static Task<Appointment?> LoadAppointment(
         MedSyncDbContext db,
         RequestContext actor,
         Guid id,
-        CancellationToken cancellationToken) =>
-        db.Appointments
+        CancellationToken cancellationToken)
+    {
+        var query = db.Appointments
             .Include(x => x.Doctor)
             .Include(x => x.Patient)
             .Include(x => x.ConsultationRoom)
             .Include(x => x.ConsentRecords)
             .Include(x => x.Payments)
-            .SingleOrDefaultAsync(
-                x => x.Id == id && x.ClinicId == actor.ClinicId,
-                cancellationToken);
+            .Where(x => x.Id == id);
+
+        if (actor.HasAny(AccessRules.ViewAllAppointments))
+            query = query.Where(x => x.ClinicId == actor.ClinicId);
+        else if (actor.HasAny(ClinicRole.Doctor))
+            query = query.Where(x => x.Doctor.UserId == actor.UserId);
+        else if (actor.HasAny(ClinicRole.Patient))
+            query = query.Where(x => x.ClinicId == actor.ClinicId && x.Patient.UserId == actor.UserId);
+        else
+            query = query.Where(_ => false);
+
+        return query.SingleOrDefaultAsync(cancellationToken);
+    }
 
     private static bool CanAccessAppointment(RequestContext actor, Appointment appointment) =>
         actor.HasAny(AccessRules.ViewAllAppointments) ||

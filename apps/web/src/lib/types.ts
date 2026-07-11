@@ -91,6 +91,11 @@ export type Doctor = {
   phone?: string;
 };
 
+export type CareSpecialty = {
+  specialty: string;
+  availableDoctors: number;
+};
+
 export type AppointmentStatus =
   | "Scheduled"
   | "InProgress"

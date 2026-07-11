@@ -12,7 +12,20 @@ Para HML, configurar:
 - `SEED_DEMO_PASSWORD=<senha forte de homologacao>`
 - opcional em ambiente nao-producao: `ENABLE_HOMOLOGATION_SEED=true`
 
-O seed demo fica bloqueado em `Production`.
+Se houver apenas um ambiente e ele estiver configurado como `Production`, usar modo apresentacao controlada:
+
+- `ENABLE_HOMOLOGATION_SEED=true`
+- `SEED_DEMO_PASSWORD=<senha forte, diferente da senha local>`
+- opcional para acionamento manual apos deploy: `PRESENTATION_SEED_KEY=<chave longa aleatoria>`
+
+Esse modo cria contas demo em ambiente publico, mas nao libera producao real nem pacientes reais. A senha local `MedSyncLocal123!` e bloqueada nesse modo.
+
+Se o deploy ja subiu e o banco ficou vazio, chame:
+
+```bash
+curl -X POST https://<api-url>/ops/presentation-seed \
+  -H "x-medsync-seed-key: <PRESENTATION_SEED_KEY>"
+```
 
 ## MedSync / Operacao da Plataforma
 

@@ -20,7 +20,31 @@ O seed roda automaticamente em `Development` ou quando `ASPNETCORE_ENVIRONMENT=H
 
 Tambem pode rodar em ambiente nao-producao com `ENABLE_HOMOLOGATION_SEED=true`.
 
-Em `Production`, o seed demo permanece bloqueado mesmo que a variavel seja informada.
+Em `Production`, o seed demo permanece bloqueado por padrao.
+
+## Ambiente unico de apresentacao
+
+Quando existir apenas um ambiente tecnico e ele estiver nomeado como `Production`, e permitido subir dados demo somente para apresentacao controlada, sem pacientes reais, usando todas as variaveis abaixo:
+
+- `ENABLE_HOMOLOGATION_SEED=true`
+- `SEED_DEMO_PASSWORD=<senha forte, diferente da senha local>`
+
+Esse modo nao libera producao real. Ele apenas permite demo/homologacao em um ambiente unico que tecnicamente esta nomeado como producao.
+
+A senha local `MedSyncLocal123!` e bloqueada nesse modo.
+
+Depois do deploy, se o banco continuar vazio porque o servico subiu antes das variaveis ou nao reiniciou, acione o seed manualmente com uma chave operacional:
+
+- `PRESENTATION_SEED_KEY=<chave longa aleatoria>`
+
+Chamada:
+
+```bash
+curl -X POST https://<api-url>/ops/presentation-seed \
+  -H "x-medsync-seed-key: <PRESENTATION_SEED_KEY>"
+```
+
+O endpoint retorna contadores de usuarios, empresas e beneficiarios. Ele nao retorna senhas, tokens, CPF completo ou dado clinico.
 
 Em producao:
 

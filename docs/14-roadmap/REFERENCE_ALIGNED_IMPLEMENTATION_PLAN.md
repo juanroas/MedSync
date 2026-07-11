@@ -85,6 +85,16 @@ Evidencia esperada:
 
 Status: `Implementado parcial`.
 
+Evidencia registrada:
+
+- Paciente elegivel pode solicitar consulta por especialidade em `/consultas/nova`.
+- Endpoints `GET /care/specialties` e `POST /appointments/request`.
+- Pool assistencial: medico comum/generalista/especialista e criado/credenciado pela operacao MedSync, nao pela empresa contratante.
+- API vincula automaticamente um medico disponivel na especialidade solicitada e bloqueia quando nao ha disponibilidade.
+- Paciente ve consultas do proprio tenant; medico ve consultas vinculadas a ele mesmo, mesmo quando atende beneficiario de outro CNPJ.
+- `npm run test:e2e --workspace=@medsync/web -- --project=chromium --workers=1 patient-appointment-request.spec.ts consultation-flow.spec.ts`
+- E2E focado: 2 passed, 1 skipped (`consultation-flow.spec.ts` exige `MEDSYNC_E2E_MUTATING=1`).
+
 ### P0.4 Perfis B2B e CNPJ tecnico
 
 Objetivo: refletir o modelo definido pelo usuario em codigo e testes.
@@ -152,6 +162,13 @@ Evidencia registrada:
 - Endpoint `GET /reports/business-summary`, com ocultacao de uso quando nao ha grupo minimo e sem retorno de dado clinico individual.
 - Exportacao financeira minimizada em `/relatorios`, com `GET /finance/export`.
 - Cadastro empresarial em `/cadastro` cria empresa, CNPJ, plano, valor mensal, contrato ativo e usuario `CompanyAdmin`.
+- Cadastro empresarial direto foi substituido por onboarding assistido em `/empresas` para `Support` e `PlatformAdmin`.
+- Campos de onboarding empresarial aplicam limites, validacao e mascara visual de CNPJ, persistindo CNPJ normalizado.
+- Onboarding assistido cria empresa inativa, plano, contrato inicial e ADM empresa com senha temporaria.
+- Produto gera previa operacional do e-mail de onboarding; envio transacional real permanece pendente.
+- Habilitacao/desabilitacao de CNPJ em `/elegibilidade` e restrita a `PlatformAdmin`.
+- Suporte MedSync pode cadastrar empresa, mas nao habilita CNPJ.
+- `PlatformAdmin` gerencia apenas perfis MedSync em `/acessos`; `CompanyAdmin` gerencia apenas perfis empresariais.
 - Seed de homologacao habilitado para `ASPNETCORE_ENVIRONMENT=Homologation` com `SEED_DEMO_PASSWORD`, bloqueado em `Production`.
 - Seed multiempresa expandido para cinco beneficiarios administrativos ficticios por CNPJ, permitindo demonstracao de relatorios agregados.
 - Perfis empresariais administrativos nao acessam lista individual de consultas por API.
@@ -179,6 +196,10 @@ Evidencia registrada:
 - E2E: Empresa ve somente o proprio CNPJ; plataforma compara Empresa Demo, Alfa e Beta; paciente recebe `403` e nao ve menu de relatorios.
 - `npm run test:e2e --workspace=@medsync/web -- --project=chromium --workers=1`
 - E2E completo: 42 passed, 1 skipped (`consultation-flow.spec.ts` exige `MEDSYNC_E2E_MUTATING=1`).
+- `npm run test:e2e --workspace=@medsync/web -- --project=chromium --workers=1 company-onboarding.spec.ts access-management.spec.ts eligibility-management.spec.ts company-registration-copy.spec.ts`
+- E2E focado: 8 passed.
+- Paciente Empresa Beta/Empresa2 solicita consulta por especialidade em `/consultas/nova`.
+- `patient-appointment-request.spec.ts`: paciente `paciente.empresa2` solicita `Clinica geral`; API bloqueia especialidade inexistente com `409`.
 
 ## Trilha P1 - Profundidade assistencial
 

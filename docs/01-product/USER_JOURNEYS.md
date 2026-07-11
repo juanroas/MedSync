@@ -26,27 +26,34 @@ Fora de escopo:
 
 ## Jornada: Empresa/Parceiro
 
-1. TODO: empresa e cadastrada ou convidada.
-2. TODO: contrato, plano e linhas de cuidado sao configurados.
-3. TODO: beneficiarios elegiveis sao vinculados.
-4. Empresa ou parceiro acompanha uso administrativo e agregado permitido.
-5. Empresa nao acessa dado clinico individual.
+1. Suporte MedSync realiza o primeiro cadastro assistido da empresa, CNPJ, plano, valor, limite e conta ADM da empresa.
+2. Empresa recebe as primeiras informacoes operacionais por canal aprovado. No ambiente atual, a plataforma gera uma previa operacional do e-mail; envio transacional real ainda depende de provedor aprovado.
+3. ADM MedSync avalia e habilita ou desabilita o CNPJ em Elegibilidade. Suporte pode cadastrar, mas nao pode habilitar CNPJ.
+4. Empresa ADM acessa o ambiente somente apos habilitacao do CNPJ.
+5. Empresa ADM cadastra perfis empresariais permitidos ou solicita apoio ao suporte para orientar o processo.
+6. Beneficiarios elegiveis sao vinculados ao CNPJ contratante.
+7. Empresa ou parceiro acompanha uso administrativo e agregado permitido.
+8. Empresa nao acessa dado clinico individual.
 
 Pontos de controle:
 
 - Dados clinicos nunca devem ser exibidos.
 - Relatorios precisam ser agregados ou administrativos.
 - Permissoes devem ser auditaveis.
+- Campos de cadastro devem aplicar limites, validacao e mascara visual quando aplicavel. O dado persistido pode ser normalizado sem mascara.
+- Habilitacao de CNPJ e ato de governanca do ADM MedSync, nao do suporte.
 
 ## Jornada: Paciente/Beneficiario
 
 1. Paciente recebe acesso via empresa/parceiro ou via suporte MedSync/CNPJ tecnico.
 2. Paciente encontra atendimento disponivel.
-3. TODO: paciente agenda, inicia pronto atendimento ou acessa consulta disponivel.
-4. Paciente aceita termo quando aplicavel.
-5. Paciente acessa sala de espera.
-6. Paciente entra na teleconsulta somente quando autorizado.
-7. Paciente acompanha status ou historico permitido.
+3. Paciente pode solicitar consulta pela plataforma quando estiver elegivel, escolhendo area/especialidade disponivel.
+4. Caso nao consiga usar o fluxo digital, paciente pode acionar o suporte MedSync para orientacao operacional.
+5. O sistema vincula uma opcao medica disponivel na especialidade solicitada.
+6. Paciente aceita termo quando aplicavel.
+7. Paciente acessa sala de espera.
+8. Paciente entra na teleconsulta somente quando autorizado.
+9. Paciente acompanha status ou historico permitido.
 
 Pontos de controle:
 
@@ -54,19 +61,25 @@ Pontos de controle:
 - Paciente nao acessa consulta de outro paciente.
 - Empresa nao visualiza condicao individual.
 - Pessoa fisica cadastrada via suporte deve estar vinculada ao CNPJ tecnico.
+- Solicitacao por especialidade nao deve expor lista sensivel de medicos ou informacao clinica para empresa.
+- Se nao houver especialidade disponivel, o fluxo deve orientar contato com suporte.
 
 ## Jornada: Medico
 
-1. Medico independente acessa agenda vinculada.
-2. Medico visualiza consulta autorizada.
-3. Medico inicia atendimento quando permitido.
-4. Medico registra informacao clinica conforme regra aprovada.
-5. Medico encerra consulta.
+1. Medico independente e cadastrado/credenciado pela operacao MedSync, nao pela empresa contratante.
+2. Medico comum/generalista/especialista faz parte do pool assistencial da plataforma.
+3. Medico independente acessa agenda vinculada.
+4. Medico visualiza consulta autorizada.
+5. Medico inicia atendimento quando permitido.
+6. Medico registra informacao clinica conforme regra aprovada.
+7. Medico encerra consulta.
 
 Pontos de controle:
 
 - Medico acessa somente atendimentos vinculados.
 - Medico deve atuar dentro do ramo de atividade/especialidade autorizada.
+- Empresa/parceiro nao cria nem administra medico generico.
+- ADM Medico do Trabalho permanece perfil separado, associado a CNPJ e finalidade ocupacional.
 - Registro clinico e sensivel.
 - Teleconsulta segue janela, status e consentimento.
 
@@ -98,6 +111,20 @@ Pontos de controle:
 - Dados clinicos permanecem ocultos.
 - Financeiro do CNPJ tecnico esta aprovado conceitualmente para pagamentos de pacientes diretos.
 
+## Jornada: Suporte MedSync
+
+1. Suporte realiza onboarding assistido de empresa e conta ADM inicial.
+2. Suporte pode orientar empresa sobre cadastro de funcionarios/beneficiarios.
+3. Suporte pode cadastrar pessoa fisica direta quando vinculada ao CNPJ tecnico, apos validacoes comerciais, juridicas, LGPD e responsabilidade clinica.
+4. Suporte nao habilita CNPJ contratante.
+5. Suporte nao acessa dado clinico individual sem finalidade e permissao aprovadas.
+
+Pontos de controle:
+
+- Cadastro assistido precisa gerar evento de auditoria.
+- Habilitacao, bloqueio ou desbloqueio de CNPJ permanece restrito ao ADM MedSync.
+- Dados usados em atendimento de suporte devem seguir minimizacao.
+
 ## Jornada: Auditor/Privacidade
 
 1. Auditor consulta eventos.
@@ -124,6 +151,7 @@ Pontos de controle:
 
 - [x] Jornadas conceituais registradas.
 - [x] Pontos de privacidade destacados.
+- [x] Fluxo de onboarding assistido e habilitacao de CNPJ registrado.
 - [ ] TODO: validar jornadas com stakeholders.
 - [ ] TODO: transformar jornadas em criterios de aceite.
 - [ ] TODO: criar mapas visuais em `docs/assets` quando aprovados.

@@ -123,6 +123,10 @@ public sealed record DoctorResponse(
     string Specialty,
     string? Phone);
 
+public sealed record CareSpecialtyResponse(
+    string Specialty,
+    int AvailableDoctors);
+
 public sealed record UpdateDoctorRequest(
     string Name,
     string Email,
@@ -139,6 +143,12 @@ public sealed record CreateAppointmentRequest(
     string? Notes,
     decimal? Price,
     bool PaymentRequired);
+
+public sealed record RequestAppointmentRequest(
+    string Specialty,
+    DateTime ScheduledAt,
+    int DurationMinutes,
+    string? Notes);
 
 public sealed record AppointmentResponse(
     Guid Id,

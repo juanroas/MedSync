@@ -176,8 +176,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     }
     return !item.roles || item.roles.some((role) => user.roles.includes(role));
   });
+  const isPatientOnly = user.roles.includes("Patient") && !user.roles.some((role) => role !== "Patient");
   const canSchedule =
-    !isPlatformAdminProfile && schedulingRoles.some((role) => user.roles.includes(role));
+    !isPlatformAdminProfile && (isPatientOnly || schedulingRoles.some((role) => user.roles.includes(role)));
 
   return (
     <div className="min-h-screen bg-mist">
@@ -238,8 +239,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 <Video size={18} />
               </span>
               <span>
-                <strong className="block">Nova consulta</strong>
-                <small className="text-coral-50/75">Agendar atendimento</small>
+                <strong className="block">{isPatientOnly ? "Solicitar consulta" : "Nova consulta"}</strong>
+                <small className="text-coral-50/75">{isPatientOnly ? "Por especialidade" : "Agendar atendimento"}</small>
               </span>
             </Link>
           )}

@@ -27,6 +27,8 @@ Inclui capacidades por dominio de produto:
 | Status | Significado |
 |---|---|
 | Documentado | Aparece na documentacao existente |
+| Implementado parcial | Existe fluxo/codigo inicial, mas ainda exige evolucao, validacao ou integracao |
+| Validado local | Existe evidencia local automatizada/manual, sem liberar producao |
 | TODO | Precisa validacao ou detalhamento |
 | Futuro | Possivel evolucao, sem compromisso |
 
@@ -39,14 +41,14 @@ Inclui capacidades por dominio de produto:
 | Identidade e acesso | Sessoes e revogacao | TODO | Validar requisitos |
 | Acesso ao cuidado | Home do paciente/beneficiario | TODO | Deve priorizar consulta, atendimento e continuidade de cuidado |
 | Acesso ao cuidado | Pronto atendimento digital | TODO | Validar linha de cuidado, equipe, escala e regulatorio |
-| Acesso ao cuidado | Consulta agendada por especialidade | TODO | Validar especialidades, disponibilidade e regras |
+| Acesso ao cuidado | Consulta agendada por especialidade | Validado local | Paciente elegivel solicita por especialidade; API vincula medico disponivel; falta catalogo formal de especialidades e credenciamento completo |
 | Acesso ao cuidado | Perfil de profissional | TODO | Validar credenciamento, registro profissional e exposicao publica |
 | Acesso ao cuidado | Consulta avulsa transacional | TODO | Validar se entra no MVP ou fica como evolucao |
 | Medicos e saude ocupacional | Medico independente | Documentado | Nao depende de clinica; precisa credenciamento e ramo autorizado |
 | Medicos e saude ocupacional | ADM Medico do Trabalho | TODO | Acesso clinico ocupacional associado a CNPJ; exige validacao juridica/LGPD |
 | Agenda | Criacao e consulta de agendamentos | Documentado | Validar regras detalhadas |
 | Agenda | Atualizacao e cancelamento de agendamento | TODO | Deve auditar mudancas e respeitar permissao |
-| Agenda | Conflito de agenda | TODO | Requer criterios formais |
+| Agenda | Conflito de agenda | Implementado parcial | Solicitacao do paciente evita conflito simples por medico/horario; criterios finais ainda precisam validacao |
 | Teleconsulta | Sala de espera | Documentado | Paciente entra somente quando permitido |
 | Teleconsulta | LiveKit com E2EE | Documentado | Confirmar evidencias por ambiente |
 | Registro clinico | Prontuario/registro clinico | Documentado | Acesso restrito |

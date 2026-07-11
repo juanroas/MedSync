@@ -14,9 +14,10 @@ export default function AppointmentsPage() {
   const roles = getSession()?.user.roles ?? [];
   const isDoctor = roles.includes("Doctor");
   const isPatient = roles.includes("Patient");
-  const canSchedule = roles.some((role) =>
+  const canOperationalSchedule = roles.some((role) =>
     ["Receptionist", "ClinicAdmin", "MedicalDirector", "Support", "OccupationalHealthAdmin"].includes(role),
   );
+  const canRequestOrSchedule = isPatient || canOperationalSchedule;
   const canJoinRole = roles.some((role) =>
     ["Doctor", "Patient", "MedicalDirector", "OccupationalHealthAdmin"].includes(role),
   );
@@ -63,12 +64,12 @@ export default function AppointmentsPage() {
               ? "Acompanhe seus atendimentos autorizados e a entrada na sala."
               : "Acompanhe os proximos horarios e entre nas salas virtuais de atendimento."
         }
-        action={canSchedule ? (
+        action={canRequestOrSchedule ? (
           <Link
             href="/consultas/nova"
             className="inline-flex h-11 items-center gap-2 rounded-lg bg-teal-600 px-5 text-sm font-bold text-white hover:bg-teal-700"
           >
-            <Plus size={17} /> Agendar consulta
+            <Plus size={17} /> {isPatient ? "Solicitar consulta" : "Agendar consulta"}
           </Link>
         ) : undefined}
       />
@@ -86,9 +87,9 @@ export default function AppointmentsPage() {
                 ? "Quando sua elegibilidade gerar um atendimento, ele aparece aqui."
                 : "Agende a primeira consulta para preparar uma sala virtual."
           }
-          action={canSchedule ? (
+          action={canRequestOrSchedule ? (
             <Link href="/consultas/nova" className="text-sm font-bold text-teal-600">
-              Agendar agora
+              {isPatient ? "Solicitar atendimento" : "Agendar agora"}
             </Link>
           ) : undefined}
         />
