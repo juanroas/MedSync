@@ -38,6 +38,29 @@ export type StaffUser = {
   isActive: boolean;
 };
 
+export type CompanyOnboarding = {
+  companyId: string;
+  tenantId: string;
+  companyName: string;
+  taxIdMasked: string;
+  adminEmail: string;
+  contractStatus: CompanyContractStatus;
+  isActive: boolean;
+  onboardingEmailPreview: string;
+};
+
+export type CompanyActivation = {
+  companyId: string;
+  tenantId: string;
+  tenantName: string;
+  companyName: string;
+  taxIdMasked: string;
+  planName?: string;
+  contractStatus?: CompanyContractStatus;
+  isActive: boolean;
+  createdAt: string;
+};
+
 export type AuditEvent = {
   id: string;
   actorUserId?: string;

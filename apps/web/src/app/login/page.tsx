@@ -13,7 +13,6 @@ import {
   ShieldCheck,
   Video,
 } from "lucide-react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
 
@@ -103,10 +102,7 @@ export default function LoginPage() {
           </form>
 
           <p className="mt-6 text-center text-sm text-slate-500">
-            Nova empresa parceira?{" "}
-            <Link href="/cadastro" className="font-bold text-teal-700">
-              Criar conta administrativa
-            </Link>
+            Nova empresa parceira? O primeiro cadastro e assistido pelo suporte MedSync.
           </p>
 
           <div className="mt-7 rounded-lg border border-teal-100 bg-teal-50/70 p-4 text-xs leading-5 text-slate-600">

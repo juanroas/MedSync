@@ -2,7 +2,9 @@ import type {
   Appointment,
   BusinessReport,
   ClinicRole,
+  CompanyActivation,
   CompanyBeneficiary,
+  CompanyOnboarding,
   CompanyPortal,
   ConsultationRoom,
   Doctor,
@@ -131,6 +133,27 @@ export const api = {
       body: JSON.stringify(input),
     }),
   getAuditEvents: () => request<AuditEvent[]>("/audit-events"),
+  createCompanyOnboarding: (input: {
+    legalName: string;
+    tradeName?: string;
+    taxId: string;
+    planName: string;
+    monthlyFee: number;
+    monthlyConsultationLimit: number;
+    adminName: string;
+    adminEmail: string;
+    temporaryPassword: string;
+  }) =>
+    request<CompanyOnboarding>("/companies/onboarding", {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
+  getCompanyActivations: () => request<CompanyActivation[]>("/companies/activation"),
+  updateCompanyActivation: (id: string, input: { isActive: boolean; reason?: string }) =>
+    request<CompanyActivation>(`/companies/${id}/activation`, {
+      method: "PUT",
+      body: JSON.stringify(input),
+    }),
   getCompanyPortal: () => request<CompanyPortal>("/company-portal"),
   getCompanyBeneficiaries: () => request<CompanyBeneficiary[]>("/company-beneficiaries"),
   updateCompanyBeneficiaryEligibility: (

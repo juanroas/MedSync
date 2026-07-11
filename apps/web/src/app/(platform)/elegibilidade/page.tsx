@@ -1,8 +1,8 @@
 "use client";
 
 import { EmptyState, ErrorBanner, LoadingState, PageHeader, buttonClass, inputClass } from "@/components/ui";
-import type { CompanyBeneficiary } from "@/lib/types";
-import { api } from "@/services/api";
+import type { CompanyActivation, CompanyBeneficiary } from "@/lib/types";
+import { api, getSession } from "@/services/api";
 import { CheckCircle2, ClipboardCheck, Search, ShieldCheck, XCircle } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
@@ -21,6 +21,10 @@ function toForm(beneficiary: CompanyBeneficiary): EligibilityForm {
 }
 
 export default function EligibilityPage() {
+  const roles = getSession()?.user.roles ?? [];
+  const isPlatformAdmin = roles.includes("PlatformAdmin");
+  const canManageBeneficiaries = roles.some((role) => ["CompanyAdmin", "Support"].includes(role));
+  const [companies, setCompanies] = useState<CompanyActivation[]>([]);
   const [beneficiaries, setBeneficiaries] = useState<CompanyBeneficiary[]>([]);
   const [forms, setForms] = useState<Record<string, EligibilityForm>>({});
   const [query, setQuery] = useState("");
@@ -30,17 +34,18 @@ export default function EligibilityPage() {
   const [success, setSuccess] = useState("");
 
   useEffect(() => {
-    api
-      .getCompanyBeneficiaries()
-      .then((items) => {
-        setBeneficiaries(items);
-        setForms(Object.fromEntries(items.map((item) => [item.id, toForm(item)])));
+    Promise.all([
+      isPlatformAdmin ? api.getCompanyActivations() : Promise.resolve([]),
+      canManageBeneficiaries ? api.getCompanyBeneficiaries() : Promise.resolve([]),
+    ])
+      .then(([companyItems, beneficiaryItems]) => {
+        setCompanies(companyItems);
+        setBeneficiaries(beneficiaryItems);
+        setForms(Object.fromEntries(beneficiaryItems.map((item) => [item.id, toForm(item)])));
       })
-      .catch((err) =>
-        setError(err instanceof Error ? err.message : "Erro ao carregar elegibilidade."),
-      )
+      .catch((err) => setError(err instanceof Error ? err.message : "Erro ao carregar elegibilidade."))
       .finally(() => setLoading(false));
-  }, []);
+  }, [canManageBeneficiaries, isPlatformAdmin]);
 
   const filtered = useMemo(
     () =>
@@ -84,6 +89,24 @@ export default function EligibilityPage() {
     }));
   }
 
+  async function toggleCompany(company: CompanyActivation) {
+    setSavingId(company.companyId);
+    setError("");
+    setSuccess("");
+    try {
+      const updated = await api.updateCompanyActivation(company.companyId, {
+        isActive: !company.isActive,
+        reason: !company.isActive ? "CNPJ habilitado pelo ADM MedSync." : "CNPJ desabilitado pelo ADM MedSync.",
+      });
+      setCompanies((items) => items.map((item) => (item.companyId === updated.companyId ? updated : item)));
+      setSuccess(updated.isActive ? "CNPJ habilitado para uso." : "CNPJ desabilitado.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro ao atualizar CNPJ.");
+    } finally {
+      setSavingId("");
+    }
+  }
+
   return (
     <>
       <PageHeader
@@ -122,6 +145,39 @@ export default function EligibilityPage() {
 
       {loading ? (
         <LoadingState label="Carregando elegibilidade..." />
+      ) : isPlatformAdmin ? (
+        <section className="grid gap-4 xl:grid-cols-2">
+          {companies.map((company) => (
+            <article key={company.companyId} className="rounded-lg border border-slate-100 bg-white p-6 shadow-sm">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <h2 className="font-bold text-ink">{company.companyName}</h2>
+                  <p className="mt-1 text-sm text-slate-500">CNPJ {company.taxIdMasked}</p>
+                  <p className="mt-2 text-xs font-semibold text-slate-400">
+                    {company.planName ?? "Sem plano"} - {company.contractStatus ?? "Sem contrato"}
+                  </p>
+                </div>
+                <span className={`rounded-lg px-3 py-2 text-xs font-bold ${
+                  company.isActive ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"
+                }`}>
+                  {company.isActive ? "Habilitada" : "Aguardando habilitacao"}
+                </span>
+              </div>
+              <div className="mt-5 flex items-center justify-between border-t border-slate-100 pt-5">
+                <p className="text-xs text-slate-400">Somente ADM MedSync pode alterar este status.</p>
+                <button
+                  className={buttonClass}
+                  onClick={() => toggleCompany(company)}
+                  disabled={savingId === company.companyId}
+                >
+                  {savingId === company.companyId
+                    ? "Atualizando..."
+                    : company.isActive ? "Desabilitar CNPJ" : "Habilitar CNPJ"}
+                </button>
+              </div>
+            </article>
+          ))}
+        </section>
       ) : filtered.length === 0 ? (
         <EmptyState
           icon={<ClipboardCheck size={22} />}

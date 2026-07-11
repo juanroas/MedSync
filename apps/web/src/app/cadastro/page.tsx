@@ -31,6 +31,7 @@ export default function RegisterCompanyPage() {
     try {
       const session = await api.registerClinic({
         ...form,
+        taxId: onlyDigits(form.taxId),
         monthlyFee: Number(form.monthlyFee),
         monthlyConsultationLimit: Number(form.monthlyConsultationLimit),
       });
@@ -63,50 +64,60 @@ export default function RegisterCompanyPage() {
             <Field
               label="Razao social"
               value={form.clinicName}
+              maxLength={180}
               onChange={(clinicName) => setForm({ ...form, clinicName })}
             />
             <Field
               label="Nome fantasia"
               value={form.tradeName}
+              maxLength={180}
               onChange={(tradeName) => setForm({ ...form, tradeName })}
             />
             <Field
               label="CNPJ"
               value={form.taxId}
-              onChange={(taxId) => setForm({ ...form, taxId })}
+              maxLength={18}
+              onChange={(taxId) => setForm({ ...form, taxId: maskCnpj(taxId) })}
               placeholder="00.000.000/0000-00"
             />
             <div className="grid gap-5 md:grid-cols-2">
               <Field
                 label="Plano contratado"
                 value={form.planName}
+                maxLength={120}
                 onChange={(planName) => setForm({ ...form, planName })}
               />
               <Field
                 label="Limite mensal de consultas"
                 type="number"
                 min={1}
+                max={100000}
                 value={form.monthlyConsultationLimit}
-                onChange={(monthlyConsultationLimit) => setForm({ ...form, monthlyConsultationLimit })}
+                onChange={(monthlyConsultationLimit) =>
+                  setForm({ ...form, monthlyConsultationLimit: limitNumber(monthlyConsultationLimit, 6) })
+                }
               />
             </div>
             <Field
               label="Valor mensal"
               type="number"
               min={1}
+              max={1000000}
               step="0.01"
               value={form.monthlyFee}
-              onChange={(monthlyFee) => setForm({ ...form, monthlyFee })}
+              onChange={(monthlyFee) => setForm({ ...form, monthlyFee: limitNumber(monthlyFee, 10) })}
             />
             <Field
               label="Seu nome"
               value={form.name}
+              maxLength={160}
               onChange={(name) => setForm({ ...form, name })}
             />
             <Field
               label="E-mail"
               type="email"
               value={form.email}
+              maxLength={180}
               onChange={(email) => setForm({ ...form, email })}
             />
             <Field
@@ -114,6 +125,7 @@ export default function RegisterCompanyPage() {
               type="password"
               value={form.password}
               minLength={12}
+              maxLength={128}
               onChange={(password) => setForm({ ...form, password })}
             />
             <p className="text-xs leading-5 text-slate-400">
@@ -135,7 +147,9 @@ function Field({
   onChange,
   type = "text",
   minLength,
+  maxLength,
   min,
+  max,
   step,
   placeholder,
 }: {
@@ -144,7 +158,9 @@ function Field({
   onChange: (value: string) => void;
   type?: string;
   minLength?: number;
+  maxLength?: number;
   min?: number;
+  max?: number;
   step?: string;
   placeholder?: string;
 }) {
@@ -157,11 +173,30 @@ function Field({
         value={value}
         onChange={(event) => onChange(event.target.value)}
         minLength={minLength}
+        maxLength={maxLength}
         min={min}
+        max={max}
         step={step}
         placeholder={placeholder}
         required
       />
     </label>
   );
+}
+
+function onlyDigits(value: string) {
+  return value.replace(/\D/g, "");
+}
+
+function maskCnpj(value: string) {
+  const digits = onlyDigits(value).slice(0, 14);
+  return digits
+    .replace(/^(\d{2})(\d)/, "$1.$2")
+    .replace(/^(\d{2})\.(\d{3})(\d)/, "$1.$2.$3")
+    .replace(/\.(\d{3})(\d)/, ".$1/$2")
+    .replace(/(\d{4})(\d)/, "$1-$2");
+}
+
+function limitNumber(value: string, maxLength: number) {
+  return value.replace(/[^\d.]/g, "").slice(0, maxLength);
 }

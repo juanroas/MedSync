@@ -4,6 +4,7 @@ import { Logo } from "@/components/logo";
 import type { ClinicRole, User } from "@/lib/types";
 import { api, clearSession, getSession, saveSession } from "@/services/api";
 import {
+  Building2,
   CalendarDays,
   ChartNoAxesColumn,
   ChevronRight,
@@ -30,6 +31,12 @@ const navigation: Array<{
   roles?: ClinicRole[];
 }> = [
   { href: "/dashboard", label: "Painel", icon: LayoutDashboard },
+  {
+    href: "/empresas",
+    label: "Empresas",
+    icon: Building2,
+    roles: ["Support", "PlatformAdmin"],
+  },
   {
     href: "/elegibilidade",
     label: "Elegibilidade",
@@ -159,6 +166,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const visibleNavigation = navigation.filter((item) => {
     const platformAdminAllowed =
       item.href === "/dashboard" ||
+      item.href === "/empresas" ||
       item.href === "/acessos" ||
       item.href === "/elegibilidade" ||
       item.href === "/privacidade" ||

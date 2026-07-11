@@ -18,6 +18,21 @@ const staffRoleOptions: Array<{ value: ClinicRole; label: string }> = [
   { value: "PlatformAdmin", label: "Admin plataforma" },
 ];
 
+const platformStaffRoleValues: ClinicRole[] = [
+  "PlatformFinance",
+  "Support",
+  "PlatformAuditor",
+  "DataProtectionOfficer",
+  "OccupationalHealthAdmin",
+  "PlatformAdmin",
+];
+
+const companyStaffRoleValues: ClinicRole[] = [
+  "CompanyAdmin",
+  "CompanyFinance",
+  "CompanyAuditor",
+];
+
 const initialForm = {
   name: "",
   email: "",
@@ -45,17 +60,28 @@ const roleLabel: Partial<Record<ClinicRole, string>> = {
 };
 
 export default function AccessPage() {
-  const roles = getSession()?.user.roles ?? [];
+  const [roles, setRoles] = useState<ClinicRole[]>(() => getSession()?.user.roles ?? []);
   const canCreateAccess = roles.some((role) => role === "ClinicAdmin" || role === "PlatformAdmin" || role === "CompanyAdmin");
-  const isCompanyAdminOnly =
+  const isPlatformAdmin = roles.includes("PlatformAdmin");
+  const isCompanyAdmin =
     roles.includes("CompanyAdmin") &&
-    !roles.some((role) => role === "ClinicAdmin" || role === "PlatformAdmin");
-  const availableRoleOptions = isCompanyAdminOnly
-    ? staffRoleOptions.filter((option) =>
-        ["CompanyAdmin", "CompanyFinance", "CompanyAuditor"].includes(option.value),
-      )
-    : staffRoleOptions;
+    !roles.includes("PlatformAdmin");
+  const allowedRoleValues = isPlatformAdmin
+    ? platformStaffRoleValues
+    : isCompanyAdmin
+      ? companyStaffRoleValues
+      : roles.length > 0
+        ? staffRoleOptions.map((option) => option.value)
+        : [];
+  const availableRoleOptions = isPlatformAdmin
+    ? staffRoleOptions.filter((option) => platformStaffRoleValues.includes(option.value))
+    : isCompanyAdmin
+    ? staffRoleOptions.filter((option) => companyStaffRoleValues.includes(option.value))
+    : roles.length > 0
+      ? staffRoleOptions
+      : [];
   const [users, setUsers] = useState<StaffUser[]>([]);
+  const visibleUsers = users.filter((user) => allowedRoleValues.includes(user.role));
   const [form, setForm] = useState(initialForm);
   const [showForm, setShowForm] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -63,11 +89,21 @@ export default function AccessPage() {
   const [error, setError] = useState("");
 
   useEffect(() => {
+    setRoles(getSession()?.user.roles ?? []);
+  }, []);
+
+  useEffect(() => {
     api.getStaffUsers()
       .then(setUsers)
       .catch((err) => setError(err instanceof Error ? err.message : "Erro ao carregar acessos."))
       .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    if (!availableRoleOptions.some((option) => option.value === form.role)) {
+      setForm((current) => ({ ...current, role: availableRoleOptions[0]?.value ?? "CompanyAdmin" }));
+    }
+  }, [availableRoleOptions, form.role]);
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -136,11 +172,11 @@ export default function AccessPage() {
       )}
       {loading ? (
         <LoadingState label="Carregando acessos..." />
-      ) : users.length === 0 ? (
+      ) : visibleUsers.length === 0 ? (
         <EmptyState icon={<UserCog size={22} />} title="Nenhum acesso administrativo" description="Crie o primeiro perfil operacional." />
       ) : (
         <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {users.map((user) => (
+          {visibleUsers.map((user) => (
             <article key={`${user.id}-${user.role}`} className="rounded-3xl border border-slate-100 bg-white p-6 shadow-sm">
               <span className="grid size-11 place-items-center rounded-2xl bg-teal-50 text-teal-600"><ShieldCheck size={20} /></span>
               <h2 className="mt-4 font-bold text-ink">{user.name}</h2>

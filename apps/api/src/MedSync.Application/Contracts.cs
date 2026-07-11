@@ -37,6 +37,42 @@ public sealed record StaffUserResponse(
     ClinicRole Role,
     bool IsActive);
 
+public sealed record CreateCompanyOnboardingRequest(
+    string LegalName,
+    string? TradeName,
+    string TaxId,
+    string PlanName,
+    decimal MonthlyFee,
+    int MonthlyConsultationLimit,
+    string AdminName,
+    string AdminEmail,
+    string TemporaryPassword);
+
+public sealed record CompanyOnboardingResponse(
+    Guid CompanyId,
+    Guid TenantId,
+    string CompanyName,
+    string TaxIdMasked,
+    string AdminEmail,
+    CompanyContractStatus ContractStatus,
+    bool IsActive,
+    string OnboardingEmailPreview);
+
+public sealed record CompanyActivationResponse(
+    Guid CompanyId,
+    Guid TenantId,
+    string TenantName,
+    string CompanyName,
+    string TaxIdMasked,
+    string? PlanName,
+    CompanyContractStatus? ContractStatus,
+    bool IsActive,
+    DateTime CreatedAt);
+
+public sealed record UpdateCompanyActivationRequest(
+    bool IsActive,
+    string? Reason);
+
 public sealed record AuditEventResponse(
     Guid Id,
     Guid? ActorUserId,
