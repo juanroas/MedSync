@@ -303,8 +303,13 @@ static SeedMode ResolveDemoSeedMode(IWebHostEnvironment environment)
         return new SeedMode(true, "Development", "Ambiente Development.");
     if (environment.IsEnvironment("Homologation"))
         return new SeedMode(true, "Homologation", "Ambiente Homologation.");
-    if (homologationSeedEnabled && !environment.IsProduction())
-        return new SeedMode(true, "NonProductionFlag", "Seed habilitado em ambiente nao-producao.");
+    if (homologationSeedEnabled)
+        return new SeedMode(
+            true,
+            environment.IsProduction() ? "PresentationProduction" : "NonProductionFlag",
+            environment.IsProduction()
+                ? "Seed demo habilitado em ambiente unico publicado."
+                : "Seed habilitado em ambiente nao-producao.");
     if (presentationSeedInProduction)
         return new SeedMode(true, "PresentationProduction", "Seed demo habilitado explicitamente em ambiente unico.");
 
