@@ -106,6 +106,10 @@ export type Doctor = {
 export type CareSpecialty = {
   specialty: string;
   availableDoctors: number;
+  doctors: Array<{
+    id: string;
+    name: string;
+  }>;
 };
 
 export type AppointmentStatus =

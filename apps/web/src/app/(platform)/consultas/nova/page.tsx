@@ -8,7 +8,7 @@ import { api, getSession } from "@/services/api";
 import { ArrowLeft, CalendarPlus, CheckCircle2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 
 const operationalRoles = ["Receptionist", "ClinicAdmin", "MedicalDirector", "Support", "OccupationalHealthAdmin"];
 
@@ -48,6 +48,7 @@ export default function NewAppointmentPage() {
           setForm((current) => ({
             ...current,
             specialty: data[0]?.specialty ?? "",
+            doctorId: data[0]?.doctors[0]?.id ?? "",
           }));
         })
         .catch((err) => setError(err instanceof Error ? err.message : "Erro ao carregar especialidades."))
@@ -74,8 +75,8 @@ export default function NewAppointmentPage() {
     setSaving(true);
     setError("");
 
-    if (isPatient && !form.specialty) {
-      setError("Selecione uma especialidade disponivel.");
+    if (isPatient && (!form.specialty || !form.doctorId)) {
+      setError("Selecione uma especialidade e um medico disponivel.");
       setSaving(false);
       return;
     }
@@ -99,6 +100,7 @@ export default function NewAppointmentPage() {
       if (isPatient) {
         await api.requestAppointment({
           specialty: form.specialty,
+          doctorId: form.doctorId,
           scheduledAt: brazilLocalDateTimeToUtcIso(form.scheduledAt),
           durationMinutes: form.durationMinutes,
           notes: form.notes,
@@ -193,6 +195,12 @@ function PatientRequestForm({
   onChange: (form: AppointmentForm) => void;
   onSubmit: (event: FormEvent) => void;
 }) {
+  const selectedSpecialty = useMemo(
+    () => specialties.find((item) => item.specialty === form.specialty) ?? specialties[0],
+    [form.specialty, specialties],
+  );
+  const availableDoctors = selectedSpecialty?.doctors ?? [];
+
   if (specialties.length === 0) {
     return (
       <div className="rounded-3xl border border-amber-100 bg-amber-50 p-6 text-sm text-amber-800">
@@ -210,15 +218,40 @@ function PatientRequestForm({
             <select
               className={inputClass}
               value={form.specialty}
-              onChange={(event) => onChange({ ...form, specialty: event.target.value })}
+              onChange={(event) => {
+                const nextSpecialty = specialties.find((item) => item.specialty === event.target.value);
+                onChange({
+                  ...form,
+                  specialty: event.target.value,
+                  doctorId: nextSpecialty?.doctors[0]?.id ?? "",
+                });
+              }}
               required
             >
               {specialties.map((item) => (
                 <option key={item.specialty} value={item.specialty}>
-                  {item.specialty} - {item.availableDoctors} opcao{item.availableDoctors === 1 ? "" : "es"}
+                  {item.specialty}
                 </option>
               ))}
             </select>
+          </label>
+          <label className="block sm:col-span-2">
+            <span className="mb-2 block text-sm font-bold text-slate-700">Medico disponivel</span>
+            <select
+              className={inputClass}
+              value={form.doctorId}
+              onChange={(event) => onChange({ ...form, doctorId: event.target.value })}
+              required
+            >
+              {availableDoctors.map((doctor) => (
+                <option key={doctor.id} value={doctor.id}>
+                  {doctor.name}
+                </option>
+              ))}
+            </select>
+            <span className="mt-2 block text-xs text-slate-400">
+              {availableDoctors.length} opcao{availableDoctors.length === 1 ? "" : "es"} nesta especialidade.
+            </span>
           </label>
           <label className="block sm:col-span-2">
             <span className="mb-2 block text-sm font-bold text-slate-700">Data e horario de Brasilia</span>

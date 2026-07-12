@@ -1766,9 +1766,15 @@ public static class ApiEndpoints
         }
 
         var specialties = await db.Doctors.AsNoTracking()
+            .Where(x => x.ClinicId == actor.ClinicId)
             .GroupBy(x => x.Specialty)
             .OrderBy(x => x.Key)
-            .Select(x => new CareSpecialtyResponse(x.Key, x.Count()))
+            .Select(x => new CareSpecialtyResponse(
+                x.Key,
+                x.Count(),
+                x.OrderBy(doctor => doctor.Name)
+                    .Select(doctor => new CareDoctorOptionResponse(doctor.Id, doctor.Name))
+                    .ToList()))
             .ToListAsync(cancellationToken);
 
         audit.Add(actor, "CareSpecialty.List", "Doctor", null);
@@ -1816,20 +1822,31 @@ public static class ApiEndpoints
 
         var scheduledEndsAt = scheduledAt.AddMinutes(request.DurationMinutes);
         var specialtyKey = specialty.ToLowerInvariant();
-        var doctor = await db.Doctors
+        var doctorQuery = db.Doctors
             .Where(x =>
                 x.Specialty.ToLower() == specialtyKey &&
+                x.ClinicId == actor.ClinicId &&
                 !db.Appointments.Any(a =>
                     a.DoctorId == x.Id &&
                     a.Status != AppointmentStatus.Cancelled &&
                     a.Status != AppointmentStatus.Completed &&
                     a.ScheduledAt < scheduledEndsAt &&
-                    a.ScheduledAt.AddMinutes(a.DurationMinutes) > scheduledAt))
+                    a.ScheduledAt.AddMinutes(a.DurationMinutes) > scheduledAt));
+
+        if (request.DoctorId is { } doctorId)
+            doctorQuery = doctorQuery.Where(x => x.Id == doctorId);
+
+        var doctor = await doctorQuery
             .OrderBy(x => x.Name)
             .FirstOrDefaultAsync(cancellationToken);
 
         if (doctor is null)
-            return Results.Conflict(new { message = "Nao ha medico disponivel para esta especialidade no horario escolhido." });
+        {
+            var message = request.DoctorId is { }
+                ? "O medico selecionado nao esta disponivel neste horario. Escolha outro horario ou outro medico da especialidade."
+                : "Nao ha medico disponivel para esta especialidade no horario escolhido.";
+            return Results.Conflict(new { message });
+        }
 
         var appointment = new Appointment
         {

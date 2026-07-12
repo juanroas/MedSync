@@ -272,6 +272,7 @@ export const api = {
     }),
   requestAppointment: (appointment: {
     specialty: string;
+    doctorId?: string;
     scheduledAt: string;
     durationMinutes: number;
     notes?: string;

@@ -145,7 +145,12 @@ public sealed record DoctorResponse(
 
 public sealed record CareSpecialtyResponse(
     string Specialty,
-    int AvailableDoctors);
+    int AvailableDoctors,
+    IReadOnlyCollection<CareDoctorOptionResponse> Doctors);
+
+public sealed record CareDoctorOptionResponse(
+    Guid Id,
+    string Name);
 
 public sealed record UpdateDoctorRequest(
     string Name,
@@ -166,6 +171,7 @@ public sealed record CreateAppointmentRequest(
 
 public sealed record RequestAppointmentRequest(
     string Specialty,
+    Guid? DoctorId,
     DateTime ScheduledAt,
     int DurationMinutes,
     string? Notes);
