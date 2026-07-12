@@ -23,7 +23,7 @@ import type {
   User,
 } from "@/lib/types";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
+const API_URL = process.env.NEXT_PUBLIC_API_BASE_PATH ?? "/api";
 const USER_KEY = "medsync_user";
 
 export class ApiError extends Error {
