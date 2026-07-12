@@ -66,7 +66,7 @@ public sealed class TokenService(IConfiguration configuration) : ITokenService
     }
 
     private string Required(string environmentName, string key) =>
-        Value(environmentName, key) is { Length: > 0 } value
+        Value(environmentName, key) is { } value && !string.IsNullOrWhiteSpace(value)
             ? value
             : throw new InvalidOperationException($"Configure {environmentName}.");
 

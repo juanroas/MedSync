@@ -2175,22 +2175,53 @@ public static class ApiEndpoints
                 term = SecurityText.ConsentTerm
             });
 
+        string liveKitToken;
+        string encryptionKey;
+        try
+        {
+            liveKitToken = tokens.CreateLiveKitToken(
+                appointment.ConsultationRoom.RoomName,
+                actor.UserId.ToString(),
+                principal.Identity?.Name);
+            encryptionKey = SecurityText.VideoEncryptionKey(
+                appointment.ConsultationRoom.RoomName,
+                configuration);
+        }
+        catch (InvalidOperationException ex) when (IsVideoProviderConfigurationError(ex))
+        {
+            audit.Add(
+                actor,
+                "Video.TokenIssued",
+                "Appointment",
+                appointmentId,
+                "Denied",
+                "Video provider is not configured.");
+            await db.SaveChangesAsync(cancellationToken);
+            return Results.Json(
+                new
+                {
+                    code = "video_provider_not_configured",
+                    message = "Videochamada nao configurada neste ambiente. Configure LIVEKIT_API_KEY, LIVEKIT_API_SECRET e VIDEO_E2EE_SECRET na API."
+                },
+                statusCode: StatusCodes.Status503ServiceUnavailable);
+        }
+
         appointment.ConsultationRoom.Status = VideoSessionStatus.InProgress;
         appointment.ConsultationRoom.LastActivityAt = DateTime.UtcNow;
         audit.Add(actor, "Video.TokenIssued", "Appointment", appointmentId);
         await db.SaveChangesAsync(cancellationToken);
         return Results.Ok(new
         {
-            token = tokens.CreateLiveKitToken(
-                appointment.ConsultationRoom.RoomName,
-                actor.UserId.ToString(),
-                principal.Identity?.Name),
+            token = liveKitToken,
             roomName = appointment.ConsultationRoom.RoomName,
-            encryptionKey = SecurityText.VideoEncryptionKey(
-                appointment.ConsultationRoom.RoomName,
-                configuration)
+            encryptionKey
         });
     }
+
+    private static bool IsVideoProviderConfigurationError(InvalidOperationException exception) =>
+        exception.Message.Contains("LIVEKIT_", StringComparison.OrdinalIgnoreCase) ||
+        exception.Message.Contains("LiveKit", StringComparison.OrdinalIgnoreCase) ||
+        exception.Message.Contains("VIDEO_E2EE_SECRET", StringComparison.OrdinalIgnoreCase);
 
     private static async Task<IResult> EndConsultation(
         Guid appointmentId,
