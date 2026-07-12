@@ -129,7 +129,7 @@ export default function AppointmentsPage() {
                   {statusLabel[appointment.status]}
                 </span>
                 {canJoinRole ? (
-                  isDoctor && ["Scheduled", "InProgress"].includes(appointment.status) && !appointment.roomName ? (
+                  isDoctor && canStartRoom(appointment) ? (
                     <button
                       type="button"
                       onClick={() => startRoom(appointment.id)}
@@ -214,4 +214,17 @@ function getAppointmentNextStep(appointment: Appointment) {
     icon: <CalendarDays size={15} />,
     className: "bg-slate-50 text-slate-500",
   };
+}
+
+function canStartRoom(appointment: Appointment) {
+  if (appointment.roomName || !["Scheduled", "InProgress"].includes(appointment.status)) {
+    return false;
+  }
+
+  const scheduledAt = new Date(appointment.scheduledAt).getTime();
+  const opensAt = scheduledAt - 15 * 60 * 1000;
+  const closesAt = scheduledAt + (appointment.durationMinutes + 15) * 60 * 1000;
+  const now = Date.now();
+
+  return now >= opensAt && now <= closesAt;
 }
