@@ -34,9 +34,9 @@ Antes de considerar uma referencia "incorporada", preencher:
 | Referencia | Sinal observado | Interpretacao para MedSync | Capacidade MedSync | Tela/fluxo afetado | Artefato tecnico | Evidencia esperada | Status |
 |---|---|---|---|---|---|---|---|
 | Dr.Online | Saude digital B2B, pronto atendimento, especialistas, saude mental, white label, dashboards e seguranca | B2B deve ser canal e governanca; a experiencia central deve ser acesso ao cuidado | Portal Business + Portal Care + dashboards agregados | Landing, Home Care, Portal Empresa | B2B Company, Patient Care, Reporting | Tela empresa sem dado clinico e home paciente focada em atendimento | Especificado parcial |
-| Meu Doutor 24h | Jornada direta para consulta online | Paciente precisa de fluxo simples de iniciar atendimento ou agendar | Consulta agora/agendamento guiado | Home Care, Agendar consulta | Patient Care, Medical Attendance | Paciente inicia jornada em ate poucos passos | Mapeado |
-| Doctoralia | Busca por profissional, especialidade, perfil e agenda | Confianca medica exige perfil profissional e especialidade visivel quando permitido | Perfil medico e agenda por especialidade | Buscar profissional, Agenda medico | Doctor, Specialty, Schedule | Perfil medico com CRM/UF/especialidade e agenda | Mapeado |
-| IntegraConsulta | Telemedicina, especialidades, planos e oferta pessoa fisica/empresa | Modelo pode ser B2B2C ou hibrido, mas precisa decisao de ICP | Planos, beneficios, elegibilidade, possivel B2C assistido | Planos, Elegibilidade, CNPJ tecnico | BenefitPlan, CompanyContract, Technical CNPJ | Beneficiario elegivel e pessoa fisica assistida por suporte | Especificado parcial |
+| Meu Doutor 24h | Jornada direta para consulta online, suporte agil e confirmacao operacional | Paciente precisa de fluxo simples de iniciar atendimento ou agendar, com suporte quando o digital nao resolver | Consulta agora/agendamento guiado + fallback suporte | Home Care, Agendar consulta, Suporte | Patient Care, Medical Attendance | Paciente inicia jornada em ate poucos passos | Implementado parcial |
+| Doctoralia | Busca por profissional, especialidade, perfil e agenda | Confianca medica exige perfil profissional e especialidade visivel quando permitido | Perfil medico, agenda por especialidade e dados pessoais editaveis | Buscar profissional, Agenda medico, Meus dados | Doctor, Specialty, Schedule, Profile | Perfil medico com CRM/UF/especialidade e perfil pessoal editavel | Implementado parcial |
+| IntegraConsulta | Telemedicina, especialidades, planos e oferta pessoa fisica/empresa | Modelo pode ser B2B2C ou hibrido, mas precisa decisao de ICP | Planos, beneficios, elegibilidade, possivel B2C assistido | Planos, Elegibilidade, CNPJ tecnico, Seed demo | BenefitPlan, CompanyContract, Technical CNPJ | Beneficiario elegivel e pessoa fisica assistida por suporte | Implementado parcial |
 | Clicou Consulta | Consulta online 24h, pagamento avulso, videochamada e documentos digitais | Consulta transacional e pagamento sao uteis, mas documentos clinicos exigem validacao regulatoria | Consulta avulsa, pagamento, sala, documentos futuros | Checkout, Consulta, Documentos | Payment, Consultation, future Documents | Pagamento sandbox e video autorizados | Implementado parcial |
 
 ## Referencias de Agent Skills
@@ -59,7 +59,8 @@ Antes de considerar uma referencia "incorporada", preencher:
 - TODO: definir linhas de cuidado iniciais.
 - TODO: validar documentos digitais: atestado, prescricao e encaminhamento.
 - TODO: decompor cada capacidade mapeada em tarefas tecnicas pequenas.
-- TODO: criar telas de Home Care, Portal Empresa e Jornada Consulta Agora.
+- TODO: criar telas finais de Jornada Consulta Agora com escala real e suporte operacional.
+- TODO: validar catalogo formal de especialidades e regras de documentos digitais.
 
 ## Referencias internas
 

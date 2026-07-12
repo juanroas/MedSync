@@ -46,6 +46,7 @@ Fora de escopo:
 
 | Perfil | Pode atualizar | Nao pode atualizar |
 |---|---|---|
+| Todos os perfis autenticados | Dados pessoais proprios permitidos em `/perfil`: nome, e-mail e telefone quando aplicavel | Papel/permissao, CNPJ/tenant, elegibilidade, CPF, CRM, especialidade, faturas e dados clinicos |
 | Paciente/beneficiario | Dados cadastrais proprios permitidos, contato, preferencias e consentimentos quando aplicavel | Dados clinicos registrados por medico, elegibilidade de empresa, faturas |
 | Suporte MedSync | Cadastro operacional, vinculo a CNPJ tecnico, correcoes administrativas permitidas | Prontuario, diagnostico, conduta clinica |
 | Empresa/Parceiro | Dados administrativos do CNPJ, usuarios empresariais, elegibilidade permitida, dados contratuais conforme permissao | Prontuario, diagnostico, observacoes clinicas, conteudo de chamada |
@@ -85,6 +86,7 @@ TODO: validar se registros clinicos podem ser editados diretamente ou apenas ret
 ## Pendencias
 
 - TODO: definir campos editaveis por entidade.
+- Implementado parcial: `/profile` permite atualizacao pessoal minima para todos os perfis autenticados, com auditoria.
 - TODO: definir quais dados exigem historico de versao.
 - TODO: definir politica de retencao, exclusao e anonimizacao.
 - TODO: detalhar campos editaveis por operacao a partir da matriz de permissoes.

@@ -13,7 +13,7 @@ import {
 } from "@/components/ui";
 import type { BusinessReportCompany } from "@/lib/types";
 import { api, getSession } from "@/services/api";
-import { Building2, ChartNoAxesColumn, Download, EyeOff, FileBarChart, ShieldCheck, WalletCards } from "lucide-react";
+import { Building2, ChartNoAxesColumn, Download, EyeOff, FileBarChart, Search, ShieldCheck, WalletCards } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 const currency = new Intl.NumberFormat("pt-BR", {
@@ -31,6 +31,8 @@ export default function ReportsPage() {
   const [companies, setCompanies] = useState<BusinessReportCompany[]>([]);
   const [privacyGuards, setPrivacyGuards] = useState<string[]>([]);
   const [isGlobal, setIsGlobal] = useState(false);
+  const [query, setQuery] = useState("");
+  const [billingFilter, setBillingFilter] = useState("all");
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
   const [error, setError] = useState("");
@@ -63,6 +65,20 @@ export default function ReportsPage() {
       { beneficiaries: 0, eligible: 0, consultations: 0, monthlyFee: 0, paid: 0 },
     );
   }, [companies]);
+
+  const filteredCompanies = useMemo(
+    () =>
+      companies.filter((company) => {
+        const matchesSearch = `${company.companyName} ${company.taxIdMasked} ${company.tenantName} ${company.planName ?? ""}`
+          .toLowerCase()
+          .includes(query.toLowerCase());
+        const matchesBilling =
+          billingFilter === "all" ||
+          company.billingStatus.toLowerCase() === billingFilter.toLowerCase();
+        return matchesSearch && matchesBilling;
+      }),
+    [billingFilter, companies, query],
+  );
 
   async function exportFinancialCsv() {
     setExporting(true);
@@ -179,13 +195,39 @@ export default function ReportsPage() {
             message={privacyGuards.join(" ")}
           />
 
+          <div className="mb-5 grid gap-3 md:grid-cols-[minmax(280px,1fr)_220px]">
+            <div className="flex items-center gap-3 rounded-lg border border-slate-200 bg-white px-4">
+              <Search size={18} className="text-slate-400" />
+              <input
+                className="h-12 w-full bg-transparent text-sm outline-none placeholder:text-slate-400"
+                placeholder="Buscar por empresa, CNPJ, tenant ou plano"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+              />
+            </div>
+            <select
+              className="h-12 rounded-lg border border-slate-200 bg-white px-3.5 text-sm text-ink outline-none transition focus:border-teal-600 focus:ring-4 focus:ring-teal-100"
+              value={billingFilter}
+              onChange={(event) => setBillingFilter(event.target.value)}
+            >
+              <option value="all">Todos os financeiros</option>
+              <option value="Aberta">Aberta</option>
+              <option value="Pago">Pago</option>
+              <option value="Pendente">Pendente</option>
+            </select>
+          </div>
+
           <Card className="mt-6 overflow-hidden">
-            {companies.length === 0 ? (
+            {filteredCompanies.length === 0 ? (
               <div className="p-6">
                 <EmptyState
                   icon={<FileBarChart size={22} />}
-                  title="Nenhum CNPJ no escopo"
-                  description="Os relatorios aparecerao quando houver empresa contratante ativa para o perfil."
+                  title={companies.length === 0 ? "Nenhum CNPJ no escopo" : "Nenhum resultado encontrado"}
+                  description={
+                    companies.length === 0
+                      ? "Os relatorios aparecerao quando houver empresa contratante ativa para o perfil."
+                      : "Ajuste a busca ou o filtro financeiro para visualizar outros registros."
+                  }
                 />
               </div>
             ) : (
@@ -201,7 +243,7 @@ export default function ReportsPage() {
                     <span>Status</span>
                   </div>
                   <div className="divide-y divide-slate-100">
-                    {companies.map((company) => (
+                    {filteredCompanies.map((company) => (
                       <CompanyReportRow key={company.companyId} company={company} />
                     ))}
                   </div>
@@ -218,12 +260,14 @@ export default function ReportsPage() {
 function CompanyReportRow({ company }: { company: BusinessReportCompany }) {
   return (
     <article className="grid grid-cols-[1.3fr_1fr_.8fr_.8fr_.8fr_.9fr_.9fr] gap-4 px-6 py-5 text-sm">
-      <div>
-        <p className="font-bold text-ink">{company.companyName}</p>
+      <div className="min-w-0">
+        <p className="truncate font-bold text-ink" title={company.companyName}>{company.companyName}</p>
         <p className="mt-1 text-xs text-slate-400">{company.taxIdMasked} · {company.tenantName}</p>
       </div>
-      <div>
-        <p className="font-semibold text-slate-700">{company.planName ?? "Sem plano"}</p>
+      <div className="min-w-0">
+        <p className="truncate font-semibold text-slate-700" title={company.planName ?? "Sem plano"}>
+          {company.planName ?? "Sem plano"}
+        </p>
         <p className="mt-1 text-xs text-slate-400">{company.contractStatus ?? "Sem contrato"}</p>
       </div>
       <span className="font-semibold text-ink">{company.beneficiaryCount}</span>

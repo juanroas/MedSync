@@ -1,8 +1,8 @@
 "use client";
 
 import { ErrorBanner, EmptyState, LoadingState, PageHeader, buttonClass, inputClass } from "@/components/ui";
-import { formatDate } from "@/lib/format";
-import type { Patient } from "@/lib/types";
+import { formatDate, formatDateTime, statusClass, statusLabel } from "@/lib/format";
+import type { Appointment, AppointmentStatus, Patient } from "@/lib/types";
 import { isValidCpf, isValidOptionalPhone, maskCpf } from "@/lib/validation";
 import { api, getSession, saveSession } from "@/services/api";
 import { Mail, Phone, Plus, Search, UserRound } from "lucide-react";
@@ -35,9 +35,12 @@ export default function PatientsPage() {
     role === "Support",
   );
   const [patients, setPatients] = useState<Patient[]>([]);
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [form, setForm] = useState(initialForm);
   const [editForm, setEditForm] = useState(initialEditForm);
   const [query, setQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"all" | AppointmentStatus>("all");
+  const [specialtyFilter, setSpecialtyFilter] = useState("all");
   const [showForm, setShowForm] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -46,12 +49,17 @@ export default function PatientsPage() {
   const [success, setSuccess] = useState("");
 
   useEffect(() => {
-    api
-      .getPatients()
-      .then(setPatients)
+    Promise.all([
+      api.getPatients(),
+      isDoctor ? api.getAppointments() : Promise.resolve([] as Appointment[]),
+    ])
+      .then(([patientData, appointmentData]) => {
+        setPatients(patientData);
+        setAppointments(appointmentData);
+      })
       .catch((err) => setError(err instanceof Error ? err.message : "Erro ao carregar pacientes."))
       .finally(() => setLoading(false));
-  }, []);
+  }, [isDoctor]);
 
   const ownPatient = isPatient ? patients[0] : undefined;
 
@@ -65,12 +73,44 @@ export default function PatientsPage() {
     });
   }, [ownPatient]);
 
+  const appointmentsByPatient = useMemo(() => {
+    const map = new Map<string, Appointment[]>();
+    appointments.forEach((appointment) => {
+      const current = map.get(appointment.patientId) ?? [];
+      current.push(appointment);
+      map.set(appointment.patientId, current);
+    });
+
+    return map;
+  }, [appointments]);
+
+  const specialtyOptions = useMemo(
+    () =>
+      Array.from(new Set(appointments.map((appointment) => appointment.specialty)))
+        .filter(Boolean)
+        .sort((a, b) => a.localeCompare(b)),
+    [appointments],
+  );
+
   const filtered = useMemo(
     () =>
-      patients.filter((patient) =>
-        `${patient.name} ${patient.email} ${patient.cpfMasked}`.toLowerCase().includes(query.toLowerCase()),
-      ),
-    [patients, query],
+      patients.filter((patient) => {
+        const patientAppointments = appointmentsByPatient.get(patient.id) ?? [];
+        const matchesQuery = `${patient.name} ${patient.email} ${patient.cpfMasked}`
+          .toLowerCase()
+          .includes(query.toLowerCase());
+        const matchesStatus =
+          !isDoctor ||
+          statusFilter === "all" ||
+          patientAppointments.some((appointment) => appointment.status === statusFilter);
+        const matchesSpecialty =
+          !isDoctor ||
+          specialtyFilter === "all" ||
+          patientAppointments.some((appointment) => appointment.specialty === specialtyFilter);
+
+        return matchesQuery && matchesStatus && matchesSpecialty;
+      }),
+    [appointmentsByPatient, isDoctor, patients, query, specialtyFilter, statusFilter],
   );
 
   async function submit(event: FormEvent) {
@@ -275,15 +315,52 @@ export default function PatientsPage() {
       )}
 
       {!isPatient && (
-        <div className="mb-5 flex max-w-md items-center gap-3 rounded-lg border border-slate-200 bg-white px-4">
-          <Search size={18} className="text-slate-400" />
-          <input
-            className="h-12 w-full bg-transparent text-sm outline-none placeholder:text-slate-400"
-            placeholder="Buscar por nome, e-mail ou CPF"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-          />
-        </div>
+        <section className="mb-5 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="grid gap-3 lg:grid-cols-[minmax(220px,1fr)_220px_220px_auto]">
+            <label className="flex items-center gap-3 rounded-lg border border-slate-200 px-4">
+              <Search size={18} className="text-slate-400" />
+              <input
+                className="h-12 w-full bg-transparent text-sm outline-none placeholder:text-slate-400"
+                placeholder="Buscar por nome, e-mail ou CPF"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+              />
+            </label>
+            {isDoctor && (
+              <>
+                <select
+                  className={inputClass}
+                  value={statusFilter}
+                  onChange={(event) => setStatusFilter(event.target.value as "all" | AppointmentStatus)}
+                  aria-label="Filtrar por status"
+                >
+                  <option value="all">Todos os status</option>
+                  <option value="Scheduled">Agendadas</option>
+                  <option value="InProgress">Em andamento</option>
+                  <option value="Completed">Concluidas</option>
+                  <option value="Cancelled">Canceladas</option>
+                  <option value="NoShow">Nao compareceu</option>
+                </select>
+                <select
+                  className={inputClass}
+                  value={specialtyFilter}
+                  onChange={(event) => setSpecialtyFilter(event.target.value)}
+                  aria-label="Filtrar por especialidade"
+                >
+                  <option value="all">Todas as especialidades</option>
+                  {specialtyOptions.map((specialty) => (
+                    <option key={specialty} value={specialty}>
+                      {specialty}
+                    </option>
+                  ))}
+                </select>
+              </>
+            )}
+            <div className="flex items-center rounded-lg bg-slate-50 px-4 text-sm font-bold text-slate-600">
+              {filtered.length} de {patients.length}
+            </div>
+          </div>
+        </section>
       )}
 
       {loading ? (
@@ -296,7 +373,14 @@ export default function PatientsPage() {
         />
       ) : (
         <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {filtered.map((patient) => (
+          {filtered.map((patient) => {
+            const patientAppointments = appointmentsByPatient.get(patient.id) ?? [];
+            const nextLinkedAppointment =
+              patientAppointments.find((appointment) => appointment.status === "InProgress") ??
+              patientAppointments.find((appointment) => appointment.status === "Scheduled") ??
+              patientAppointments[0];
+
+            return (
             <article key={patient.id} className="rounded-lg border border-slate-100 bg-white p-6 shadow-sm">
               <div className="flex items-start gap-4">
                 <span className="grid size-12 shrink-0 place-items-center rounded-lg bg-teal-50 font-bold text-teal-700">
@@ -316,8 +400,23 @@ export default function PatientsPage() {
                 <p className="flex items-center gap-2.5"><Phone size={15} className="text-teal-600" /> {patient.phone || "Nao informado"}</p>
                 <p className="text-xs text-slate-400">Nascimento: {formatDate(patient.birthDate)}</p>
               </div>
+              {isDoctor && nextLinkedAppointment && (
+                <div className="mt-5 rounded-lg border border-slate-100 bg-slate-50/70 p-4">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                      <p className="text-xs font-bold uppercase text-slate-400">Ultimo vinculo assistencial</p>
+                      <p className="mt-1 text-sm font-bold text-ink">{nextLinkedAppointment.specialty}</p>
+                      <p className="mt-1 text-xs text-slate-500">{formatDateTime(nextLinkedAppointment.scheduledAt)}</p>
+                    </div>
+                    <span className={`w-fit rounded-full px-2.5 py-1 text-xs font-bold ${statusClass[nextLinkedAppointment.status]}`}>
+                      {statusLabel[nextLinkedAppointment.status]}
+                    </span>
+                  </div>
+                </div>
+              )}
             </article>
-          ))}
+          );
+          })}
         </section>
       )}
     </>

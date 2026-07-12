@@ -24,6 +24,7 @@ TODO nao pode desaparecer sem uma das saidas abaixo:
 | HTD-P0-007 | Cadastro assistido de empresa pelo suporte com campos limitados e CNPJ mascarado | Validado | `/empresas`; `POST /companies/onboarding`; `company-onboarding.spec.ts`; `company-registration-copy.spec.ts` |
 | HTD-P0-008 | Habilitacao de CNPJ restrita ao ADM MedSync | Validado | `/elegibilidade`; `GET /companies/activation`; `PUT /companies/{id}/activation`; suporte nao ve acao de habilitar em `company-onboarding.spec.ts` |
 | HTD-P0-009 | Equipe e acessos separada por escopo MedSync versus empresa | Validado | `access-management.spec.ts`; PlatformAdmin ve apenas perfis MedSync; CompanyAdmin ve apenas perfis empresariais |
+| HTD-P0-010 | Todos os perfis editam dados pessoais permitidos | Validado | `/perfil`; `GET /profile`; `PUT /profile`; `personal-profile.spec.ts` com 23 cenarios Chromium |
 
 ## P1 - Necessario para piloto robusto
 

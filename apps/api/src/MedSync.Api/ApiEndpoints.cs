@@ -22,8 +22,11 @@ public static class ApiEndpoints
         protectedApi.MapGet("/auth/me", Me);
         protectedApi.MapPost("/auth/logout", Logout);
         protectedApi.MapPost("/auth/change-password", ChangePassword);
+        protectedApi.MapGet("/profile", GetPersonalProfile);
+        protectedApi.MapPut("/profile", UpdatePersonalProfile);
         protectedApi.MapPost("/staff-users", CreateStaffUser);
         protectedApi.MapGet("/staff-users", GetStaffUsers);
+        protectedApi.MapPut("/staff-users/{id:guid}/activation", UpdateStaffUserActivation);
         protectedApi.MapGet("/audit-events", GetAuditEvents);
         protectedApi.MapPost("/companies/onboarding", CreateCompanyOnboarding);
         protectedApi.MapGet("/companies/activation", GetCompanyActivations);
@@ -190,6 +193,56 @@ public static class ApiEndpoints
                 x.User.IsActive))
             .ToListAsync(cancellationToken);
         return Results.Ok(users);
+    }
+
+    private static async Task<IResult> UpdateStaffUserActivation(
+        Guid id,
+        UpdateStaffUserActivationRequest request,
+        ClaimsPrincipal principal,
+        MedSyncDbContext db,
+        AuditWriter audit,
+        CancellationToken cancellationToken)
+    {
+        var actor = RequestContext.From(principal);
+        if (!actor.HasAny(ClinicRole.ClinicAdmin, ClinicRole.PlatformAdmin, ClinicRole.CompanyAdmin))
+            return Results.Forbid();
+
+        if (id == actor.UserId && !request.IsActive)
+            return Validation("isActive", "Voce nao pode desabilitar o proprio acesso.");
+
+        var membership = await db.ClinicMemberships
+            .Include(x => x.User)
+            .SingleOrDefaultAsync(
+                x => x.ClinicId == actor.ClinicId && x.UserId == id && StaffRoles.Contains(x.Role),
+                cancellationToken);
+
+        if (membership is null)
+            return Results.NotFound(new { message = "Acesso nao encontrado neste escopo." });
+
+        if (actor.HasAny(ClinicRole.PlatformAdmin) &&
+            !PlatformStaffRoles.Contains(membership.Role))
+            return Results.Forbid();
+
+        if (actor.HasAny(ClinicRole.CompanyAdmin) &&
+            !actor.HasAny(ClinicRole.PlatformAdmin) &&
+            !CompanyStaffRoles.Contains(membership.Role))
+            return Results.Forbid();
+
+        membership.User.IsActive = request.IsActive;
+        audit.Add(
+            actor,
+            request.IsActive ? "StaffUser.Activate" : "StaffUser.Deactivate",
+            "User",
+            id,
+            reason: request.Reason);
+        await db.SaveChangesAsync(cancellationToken);
+
+        return Results.Ok(new StaffUserResponse(
+            membership.UserId,
+            membership.User.Name,
+            membership.User.Email,
+            membership.Role,
+            membership.User.IsActive));
     }
 
     private static async Task<IResult> GetAuditEvents(
@@ -1301,6 +1354,72 @@ public static class ApiEndpoints
         return Results.NoContent();
     }
 
+    private static async Task<IResult> GetPersonalProfile(
+        ClaimsPrincipal principal,
+        MedSyncDbContext db,
+        AuditWriter audit,
+        CancellationToken cancellationToken)
+    {
+        var actor = RequestContext.From(principal);
+        var user = await db.Users.AsNoTracking().SingleAsync(x => x.Id == actor.UserId, cancellationToken);
+        var clinic = await db.Clinics.AsNoTracking().SingleAsync(x => x.Id == actor.ClinicId, cancellationToken);
+        var patient = await db.Patients.AsNoTracking()
+            .SingleOrDefaultAsync(x => x.ClinicId == actor.ClinicId && x.UserId == actor.UserId, cancellationToken);
+        var doctor = await db.Doctors.AsNoTracking()
+            .SingleOrDefaultAsync(x => x.ClinicId == actor.ClinicId && x.UserId == actor.UserId, cancellationToken);
+
+        audit.Add(actor, "UserProfile.View", "User", user.Id);
+        await db.SaveChangesAsync(cancellationToken);
+        return Results.Ok(ToPersonalProfile(user, clinic, actor.Roles.ToArray(), patient, doctor));
+    }
+
+    private static async Task<IResult> UpdatePersonalProfile(
+        UpdatePersonalProfileRequest request,
+        ClaimsPrincipal principal,
+        MedSyncDbContext db,
+        AuditWriter audit,
+        CancellationToken cancellationToken)
+    {
+        var actor = RequestContext.From(principal);
+        var user = await db.Users.SingleAsync(x => x.Id == actor.UserId, cancellationToken);
+        var clinic = await db.Clinics.SingleAsync(x => x.Id == actor.ClinicId, cancellationToken);
+        var patient = await db.Patients
+            .SingleOrDefaultAsync(x => x.ClinicId == actor.ClinicId && x.UserId == actor.UserId, cancellationToken);
+        var doctor = await db.Doctors
+            .SingleOrDefaultAsync(x => x.ClinicId == actor.ClinicId && x.UserId == actor.UserId, cancellationToken);
+
+        var name = request.Name.Trim();
+        if (name.Length is < 3 or > 160)
+            return Validation("name", "Informe o nome completo com 3 a 160 caracteres.");
+        if (!IsValidEmail(request.Email))
+            return Validation("email", "Informe um e-mail valido.");
+        if (!IsValidOptionalPhone(request.Phone))
+            return Validation("phone", "Informe um telefone valido com DDD.");
+
+        var email = request.Email.Trim().ToLowerInvariant();
+        if (await db.Users.AnyAsync(x => x.Id != user.Id && x.Email == email, cancellationToken))
+            return Results.Conflict(new { message = "Ja existe uma conta usando este e-mail." });
+
+        user.Name = name;
+        user.Email = email;
+        if (patient is not null)
+        {
+            patient.Name = name;
+            patient.Email = email;
+            patient.Phone = request.Phone?.Trim();
+        }
+        if (doctor is not null)
+        {
+            doctor.Name = name;
+            doctor.Email = email;
+            doctor.Phone = request.Phone?.Trim();
+        }
+
+        audit.Add(actor, "UserProfile.Update", "User", user.Id);
+        await db.SaveChangesAsync(cancellationToken);
+        return Results.Ok(ToPersonalProfile(user, clinic, actor.Roles.ToArray(), patient, doctor));
+    }
+
     private static async Task<IResult> CreatePatient(
         CreatePatientRequest request,
         ClaimsPrincipal principal,
@@ -2361,18 +2480,13 @@ public static class ApiEndpoints
         actor.HasAny(
             ClinicRole.CompanyAdmin,
             ClinicRole.CompanyFinance,
-            ClinicRole.CompanyAuditor,
             ClinicRole.PlatformAdmin,
-            ClinicRole.PlatformFinance,
-            ClinicRole.PlatformAuditor,
-            ClinicRole.DataProtectionOfficer);
+            ClinicRole.PlatformFinance);
 
     private static bool CanViewGlobalBusinessReports(RequestContext actor) =>
         actor.HasAny(
             ClinicRole.PlatformAdmin,
-            ClinicRole.PlatformFinance,
-            ClinicRole.PlatformAuditor,
-            ClinicRole.DataProtectionOfficer);
+            ClinicRole.PlatformFinance);
 
     private static bool TryResolvePeriod(string? value, out DateTime periodStart)
     {
@@ -2473,6 +2587,47 @@ public static class ApiEndpoints
         Clinic clinic,
         IReadOnlyCollection<ClinicRole> roles) =>
         new(user.Id, user.Name, user.Email, clinic.Id, clinic.Name, roles, user.MustChangePassword);
+
+    private static PersonalProfileResponse ToPersonalProfile(
+        User user,
+        Clinic clinic,
+        IReadOnlyCollection<ClinicRole> roles,
+        Patient? patient,
+        Doctor? doctor)
+    {
+        var lockedFields = new List<string>
+        {
+            "Papel/permissao",
+            "CNPJ/tenant",
+            "Elegibilidade",
+            "Dados clinicos",
+            "Financeiro"
+        };
+        if (patient is not null)
+            lockedFields.Add("CPF");
+        if (doctor is not null)
+        {
+            lockedFields.Add("CRM");
+            lockedFields.Add("Especialidade");
+        }
+
+        var profileType = doctor is not null
+            ? "Profissional de saude"
+            : patient is not null
+                ? "Paciente/beneficiario"
+                : "Perfil administrativo";
+
+        return new PersonalProfileResponse(
+            user.Id,
+            user.Name,
+            user.Email,
+            clinic.Id,
+            clinic.Name,
+            roles,
+            patient?.Phone ?? doctor?.Phone,
+            profileType,
+            lockedFields);
+    }
 
     private static PatientResponse ToResponse(Patient patient) =>
         new(

@@ -136,6 +136,8 @@ public static class DatabaseSeeder
         var patient = await EnsurePatientAsync(db, tenant, users[ClinicRole.Patient], cancellationToken);
         await EnsureAppointmentAsync(db, tenant, doctor.Id, patient.Id, cancellationToken);
         await EnsureB2BFoundationAsync(db, tenant, patient.Id, cancellationToken);
+        if (tenant.ClinicSlug == "medsync-medical")
+            await EnsureMedSyncPresentationPatientsAsync(db, passwords, demoPassword, tenant, cancellationToken);
     }
 
     private static async Task<Clinic> EnsureClinicAsync(
@@ -498,6 +500,142 @@ public static class DatabaseSeeder
         }
     }
 
+    private static async Task EnsureMedSyncPresentationPatientsAsync(
+        MedSyncDbContext db,
+        IPasswordService passwords,
+        string demoPassword,
+        DemoTenant tenant,
+        CancellationToken cancellationToken)
+    {
+        var today = DateOnly.FromDateTime(DateTime.UtcNow.Date);
+        var directPatients = new[]
+        {
+            new PresentationPatient(
+                Guid.Parse("13000000-0000-0000-0000-000000000001"),
+                Guid.Parse("33000000-0000-0000-0000-000000000001"),
+                Guid.Parse("73000000-0000-0000-0000-000000000001"),
+                Guid.Parse("93000000-0000-0000-0000-000000000001"),
+                "Carla MedSync",
+                "paciente2@medsync.dev",
+                "52998224725",
+                "TEC-002"),
+            new PresentationPatient(
+                Guid.Parse("13000000-0000-0000-0000-000000000002"),
+                Guid.Parse("33000000-0000-0000-0000-000000000002"),
+                Guid.Parse("73000000-0000-0000-0000-000000000002"),
+                Guid.Parse("93000000-0000-0000-0000-000000000002"),
+                "Roberto MedSync",
+                "paciente3@medsync.dev",
+                "11144477735",
+                "TEC-003"),
+            new PresentationPatient(
+                Guid.Parse("13000000-0000-0000-0000-000000000003"),
+                Guid.Parse("33000000-0000-0000-0000-000000000003"),
+                Guid.Parse("73000000-0000-0000-0000-000000000003"),
+                Guid.Parse("93000000-0000-0000-0000-000000000003"),
+                "Daniel Demo",
+                "paciente.demo@medsync.dev",
+                "93541134780",
+                "DEMO-002"),
+            new PresentationPatient(
+                Guid.Parse("13000000-0000-0000-0000-000000000004"),
+                Guid.Parse("33000000-0000-0000-0000-000000000004"),
+                Guid.Parse("73000000-0000-0000-0000-000000000004"),
+                Guid.Parse("93000000-0000-0000-0000-000000000004"),
+                "Mariana Demo",
+                "paciente.demo2@medsync.dev",
+                "85351346893",
+                "DEMO-003")
+        };
+
+        foreach (var account in directPatients)
+        {
+            var user = await EnsureUserAsync(
+                db,
+                passwords,
+                demoPassword,
+                new DemoAccount(account.UserId, account.Name, account.Email, ClinicRole.Patient),
+                cancellationToken);
+            await EnsureMembershipAsync(db, tenant.ClinicId, user.Id, ClinicRole.Patient, cancellationToken);
+
+            var patient = await db.Patients.SingleOrDefaultAsync(x => x.Id == account.PatientId, cancellationToken);
+            if (patient is null)
+            {
+                patient = new Patient
+                {
+                    Id = account.PatientId,
+                    ClinicId = tenant.ClinicId,
+                    UserId = user.Id,
+                    Name = account.Name,
+                    Email = account.Email,
+                    Cpf = account.Cpf,
+                    BirthDate = new DateOnly(1988, 8, 8),
+                    Phone = "(11) 99999-0303"
+                };
+                db.Patients.Add(patient);
+            }
+            else
+            {
+                patient.ClinicId = tenant.ClinicId;
+                patient.UserId = user.Id;
+                patient.Name = account.Name;
+                patient.Email = account.Email;
+                patient.Cpf = account.Cpf;
+                patient.Phone = "(11) 99999-0303";
+            }
+
+            var employee = await db.CompanyEmployees.SingleOrDefaultAsync(x => x.Id == account.CompanyEmployeeId, cancellationToken);
+            if (employee is null)
+            {
+                employee = new CompanyEmployee
+                {
+                    Id = account.CompanyEmployeeId,
+                    ClinicId = tenant.ClinicId,
+                    CompanyId = tenant.CompanyId,
+                    PatientId = patient.Id,
+                    Name = account.Name,
+                    Email = account.Email,
+                    EmployeeCode = account.EmployeeCode
+                };
+                db.CompanyEmployees.Add(employee);
+            }
+            else
+            {
+                employee.ClinicId = tenant.ClinicId;
+                employee.CompanyId = tenant.CompanyId;
+                employee.PatientId = patient.Id;
+                employee.Name = account.Name;
+                employee.Email = account.Email;
+                employee.EmployeeCode = account.EmployeeCode;
+                employee.IsActive = true;
+            }
+
+            var eligibility = await db.EmployeeEligibilities.SingleOrDefaultAsync(x => x.Id == account.EligibilityId, cancellationToken);
+            if (eligibility is null)
+            {
+                db.EmployeeEligibilities.Add(new EmployeeEligibility
+                {
+                    Id = account.EligibilityId,
+                    ClinicId = tenant.ClinicId,
+                    CompanyEmployee = employee,
+                    BenefitPlanId = tenant.BenefitPlanId,
+                    IsEligible = true,
+                    EligibleFrom = today,
+                    Reason = "Seed de homologacao para CNPJ tecnico e Empresa Demo"
+                });
+            }
+            else
+            {
+                eligibility.ClinicId = tenant.ClinicId;
+                eligibility.CompanyEmployeeId = employee.Id;
+                eligibility.BenefitPlanId = tenant.BenefitPlanId;
+                eligibility.IsEligible = true;
+                eligibility.EligibleUntil = null;
+                eligibility.Reason = "Seed de homologacao para CNPJ tecnico e Empresa Demo";
+            }
+        }
+    }
+
     private sealed record DemoTenant(
         Guid ClinicId,
         string ClinicName,
@@ -525,4 +663,14 @@ public static class DatabaseSeeder
         string Name,
         string Email,
         ClinicRole Role);
+
+    private sealed record PresentationPatient(
+        Guid UserId,
+        Guid PatientId,
+        Guid CompanyEmployeeId,
+        Guid EligibilityId,
+        string Name,
+        string Email,
+        string Cpf,
+        string EmployeeCode);
 }

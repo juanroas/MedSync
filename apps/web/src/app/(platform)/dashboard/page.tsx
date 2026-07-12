@@ -12,7 +12,7 @@ import {
   buttonClass,
 } from "@/components/ui";
 import { formatDateTime, statusClass, statusLabel } from "@/lib/format";
-import type { Appointment, ClinicRole, CompanyPortal, Doctor, FinanceInvoice, Patient } from "@/lib/types";
+import type { Appointment, BusinessReportCompany, ClinicRole, CompanyPortal, Doctor, FinanceInvoice, Patient } from "@/lib/types";
 import { api, getSession } from "@/services/api";
 import {
   ArrowRight,
@@ -23,6 +23,7 @@ import {
   Clock3,
   FileText,
   HeartPulse,
+  ListChecks,
   LockKeyhole,
   ReceiptText,
   ShieldCheck,
@@ -57,6 +58,8 @@ export default function DashboardPage() {
   const isDoctorHome = roles.includes("Doctor") && !roles.some((role) => role !== "Doctor");
   const isPlatformAdminHome = roles.includes("PlatformAdmin");
   const isPlatformFinanceHome = roles.includes("PlatformFinance");
+  const isPlatformAuditorHome = roles.includes("PlatformAuditor") && !roles.includes("PlatformAdmin");
+  const isDpoHome = roles.includes("DataProtectionOfficer") && !roles.includes("PlatformAdmin");
   const canSchedule = roles.some((role) => schedulingRoles.includes(role));
   const canJoin = roles.some((role) => joinRoles.includes(role));
   const canLoadAppointments = roles.some((role) => appointmentLoadRoles.includes(role));
@@ -67,6 +70,7 @@ export default function DashboardPage() {
   const [patients, setPatients] = useState<Patient[]>([]);
   const [companyPortal, setCompanyPortal] = useState<CompanyPortal | null>(null);
   const [financeInvoices, setFinanceInvoices] = useState<FinanceInvoice[]>([]);
+  const [platformFinanceCompanies, setPlatformFinanceCompanies] = useState<BusinessReportCompany[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -75,15 +79,17 @@ export default function DashboardPage() {
       canLoadAppointments ? api.getAppointments() : Promise.resolve([]),
       canLoadDoctors ? api.getDoctors() : Promise.resolve([]),
       canLoadPatients ? api.getPatients() : Promise.resolve([]),
-      isCompanyPortal || isCompanyFinanceHome || isCompanyAuditorHome || isPlatformFinanceHome ? api.getCompanyPortal() : Promise.resolve(null),
-      isCompanyFinanceHome || isPlatformFinanceHome ? api.getFinanceInvoices() : Promise.resolve([]),
+      isCompanyPortal || isCompanyFinanceHome || isCompanyAuditorHome ? api.getCompanyPortal() : Promise.resolve(null),
+      isCompanyFinanceHome ? api.getFinanceInvoices() : Promise.resolve([]),
+      isPlatformFinanceHome ? api.getBusinessReport() : Promise.resolve(null),
     ])
-      .then(([appointmentData, doctorData, patientData, portalData, invoiceData]) => {
+      .then(([appointmentData, doctorData, patientData, portalData, invoiceData, platformReport]) => {
         setAppointments(appointmentData);
         setDoctors(doctorData);
         setPatients(patientData);
         setCompanyPortal(portalData);
         setFinanceInvoices(invoiceData);
+        setPlatformFinanceCompanies(platformReport?.companies ?? []);
       })
       .catch((err) => setError(err instanceof Error ? err.message : "Erro ao carregar painel."))
       .finally(() => setLoading(false));
@@ -154,12 +160,19 @@ export default function DashboardPage() {
   if (isPlatformFinanceHome) {
     return (
       <PlatformFinanceHome
-        portal={companyPortal}
-        invoices={financeInvoices}
+        companies={platformFinanceCompanies}
         loading={loading}
         error={error}
       />
     );
+  }
+
+  if (isPlatformAuditorHome) {
+    return <PlatformAuditorHome error={error} />;
+  }
+
+  if (isDpoHome) {
+    return <DpoHome error={error} />;
   }
 
   if (isPlatformAdminHome) {
@@ -241,6 +254,104 @@ export default function DashboardPage() {
           </section>
         </>
       )}
+    </>
+  );
+}
+
+function PlatformAuditorHome({ error }: { error: string }) {
+  return (
+    <>
+      <PageHeader
+        eyebrow="Rastreabilidade"
+        title="Auditoria MedSync"
+        description="Visao de governanca para eventos, tentativas negadas e evidencias. Este perfil nao opera financeiro nem atendimento."
+      />
+      {error && <ErrorBanner message={error} />}
+
+      <section className="grid gap-4 md:grid-cols-3">
+        <Card className="p-6">
+          <span className="grid size-11 place-items-center rounded-lg bg-teal-50 text-teal-700">
+            <ListChecks size={21} />
+          </span>
+          <h2 className="mt-5 text-lg font-bold text-ink">Eventos da plataforma</h2>
+          <p className="mt-2 text-sm leading-6 text-slate-500">
+            Acompanhe acessos permitidos, tentativas negadas e acoes sensiveis com minimizacao.
+          </p>
+          <Link href="/auditoria" className="mt-6 inline-flex items-center gap-2 text-sm font-bold text-teal-700">
+            Abrir auditoria <ArrowRight size={15} />
+          </Link>
+        </Card>
+        <Card className="p-6">
+          <span className="grid size-11 place-items-center rounded-lg bg-amber-50 text-amber-700">
+            <ShieldCheck size={21} />
+          </span>
+          <h2 className="mt-5 text-lg font-bold text-ink">Menor privilegio</h2>
+          <p className="mt-2 text-sm leading-6 text-slate-500">
+            Relatorios financeiros e faturas ficam com perfis financeiros. Auditoria revisa evidencias e finalidade.
+          </p>
+        </Card>
+        <Card className="p-6">
+          <span className="grid size-11 place-items-center rounded-lg bg-blue-50 text-blue-700">
+            <LockKeyhole size={21} />
+          </span>
+          <h2 className="mt-5 text-lg font-bold text-ink">Privacidade</h2>
+          <p className="mt-2 text-sm leading-6 text-slate-500">
+            Registre e acompanhe solicitacoes com referencia minimizada, sem CPF completo ou dado clinico em campo livre.
+          </p>
+          <Link href="/privacidade" className="mt-6 inline-flex items-center gap-2 text-sm font-bold text-teal-700">
+            Abrir privacidade <ArrowRight size={15} />
+          </Link>
+        </Card>
+      </section>
+    </>
+  );
+}
+
+function DpoHome({ error }: { error: string }) {
+  return (
+    <>
+      <PageHeader
+        eyebrow="Privacidade"
+        title="DPO MedSync"
+        description="Fila de privacidade, direitos do titular e evidencias de auditoria. Este perfil nao opera financeiro nem atendimento."
+      />
+      {error && <ErrorBanner message={error} />}
+
+      <section className="grid gap-4 md:grid-cols-3">
+        <Card className="p-6">
+          <span className="grid size-11 place-items-center rounded-lg bg-teal-50 text-teal-700">
+            <LockKeyhole size={21} />
+          </span>
+          <h2 className="mt-5 text-lg font-bold text-ink">Direitos do titular</h2>
+          <p className="mt-2 text-sm leading-6 text-slate-500">
+            Registre, acompanhe e conclua solicitacoes com referencia minimizada e trilha operacional.
+          </p>
+          <Link href="/privacidade" className="mt-6 inline-flex items-center gap-2 text-sm font-bold text-teal-700">
+            Abrir privacidade <ArrowRight size={15} />
+          </Link>
+        </Card>
+        <Card className="p-6">
+          <span className="grid size-11 place-items-center rounded-lg bg-blue-50 text-blue-700">
+            <ListChecks size={21} />
+          </span>
+          <h2 className="mt-5 text-lg font-bold text-ink">Auditoria de acesso</h2>
+          <p className="mt-2 text-sm leading-6 text-slate-500">
+            Consulte eventos e tentativas negadas para investigar finalidade, evidencias e possiveis incidentes.
+          </p>
+          <Link href="/auditoria" className="mt-6 inline-flex items-center gap-2 text-sm font-bold text-teal-700">
+            Abrir auditoria <ArrowRight size={15} />
+          </Link>
+        </Card>
+        <Card className="p-6">
+          <span className="grid size-11 place-items-center rounded-lg bg-amber-50 text-amber-700">
+            <ShieldCheck size={21} />
+          </span>
+          <h2 className="mt-5 text-lg font-bold text-ink">Minimizacao</h2>
+          <p className="mt-2 text-sm leading-6 text-slate-500">
+            Relatorios financeiros, faturas e valores ficam com perfis financeiros. O DPO revisa evidencias e privacidade.
+          </p>
+        </Card>
+      </section>
     </>
   );
 }
@@ -766,46 +877,91 @@ function DoctorHome({
 }
 
 function PlatformFinanceHome({
-  portal,
-  invoices,
+  companies,
   loading,
   error,
 }: {
-  portal: CompanyPortal | null;
-  invoices: FinanceInvoice[];
+  companies: BusinessReportCompany[];
   loading: boolean;
   error: string;
 }) {
+  const totals = companies.reduce(
+    (acc, company) => {
+      acc.monthlyFee += company.monthlyFee ?? 0;
+      acc.paid += company.paidAmount;
+      acc.open += Math.max((company.monthlyFee ?? 0) - company.paidAmount, 0);
+      acc.beneficiaries += company.beneficiaryCount;
+      return acc;
+    },
+    { monthlyFee: 0, paid: 0, open: 0, beneficiaries: 0 },
+  );
+
   return (
     <>
       <PageHeader
         eyebrow="MedSync Finance"
         title="Financeiro MedSync"
-        description="Visao operacional da plataforma para faturas, CNPJs e relatorios financeiros agregados."
+        description="Visao financeira global por CNPJ, incluindo empresas de teste e CNPJ tecnico quando aprovado, sem dados clinicos."
+        action={
+          <Link href="/relatorios" className={buttonClass}>
+            <BarChart3 size={17} /> Abrir relatorios
+          </Link>
+        }
       />
       {error && <ErrorBanner message={error} />}
       {loading ? (
         <LoadingState label="Carregando financeiro da plataforma..." />
       ) : (
-        <section className="grid gap-6 xl:grid-cols-[1fr_1fr]">
-          <Card className="p-6">
-            <p className="text-xs font-bold uppercase text-teal-600">CNPJ em homologacao</p>
-            <h2 className="mt-3 text-xl font-bold text-ink">{portal?.company.tradeName ?? "Empresa Demo"}</h2>
-            <p className="mt-3 text-sm leading-6 text-slate-500">
-              Esta visao sera expandida para multiplos CNPJs, incluindo CNPJ tecnico, sem dados clinicos.
-            </p>
+        <>
+          <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <MetricCard label="CNPJs" value={companies.length} detail="escopo financeiro global" icon={<Building2 size={20} />} tone="info" />
+            <MetricCard label="Beneficiarios" value={totals.beneficiaries} detail="vinculos administrativos" icon={<Users size={20} />} tone="success" />
+            <MetricCard label="Mensalidade" value={formatCurrency(totals.monthlyFee, "BRL")} detail="contratos ativos/demo" icon={<ReceiptText size={20} />} tone="info" />
+            <MetricCard label="Em aberto" value={formatCurrency(totals.open, "BRL")} detail="estimativa operacional" icon={<FileText size={20} />} tone="warning" />
+          </section>
+
+          <Card className="mt-7 overflow-hidden">
+            {companies.length === 0 ? (
+              <div className="p-6">
+                <EmptyState
+                  icon={<ReceiptText size={22} />}
+                  title="Nenhum CNPJ financeiro no escopo"
+                  description="Os dados financeiros globais aparecerao quando houver contratos cadastrados para a plataforma."
+                />
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <div className="min-w-[920px]">
+                  <div className="grid grid-cols-[1.3fr_1fr_.8fr_.9fr_.9fr_.8fr] gap-4 bg-slate-50 px-6 py-4 text-xs font-bold uppercase text-slate-400">
+                    <span>Empresa</span>
+                    <span>Plano</span>
+                    <span>Elegiveis</span>
+                    <span>Mensalidade</span>
+                    <span>Pago</span>
+                    <span>Status</span>
+                  </div>
+                  <div className="divide-y divide-slate-100">
+                    {companies.map((company) => (
+                      <article key={company.companyId} className="grid grid-cols-[1.3fr_1fr_.8fr_.9fr_.9fr_.8fr] items-center gap-4 px-6 py-5 text-sm">
+                        <div className="min-w-0">
+                          <p className="truncate font-bold text-ink" title={company.companyName}>{company.companyName}</p>
+                          <p className="mt-1 text-xs text-slate-400">{company.taxIdMasked} · {company.tenantName}</p>
+                        </div>
+                        <span className="truncate font-semibold text-slate-700" title={company.planName ?? "Sem plano"}>{company.planName ?? "Sem plano"}</span>
+                        <span className="font-semibold text-ink">{company.eligibleCount}</span>
+                        <span className="font-semibold text-ink">{formatCurrency(company.monthlyFee ?? 0, company.currency)}</span>
+                        <span className="font-semibold text-ink">{formatCurrency(company.paidAmount, company.currency)}</span>
+                        <Badge tone={company.billingStatus === "Pago" ? "success" : company.billingStatus === "Aberta" ? "warning" : "neutral"}>
+                          {company.billingStatus}
+                        </Badge>
+                      </article>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
           </Card>
-          <Card className="p-6">
-            <p className="text-xs font-bold uppercase text-teal-600">Relatorios financeiros</p>
-            <h2 className="mt-3 text-xl font-bold text-ink">
-              {portal?.billing.estimatedMonthlyFee === undefined ? "-" : formatCurrency(portal.billing.estimatedMonthlyFee, portal.billing.currency)}
-            </h2>
-            <p className="mt-3 text-sm leading-6 text-slate-500">
-              Faturas de homologacao por CNPJ, sem prontuario, diagnostico ou detalhes individuais de consulta.
-            </p>
-            <InvoiceList invoices={invoices} />
-          </Card>
-        </section>
+        </>
       )}
     </>
   );
@@ -927,6 +1083,7 @@ function PatientCareHome({
     nextAppointment.consentAccepted &&
     Boolean(nextAppointment.roomName);
   const roomBlockedReason = nextAppointment ? careBlockReason(nextAppointment) : null;
+  const nextStep = nextAppointment ? patientCareStep(nextAppointment) : null;
 
   return (
     <>
@@ -967,20 +1124,21 @@ function PatientCareHome({
                   )}
                 </div>
                 {nextAppointment ? (
-                  joinAvailable ? (
+                  nextStep?.href ? (
                     <Link
-                      href={`/sala/${nextAppointment.id}`}
-                      className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-white px-5 text-sm font-bold text-teal-800 hover:bg-teal-50"
+                      href={nextStep.href}
+                      className={nextStep.primary
+                        ? "inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-white px-5 text-sm font-bold text-teal-800 hover:bg-teal-50"
+                        : "inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-white/10 px-5 text-sm font-bold text-white ring-1 ring-white/15 hover:bg-white/15"}
                     >
-                      <Video size={17} /> Entrar na sala
+                      {nextStep.icon} {nextStep.cta}
                     </Link>
                   ) : (
-                    <Link
-                      href="/consultas"
+                    <span
                       className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-white/10 px-5 text-sm font-bold text-white ring-1 ring-white/15 hover:bg-white/15"
                     >
-                      <Clock3 size={17} /> Acompanhar status
-                    </Link>
+                      {nextStep?.icon ?? <Clock3 size={17} />} {nextStep?.cta ?? "Acompanhar status"}
+                    </span>
                   )
                 ) : (
                   <Link
@@ -1023,13 +1181,13 @@ function PatientCareHome({
                 <CareStatus
                   icon={<FileText size={18} />}
                   label="Termo"
-                  value={nextAppointment?.consentAccepted ? "Aceito" : "Pendente quando houver consulta"}
-                  tone={nextAppointment?.consentAccepted ? "success" : "neutral"}
+                  value={!nextAppointment ? "Pendente quando houver consulta" : nextAppointment.consentAccepted ? "Aceito" : "Pendente"}
+                  tone={!nextAppointment ? "neutral" : nextAppointment.consentAccepted ? "success" : "warning"}
                 />
                 <CareStatus
                   icon={<Video size={18} />}
                   label="Sala"
-                  value={joinAvailable ? "Liberada" : "Aguardando autorizacao"}
+                  value={joinAvailable ? "Liberada" : nextStep?.status ?? "Aguardando autorizacao"}
                   tone={joinAvailable ? "success" : "warning"}
                 />
               </div>
@@ -1143,7 +1301,8 @@ function AppointmentRow({
   appointment: Appointment;
   canJoin: boolean;
 }) {
-  const joinReady = canJoin && appointment.status === "InProgress" && Boolean(appointment.roomName);
+  const step = patientCareStep(appointment);
+  const joinReady = canJoin && appointment.status === "InProgress" && appointment.consentAccepted && Boolean(appointment.roomName);
 
   return (
     <div className="flex flex-col gap-4 px-6 py-5 sm:flex-row sm:items-center">
@@ -1176,9 +1335,16 @@ function AppointmentRow({
         >
           <Video size={17} />
         </Link>
+      ) : canJoin && step.href ? (
+        <Link
+          href={step.href}
+          className={`shrink-0 rounded-lg px-3 py-2 text-xs font-bold ${step.badgeClass}`}
+        >
+          {step.cta}
+        </Link>
       ) : canJoin ? (
-        <span className="shrink-0 rounded-lg bg-slate-50 px-3 py-2 text-xs font-bold text-slate-400">
-          Aguardando sala
+        <span className={`shrink-0 rounded-lg px-3 py-2 text-xs font-bold ${step.badgeClass}`}>
+          {step.status}
         </span>
       ) : (
         <span />
@@ -1277,6 +1443,79 @@ function careBlockReason(appointment: Appointment) {
     return "Sala ainda nao criada pelo medico responsavel.";
   }
   return null;
+}
+
+function patientCareStep(appointment: Appointment) {
+  if (appointment.paymentRequired && appointment.paymentStatus !== "Paid") {
+    return {
+      cta: "Resolver pagamento",
+      status: "Pagamento pendente",
+      href: `/sala/${appointment.id}`,
+      primary: false,
+      icon: <Clock3 size={17} />,
+      badgeClass: "bg-amber-50 text-amber-700",
+    };
+  }
+
+  if (!appointment.consentAccepted && ["Scheduled", "InProgress"].includes(appointment.status)) {
+    return {
+      cta: "Aceitar termo",
+      status: "Termo pendente",
+      href: `/sala/${appointment.id}`,
+      primary: false,
+      icon: <FileText size={17} />,
+      badgeClass: "bg-teal-50 text-teal-700",
+    };
+  }
+
+  if (appointment.status === "InProgress" && appointment.roomName) {
+    return {
+      cta: "Entrar na sala",
+      status: "Sala liberada",
+      href: `/sala/${appointment.id}`,
+      primary: true,
+      icon: <Video size={17} />,
+      badgeClass: "bg-teal-50 text-teal-700",
+    };
+  }
+
+  if (appointment.status === "InProgress") {
+    return {
+      cta: "Aguardando medico",
+      status: "Aguardando medico",
+      primary: false,
+      icon: <Clock3 size={17} />,
+      badgeClass: "bg-amber-50 text-amber-700",
+    };
+  }
+
+  if (appointment.status === "Scheduled") {
+    return {
+      cta: "Aguardar horario",
+      status: "Aguardando horario",
+      primary: false,
+      icon: <Clock3 size={17} />,
+      badgeClass: "bg-slate-50 text-slate-500",
+    };
+  }
+
+  if (appointment.status === "Completed") {
+    return {
+      cta: "Concluida",
+      status: "Concluida",
+      primary: false,
+      icon: <CheckCircle2 size={17} />,
+      badgeClass: "bg-teal-50 text-teal-700",
+    };
+  }
+
+  return {
+    cta: statusLabel[appointment.status],
+    status: statusLabel[appointment.status],
+    primary: false,
+    icon: <Clock3 size={17} />,
+    badgeClass: "bg-slate-50 text-slate-500",
+  };
 }
 
 const contractStatusLabel = {

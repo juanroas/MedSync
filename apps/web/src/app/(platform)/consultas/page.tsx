@@ -4,7 +4,7 @@ import { EmptyState, ErrorBanner, LoadingState, PageHeader } from "@/components/
 import { formatDateTime, statusClass, statusLabel } from "@/lib/format";
 import type { Appointment } from "@/lib/types";
 import { api, getSession } from "@/services/api";
-import { CalendarDays, Plus, Stethoscope, UserRound, Video } from "lucide-react";
+import { CalendarDays, Clock3, FileText, Plus, Stethoscope, UserRound, Video } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -21,11 +21,6 @@ export default function AppointmentsPage() {
   const canJoinRole = roles.some((role) =>
     ["Doctor", "Patient", "MedicalDirector", "OccupationalHealthAdmin"].includes(role),
   );
-  const canJoinAppointment = (appointment: Appointment) =>
-    canJoinRole &&
-    appointment.status === "InProgress" &&
-    appointment.consentAccepted &&
-    Boolean(appointment.roomName);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -134,7 +129,7 @@ export default function AppointmentsPage() {
                   {statusLabel[appointment.status]}
                 </span>
                 {canJoinRole ? (
-                  isDoctor && appointment.status === "Scheduled" ? (
+                  isDoctor && ["Scheduled", "InProgress"].includes(appointment.status) && !appointment.roomName ? (
                     <button
                       type="button"
                       onClick={() => startRoom(appointment.id)}
@@ -143,15 +138,22 @@ export default function AppointmentsPage() {
                     >
                       <Video size={15} /> {startingId === appointment.id ? "Iniciando..." : "Iniciar sala"}
                     </button>
-                  ) : canJoinAppointment(appointment) ? (
+                  ) : appointment.status === "InProgress" && appointment.consentAccepted && Boolean(appointment.roomName) ? (
                     <Link
                       href={`/sala/${appointment.id}`}
                       className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-ink px-4 text-xs font-bold text-white hover:bg-teal-700"
                     >
-                      <Video size={15} /> Entrar
+                      <Video size={15} /> Entrar na sala
+                    </Link>
+                  ) : isPatient && !appointment.consentAccepted && ["Scheduled", "InProgress"].includes(appointment.status) ? (
+                    <Link
+                      href={`/sala/${appointment.id}`}
+                      className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-teal-200 bg-teal-50 px-4 text-xs font-bold text-teal-700 hover:bg-teal-100"
+                    >
+                      <FileText size={15} /> Aceitar termo
                     </Link>
                   ) : (
-                    <span className="text-xs font-semibold text-slate-400">Aguardando sala</span>
+                    <AppointmentNextStep appointment={appointment} />
                   )
                 ) : <span />}
               </article>
@@ -161,4 +163,55 @@ export default function AppointmentsPage() {
       )}
     </>
   );
+}
+
+function AppointmentNextStep({ appointment }: { appointment: Appointment }) {
+  const step = getAppointmentNextStep(appointment);
+
+  return (
+    <span className={`inline-flex h-10 items-center justify-center gap-2 rounded-lg px-3 text-xs font-bold ${step.className}`}>
+      {step.icon}
+      {step.label}
+    </span>
+  );
+}
+
+function getAppointmentNextStep(appointment: Appointment) {
+  if (appointment.paymentRequired && appointment.paymentStatus !== "Paid") {
+    return {
+      label: "Pagamento pendente",
+      icon: <Clock3 size={15} />,
+      className: "bg-amber-50 text-amber-700",
+    };
+  }
+
+  if (appointment.status === "Scheduled") {
+    return {
+      label: "Aguardando horario",
+      icon: <Clock3 size={15} />,
+      className: "bg-slate-50 text-slate-500",
+    };
+  }
+
+  if (appointment.status === "InProgress") {
+    return {
+      label: "Aguardando medico",
+      icon: <Video size={15} />,
+      className: "bg-amber-50 text-amber-700",
+    };
+  }
+
+  if (appointment.status === "Completed") {
+    return {
+      label: "Atendimento concluido",
+      icon: <CalendarDays size={15} />,
+      className: "bg-teal-50 text-teal-700",
+    };
+  }
+
+  return {
+    label: statusLabel[appointment.status],
+    icon: <CalendarDays size={15} />,
+    className: "bg-slate-50 text-slate-500",
+  };
 }

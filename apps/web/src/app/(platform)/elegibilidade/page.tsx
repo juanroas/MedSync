@@ -1,6 +1,6 @@
 "use client";
 
-import { EmptyState, ErrorBanner, LoadingState, PageHeader, buttonClass, inputClass } from "@/components/ui";
+import { Badge, Card, EmptyState, ErrorBanner, LoadingState, PageHeader, buttonClass, inputClass } from "@/components/ui";
 import type { CompanyActivation, CompanyBeneficiary } from "@/lib/types";
 import { api, getSession } from "@/services/api";
 import { CheckCircle2, ClipboardCheck, Search, ShieldCheck, XCircle } from "lucide-react";
@@ -28,6 +28,7 @@ export default function EligibilityPage() {
   const [beneficiaries, setBeneficiaries] = useState<CompanyBeneficiary[]>([]);
   const [forms, setForms] = useState<Record<string, EligibilityForm>>({});
   const [query, setQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState("");
   const [error, setError] = useState("");
@@ -55,6 +56,21 @@ export default function EligibilityPage() {
           .includes(query.toLowerCase()),
       ),
     [beneficiaries, query],
+  );
+
+  const filteredCompanies = useMemo(
+    () =>
+      companies.filter((company) => {
+        const matchesSearch = `${company.companyName} ${company.tenantName} ${company.taxIdMasked} ${company.planName ?? ""}`
+          .toLowerCase()
+          .includes(query.toLowerCase());
+        const matchesStatus =
+          statusFilter === "all" ||
+          (statusFilter === "active" && company.isActive) ||
+          (statusFilter === "inactive" && !company.isActive);
+        return matchesSearch && matchesStatus;
+      }),
+    [companies, query, statusFilter],
   );
 
   async function submit(event: FormEvent, beneficiary: CompanyBeneficiary) {
@@ -133,51 +149,95 @@ export default function EligibilityPage() {
         </div>
       </div>
 
-      <div className="mb-5 flex max-w-md items-center gap-3 rounded-lg border border-slate-200 bg-white px-4">
-        <Search size={18} className="text-slate-400" />
-        <input
-          className="h-12 w-full bg-transparent text-sm outline-none placeholder:text-slate-400"
-          placeholder="Buscar por nome, e-mail, matricula ou plano"
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-        />
+      <div className="mb-5 grid gap-3 md:grid-cols-[minmax(260px,1fr)_220px]">
+        <div className="flex items-center gap-3 rounded-lg border border-slate-200 bg-white px-4">
+          <Search size={18} className="text-slate-400" />
+          <input
+            className="h-12 w-full bg-transparent text-sm outline-none placeholder:text-slate-400"
+            placeholder={isPlatformAdmin ? "Buscar por empresa, CNPJ, tenant ou plano" : "Buscar por nome, e-mail, matricula ou plano"}
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+          />
+        </div>
+        {isPlatformAdmin && (
+          <select
+            className={inputClass}
+            value={statusFilter}
+            onChange={(event) => setStatusFilter(event.target.value)}
+          >
+            <option value="all">Todos os status</option>
+            <option value="active">Habilitadas</option>
+            <option value="inactive">Aguardando habilitacao</option>
+          </select>
+        )}
       </div>
 
       {loading ? (
         <LoadingState label="Carregando elegibilidade..." />
       ) : isPlatformAdmin ? (
-        <section className="grid gap-4 xl:grid-cols-2">
-          {companies.map((company) => (
-            <article key={company.companyId} className="rounded-lg border border-slate-100 bg-white p-6 shadow-sm">
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                <div>
-                  <h2 className="font-bold text-ink">{company.companyName}</h2>
-                  <p className="mt-1 text-sm text-slate-500">CNPJ {company.taxIdMasked}</p>
-                  <p className="mt-2 text-xs font-semibold text-slate-400">
-                    {company.planName ?? "Sem plano"} - {company.contractStatus ?? "Sem contrato"}
-                  </p>
+        filteredCompanies.length === 0 ? (
+          <EmptyState
+            icon={<ClipboardCheck size={22} />}
+            title="Nenhum CNPJ encontrado"
+            description="Ajuste a busca ou o filtro de status para visualizar empresas cadastradas."
+          />
+        ) : (
+          <Card className="overflow-hidden">
+            <div className="overflow-x-auto">
+              <div className="min-w-[1060px]">
+                <div className="grid grid-cols-[1.35fr_1fr_.9fr_1fr_.8fr_.9fr] gap-4 bg-slate-50 px-6 py-4 text-xs font-bold uppercase text-slate-400">
+                  <span>Empresa</span>
+                  <span>CNPJ</span>
+                  <span>Tenant</span>
+                  <span>Plano</span>
+                  <span>Status</span>
+                  <span className="text-right">Acao</span>
                 </div>
-                <span className={`rounded-lg px-3 py-2 text-xs font-bold ${
-                  company.isActive ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"
-                }`}>
-                  {company.isActive ? "Habilitada" : "Aguardando habilitacao"}
-                </span>
+                <div className="divide-y divide-slate-100">
+                  {filteredCompanies.map((company) => (
+                    <article
+                      key={company.companyId}
+                      className="grid grid-cols-[1.35fr_1fr_.9fr_1fr_.8fr_.9fr] items-center gap-4 px-6 py-5 text-sm"
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate font-bold text-ink" title={company.companyName}>
+                          {company.companyName}
+                        </p>
+                        <p className="mt-1 text-xs text-slate-400">
+                          Criada em {formatDate(company.createdAt)}
+                        </p>
+                      </div>
+                      <span className="font-semibold text-slate-700">{company.taxIdMasked}</span>
+                      <span className="truncate text-slate-500" title={company.tenantName}>
+                        {company.tenantName}
+                      </span>
+                      <div className="min-w-0">
+                        <p className="truncate font-semibold text-slate-700" title={company.planName ?? "Sem plano"}>
+                          {company.planName ?? "Sem plano"}
+                        </p>
+                        <p className="mt-1 text-xs text-slate-400">{company.contractStatus ?? "Sem contrato"}</p>
+                      </div>
+                      <Badge tone={company.isActive ? "success" : "warning"}>
+                        {company.isActive ? "Habilitada" : "Pendente"}
+                      </Badge>
+                      <div className="text-right">
+                        <button
+                          className={company.isActive ? `${buttonClass} bg-slate-700 hover:bg-slate-800` : buttonClass}
+                          onClick={() => toggleCompany(company)}
+                          disabled={savingId === company.companyId}
+                        >
+                          {savingId === company.companyId
+                            ? "Atualizando..."
+                            : company.isActive ? "Desabilitar" : "Habilitar"}
+                        </button>
+                      </div>
+                    </article>
+                  ))}
+                </div>
               </div>
-              <div className="mt-5 flex items-center justify-between border-t border-slate-100 pt-5">
-                <p className="text-xs text-slate-400">Somente ADM MedSync pode alterar este status.</p>
-                <button
-                  className={buttonClass}
-                  onClick={() => toggleCompany(company)}
-                  disabled={savingId === company.companyId}
-                >
-                  {savingId === company.companyId
-                    ? "Atualizando..."
-                    : company.isActive ? "Desabilitar CNPJ" : "Habilitar CNPJ"}
-                </button>
-              </div>
-            </article>
-          ))}
-        </section>
+            </div>
+          </Card>
+        )
       ) : filtered.length === 0 ? (
         <EmptyState
           icon={<ClipboardCheck size={22} />}
@@ -274,4 +334,8 @@ export default function EligibilityPage() {
       )}
     </>
   );
+}
+
+function formatDate(value: string) {
+  return new Intl.DateTimeFormat("pt-BR", { dateStyle: "short" }).format(new Date(value));
 }
