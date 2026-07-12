@@ -14,6 +14,7 @@ import type {
   LoginResponse,
   Patient,
   Payment,
+  PersonalProfile,
   PrivacyRequest,
   PrivacyRequestStatus,
   PrivacyRequestType,
@@ -115,6 +116,12 @@ export const api = {
     }),
 
   me: () => request<User>("/auth/me"),
+  getProfile: () => request<PersonalProfile>("/profile"),
+  updateProfile: (input: { name: string; email: string; phone?: string }) =>
+    request<PersonalProfile>("/profile", {
+      method: "PUT",
+      body: JSON.stringify(input),
+    }),
   logout: () => request<void>("/auth/logout", { method: "POST" }),
   changePassword: (currentPassword: string, newPassword: string) =>
     request<void>("/auth/change-password", {
@@ -131,6 +138,11 @@ export const api = {
   }) =>
     request<StaffUser>("/staff-users", {
       method: "POST",
+      body: JSON.stringify(input),
+    }),
+  updateStaffUserActivation: (id: string, input: { isActive: boolean; reason?: string }) =>
+    request<StaffUser>(`/staff-users/${id}/activation`, {
+      method: "PUT",
       body: JSON.stringify(input),
     }),
   getAuditEvents: () => request<AuditEvent[]>("/audit-events"),

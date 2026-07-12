@@ -24,6 +24,22 @@ public sealed record UserSummary(
     IReadOnlyCollection<ClinicRole> Roles,
     bool MustChangePassword);
 
+public sealed record PersonalProfileResponse(
+    Guid Id,
+    string Name,
+    string Email,
+    Guid ClinicId,
+    string ClinicName,
+    IReadOnlyCollection<ClinicRole> Roles,
+    string? Phone,
+    string ProfileType,
+    IReadOnlyCollection<string> LockedFields);
+
+public sealed record UpdatePersonalProfileRequest(
+    string Name,
+    string Email,
+    string? Phone);
+
 public sealed record CreateStaffUserRequest(
     string Name,
     string Email,
@@ -36,6 +52,10 @@ public sealed record StaffUserResponse(
     string Email,
     ClinicRole Role,
     bool IsActive);
+
+public sealed record UpdateStaffUserActivationRequest(
+    bool IsActive,
+    string? Reason);
 
 public sealed record CreateCompanyOnboardingRequest(
     string LegalName,

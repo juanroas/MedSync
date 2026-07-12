@@ -200,6 +200,10 @@ Evidencia registrada:
 - E2E focado: 8 passed.
 - Paciente Empresa Beta/Empresa2 solicita consulta por especialidade em `/consultas/nova`.
 - `patient-appointment-request.spec.ts`: paciente `paciente.empresa2` solicita `Clinica geral`; API bloqueia especialidade inexistente com `409`.
+- Perfil pessoal disponivel em `/perfil` para todos os perfis autenticados.
+- Endpoints `GET /profile` e `PUT /profile` atualizam nome, e-mail e telefone permitido, sem alterar papel, CNPJ, elegibilidade, CPF, CRM, especialidade, fatura ou dado clinico.
+- Seed inclui pacientes do CNPJ tecnico `paciente@medsync.dev`, `paciente2@medsync.dev`, `paciente3@medsync.dev` e pacientes demo `paciente.demo@medsync.dev`, `paciente.demo2@medsync.dev`.
+- `personal-profile.spec.ts`: 23 cenarios Chromium validados para perfis plataforma, empresa, DPO, suporte, medico do trabalho e pacientes.
 
 ## Trilha P1 - Profundidade assistencial
 

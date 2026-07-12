@@ -23,6 +23,14 @@ const loginModules = [
   { label: "Privacy", value: "Acesso minimo", icon: ShieldCheck },
 ];
 
+const demoAccounts = [
+  { label: "Admin MedSync", email: "admin@medsync.dev" },
+  { label: "Financeiro MedSync", email: "plataforma.financeiro@medsync.dev" },
+  { label: "Empresa admin", email: "empresa.admin@medsync.dev" },
+  { label: "Paciente", email: "paciente@medsync.dev" },
+  { label: "Medico", email: "medico@medsync.dev" },
+];
+
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("medico@medsync.dev");
@@ -47,7 +55,7 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="brand-surface grid min-h-screen lg:grid-cols-[.92fr_1.08fr]">
+    <main className="grid min-h-screen bg-[#f5f8f6] lg:grid-cols-[.9fr_1.1fr]">
       <section className="flex flex-col bg-paper/90 px-6 py-7 shadow-2xl shadow-teal-950/5 sm:px-12 lg:px-16">
         <Logo />
         <div className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center py-12">
@@ -57,10 +65,23 @@ export default function LoginPage() {
           <p className="mb-3 text-xs font-bold uppercase tracking-[0.08em] text-teal-700">
             Acesso MedSync
           </p>
-          <h1 className="text-4xl font-bold tracking-tight text-ink">Entre no seu cuidado digital.</h1>
+          <h1 className="text-4xl font-bold tracking-tight text-ink">Acesse sua experiencia MedSync.</h1>
           <p className="mt-3 text-sm leading-6 text-slate-500">
-            Uma entrada para pacientes, medicos, empresas e operacao MedSync, com cada perfil vendo apenas o que precisa.
+            Pacientes, medicos, empresas e operacao entram pelo mesmo acesso, mas cada perfil enxerga apenas o escopo permitido.
           </p>
+
+          <div className="mt-7 grid gap-2 sm:grid-cols-2">
+            {demoAccounts.map((account) => (
+              <button
+                key={account.email}
+                type="button"
+                className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-left text-xs font-bold text-slate-600 transition hover:border-teal-200 hover:bg-teal-50 hover:text-teal-800 focus:outline-none focus:ring-4 focus:ring-teal-100"
+                onClick={() => setEmail(account.email)}
+              >
+                {account.label}
+              </button>
+            ))}
+          </div>
 
           <form className="mt-9 space-y-5" onSubmit={handleSubmit}>
             {error && <ErrorBanner message={error} />}
@@ -108,7 +129,7 @@ export default function LoginPage() {
           <div className="mt-7 rounded-lg border border-teal-100 bg-teal-50/70 p-4 text-xs leading-5 text-slate-600">
             <strong className="text-teal-900">Acesso de demonstracao:</strong>
             <br />
-            medico@medsync.dev - senha definida em <code>SEED_DEMO_PASSWORD</code>
+            selecione um perfil acima e use a senha definida em <code>SEED_DEMO_PASSWORD</code>.
           </div>
         </div>
         <p className="text-xs text-slate-400">© 2026 MedSync. Cuidado que aproxima.</p>

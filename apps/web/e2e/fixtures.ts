@@ -24,6 +24,10 @@ export const users = {
   dpo: process.env.MEDSYNC_E2E_DPO_EMAIL ?? "dpo@medsync.dev",
   occupationalHealthAdmin: process.env.MEDSYNC_E2E_OCCUPATIONAL_ADMIN_EMAIL ?? "medico.trabalho@medsync.dev",
   patient: process.env.MEDSYNC_E2E_PATIENT_EMAIL ?? "paciente@medsync.dev",
+  patient2: process.env.MEDSYNC_E2E_PATIENT2_EMAIL ?? "paciente2@medsync.dev",
+  patient3: process.env.MEDSYNC_E2E_PATIENT3_EMAIL ?? "paciente3@medsync.dev",
+  demoPatient: process.env.MEDSYNC_E2E_DEMO_PATIENT_EMAIL ?? "paciente.demo@medsync.dev",
+  demoPatient2: process.env.MEDSYNC_E2E_DEMO_PATIENT2_EMAIL ?? "paciente.demo2@medsync.dev",
   doctor: process.env.MEDSYNC_E2E_DOCTOR_EMAIL ?? "medico@medsync.dev",
 };
 

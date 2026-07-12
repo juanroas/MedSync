@@ -61,6 +61,32 @@ test.describe("relatorios B2B agregados", () => {
     );
   });
 
+  test("empresa admin e financeiro veem somente o proprio CNPJ pela API", async ({ request }) => {
+    await loginByApi(request, users.company2Admin);
+    const company2Report = await request.get(`${baseApiURL}/reports/business-summary`);
+    expect(company2Report.status()).toBe(200);
+    const company2Data = await company2Report.json();
+    expect(company2Data.isGlobal).toBe(false);
+    expect(company2Data.companies.map((company: { companyName: string }) => company.companyName)).toEqual(["Empresa Alfa"]);
+
+    await loginByApi(request, users.company3Admin);
+    const company3Report = await request.get(`${baseApiURL}/reports/business-summary`);
+    expect(company3Report.status()).toBe(200);
+    const company3Data = await company3Report.json();
+    expect(company3Data.isGlobal).toBe(false);
+    expect(company3Data.companies.map((company: { companyName: string }) => company.companyName)).toEqual(["Empresa Beta"]);
+  });
+
+  test("auditor e DPO nao acessam relatorios financeiros ou B2B", async ({ request }) => {
+    await loginByApi(request, users.platformAuditor);
+    expect((await request.get(`${baseApiURL}/reports/business-summary`)).status()).toBe(403);
+    expect((await request.get(`${baseApiURL}/finance/export`)).status()).toBe(403);
+
+    await loginByApi(request, users.dpo);
+    expect((await request.get(`${baseApiURL}/reports/business-summary`)).status()).toBe(403);
+    expect((await request.get(`${baseApiURL}/finance/export`)).status()).toBe(403);
+  });
+
   test("paciente nao acessa relatorios empresariais", async ({ page, request }) => {
     await loginByApi(request, users.patient);
     const response = await request.get(`${baseApiURL}/reports/business-summary`);

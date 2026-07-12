@@ -15,6 +15,7 @@ import {
   Menu,
   ShieldCheck,
   Stethoscope,
+  UserRoundCog,
   Users,
   UserCog,
   Video,
@@ -31,6 +32,7 @@ const navigation: Array<{
   roles?: ClinicRole[];
 }> = [
   { href: "/dashboard", label: "Painel", icon: LayoutDashboard },
+  { href: "/perfil", label: "Meus dados", icon: UserRoundCog },
   {
     href: "/empresas",
     label: "Empresas",
@@ -50,11 +52,8 @@ const navigation: Array<{
     roles: [
       "CompanyAdmin",
       "CompanyFinance",
-      "CompanyAuditor",
       "PlatformAdmin",
       "PlatformFinance",
-      "PlatformAuditor",
-      "DataProtectionOfficer",
     ],
   },
   {
@@ -166,6 +165,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const visibleNavigation = navigation.filter((item) => {
     const platformAdminAllowed =
       item.href === "/dashboard" ||
+      item.href === "/perfil" ||
       item.href === "/empresas" ||
       item.href === "/acessos" ||
       item.href === "/elegibilidade" ||
@@ -262,7 +262,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <Menu size={20} />
           </button>
           <div className="hidden lg:block">
-            <p className="text-xs text-slate-400">Central MedSync</p>
+            <p className="text-xs text-slate-400">{workspaceLabel(user.roles)}</p>
             <p className="mt-0.5 text-sm font-bold text-ink">{user.clinicName}</p>
           </div>
           <div className="flex items-center gap-3">
@@ -299,4 +299,19 @@ function navigationLabel(href: string, label: string, roles: ClinicRole[]) {
   if (isCompanyFinance && href === "/dashboard") return "Financeiro";
   if (isCompanyAuditor && href === "/dashboard") return "Visao geral";
   return label;
+}
+
+function workspaceLabel(roles: ClinicRole[]) {
+  const isPatient = roles.includes("Patient") && !roles.some((role) => role !== "Patient");
+  const isDoctor = roles.includes("Doctor") && !roles.some((role) => role !== "Doctor");
+  if (isPatient) return "Portal do paciente";
+  if (isDoctor) return "Portal medico";
+  if (roles.some((role) => ["CompanyAdmin", "CompanyFinance", "CompanyAuditor"].includes(role))) {
+    return "Portal da empresa";
+  }
+  if (roles.includes("DataProtectionOfficer")) return "Privacidade MedSync";
+  if (roles.some((role) => ["PlatformAdmin", "PlatformFinance", "PlatformAuditor", "Support"].includes(role))) {
+    return "Central MedSync";
+  }
+  return "Ambiente MedSync";
 }

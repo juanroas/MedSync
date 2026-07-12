@@ -30,6 +30,18 @@ export type LoginResponse = {
   user: User;
 };
 
+export type PersonalProfile = {
+  id: string;
+  name: string;
+  email: string;
+  clinicId: string;
+  clinicName: string;
+  roles: ClinicRole[];
+  phone?: string;
+  profileType: string;
+  lockedFields: string[];
+};
+
 export type StaffUser = {
   id: string;
   name: string;

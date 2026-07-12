@@ -37,6 +37,9 @@ curl -X POST https://<api-url>/ops/presentation-seed \
 | Auditor MedSync | `plataforma.auditor@medsync.dev` | Auditoria minimizada |
 | DPO MedSync | `dpo@medsync.dev` | Direitos do titular e privacidade |
 | Medico do trabalho | `medico.trabalho@medsync.dev` | Perfil bloqueado para acesso clinico real ate validacao formal |
+| Paciente CNPJ tecnico | `paciente@medsync.dev` | Pessoa fisica assistida por suporte, uso real bloqueado |
+| Paciente CNPJ tecnico | `paciente2@medsync.dev` | Pessoa fisica assistida por suporte, uso real bloqueado |
+| Paciente CNPJ tecnico | `paciente3@medsync.dev` | Pessoa fisica assistida por suporte, uso real bloqueado |
 
 ## Empresa Demo
 
@@ -45,7 +48,8 @@ curl -X POST https://<api-url>/ops/presentation-seed \
 | Empresa admin | `empresa.admin@medsync.dev` | Contrato, plano, elegibilidade e uso agregado |
 | Financeiro empresa | `empresa.financeiro@medsync.dev` | Faturas e uso financeiro minimizado |
 | Auditor empresa | `empresa.auditor@medsync.dev` | Auditoria administrativa do proprio CNPJ |
-| Paciente/beneficiario | `paciente@medsync.dev` | Cuidado digital e solicitacoes proprias |
+| Paciente/beneficiario | `paciente.demo@medsync.dev` | Cuidado digital e solicitacoes proprias |
+| Paciente/beneficiario | `paciente.demo2@medsync.dev` | Cuidado digital e solicitacoes proprias |
 | Medico independente | `medico@medsync.dev` | Agenda e perfil profissional |
 
 ## Empresa Alfa
@@ -72,6 +76,8 @@ curl -X POST https://<api-url>/ops/presentation-seed \
 
 - Cada empresa demo usa um tenant separado para testar isolamento por CNPJ.
 - Cada empresa demo possui cinco beneficiarios administrativos ficticios para demonstrar elegibilidade e relatorios agregados.
+- Todos os perfis autenticados acessam `/perfil` para editar dados pessoais permitidos.
+- Edicao de `/perfil` nao altera papel, CNPJ, elegibilidade, CPF, CRM, especialidade, fatura ou dado clinico.
 - Relatorios empresariais nao devem exibir prontuario, diagnostico, observacao clinica ou conteudo de chamada.
 - Financeiro nao acessa elegibilidade individual nem fluxo de privacidade.
 - Auditoria deve exibir tentativas negadas de forma minimizada.
