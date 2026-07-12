@@ -1,6 +1,7 @@
 "use client";
 
 import { EmptyState, ErrorBanner, LoadingState, PageHeader } from "@/components/ui";
+import { isAppointmentJoinWindowOpen, isAppointmentRoomJoinable, isAppointmentStaleInProgress } from "@/lib/appointments";
 import { formatDateTime, statusClass, statusLabel } from "@/lib/format";
 import type { Appointment } from "@/lib/types";
 import { api, getSession } from "@/services/api";
@@ -25,6 +26,7 @@ export default function AppointmentsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [startingId, setStartingId] = useState("");
+  const [endingId, setEndingId] = useState("");
 
   useEffect(() => {
     api
@@ -44,6 +46,25 @@ export default function AppointmentsPage() {
       setError(err instanceof Error ? err.message : "Nao foi possivel iniciar a sala.");
     } finally {
       setStartingId("");
+    }
+  }
+
+  async function endRoom(appointmentId: string) {
+    setEndingId(appointmentId);
+    setError("");
+    try {
+      await api.endConsultation(appointmentId);
+      setAppointments((items) =>
+        items.map((item) =>
+          item.id === appointmentId
+            ? { ...item, status: "Completed", roomName: undefined, videoStatus: "Completed" }
+            : item,
+        ),
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Nao foi possivel encerrar a consulta.");
+    } finally {
+      setEndingId("");
     }
   }
 
@@ -138,13 +159,22 @@ export default function AppointmentsPage() {
                     >
                       <Video size={15} /> {startingId === appointment.id ? "Iniciando..." : "Iniciar sala"}
                     </button>
-                  ) : appointment.status === "InProgress" && appointment.consentAccepted && Boolean(appointment.roomName) ? (
+                  ) : isAppointmentRoomJoinable(appointment) ? (
                     <Link
                       href={`/sala/${appointment.id}`}
                       className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-ink px-4 text-xs font-bold text-white hover:bg-teal-700"
                     >
                       <Video size={15} /> Entrar na sala
                     </Link>
+                  ) : isDoctor && isAppointmentStaleInProgress(appointment) ? (
+                    <button
+                      type="button"
+                      onClick={() => endRoom(appointment.id)}
+                      disabled={endingId === appointment.id}
+                      className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 text-xs font-bold text-amber-700 hover:bg-amber-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+                    >
+                      <Clock3 size={15} /> {endingId === appointment.id ? "Encerrando..." : "Encerrar"}
+                    </button>
                   ) : isPatient && !appointment.consentAccepted && ["Scheduled", "InProgress"].includes(appointment.status) ? (
                     <Link
                       href={`/sala/${appointment.id}`}
@@ -194,6 +224,14 @@ function getAppointmentNextStep(appointment: Appointment) {
   }
 
   if (appointment.status === "InProgress") {
+    if (isAppointmentStaleInProgress(appointment)) {
+      return {
+        label: "Horario encerrado",
+        icon: <Clock3 size={15} />,
+        className: "bg-slate-50 text-slate-500",
+      };
+    }
+
     return {
       label: "Aguardando medico",
       icon: <Video size={15} />,
@@ -221,10 +259,5 @@ function canStartRoom(appointment: Appointment) {
     return false;
   }
 
-  const scheduledAt = new Date(appointment.scheduledAt).getTime();
-  const opensAt = scheduledAt - 15 * 60 * 1000;
-  const closesAt = scheduledAt + (appointment.durationMinutes + 15) * 60 * 1000;
-  const now = Date.now();
-
-  return now >= opensAt && now <= closesAt;
+  return isAppointmentJoinWindowOpen(appointment);
 }

@@ -10,7 +10,7 @@ public sealed class LiveKitRoomManager(
     IHttpClientFactory httpClientFactory,
     ILogger<LiveKitRoomManager> logger)
 {
-    public async Task<bool> DeleteAsync(string roomName)
+    public async Task<LiveKitDeleteRoomResult> DeleteAsync(string roomName)
     {
         var url = Environment.GetEnvironmentVariable("LIVEKIT_URL")
             ?? configuration["LiveKit:Url"];
@@ -23,7 +23,7 @@ public sealed class LiveKitRoomManager(
             string.IsNullOrWhiteSpace(secret))
         {
             logger.LogError("LiveKit não configurado; a sala {RoomName} não foi removida.", roomName);
-            return false;
+            return LiveKitDeleteRoomResult.NotConfigured;
         }
 
         var serviceUrl = url
@@ -37,7 +37,7 @@ public sealed class LiveKitRoomManager(
                 secret,
                 httpClientFactory.CreateClient(nameof(LiveKitRoomManager)));
             await client.DeleteRoom(new DeleteRoomRequest { Room = roomName });
-            return true;
+            return LiveKitDeleteRoomResult.Deleted;
         }
         catch (Exception exception)
         {
@@ -45,9 +45,16 @@ public sealed class LiveKitRoomManager(
                 exception,
                 "Não foi possível remover a sala LiveKit {RoomName}; a operação será tentada novamente.",
                 roomName);
-            return false;
+            return LiveKitDeleteRoomResult.Failed;
         }
     }
+}
+
+public enum LiveKitDeleteRoomResult
+{
+    Deleted,
+    NotConfigured,
+    Failed
 }
 
 public sealed class VideoSessionCleanupService(
@@ -93,17 +100,22 @@ public sealed class VideoSessionCleanupService(
         var liveKit = scope.ServiceProvider.GetRequiredService<LiveKitRoomManager>();
         foreach (var room in rooms)
         {
-            if (!await liveKit.DeleteAsync(room.RoomName))
-                continue;
+            var deleteResult = await liveKit.DeleteAsync(room.RoomName);
             room.Status = VideoSessionStatus.Expired;
             room.EndedAt = DateTime.UtcNow;
+            if (room.Appointment.Status == AppointmentStatus.InProgress ||
+                room.Appointment.Status == AppointmentStatus.Scheduled)
+                room.Appointment.Status = AppointmentStatus.NoShow;
             db.AuditEvents.Add(new AuditEvent
             {
                 ClinicId = room.Appointment.ClinicId,
                 Action = "Video.Expired",
                 ResourceType = "Appointment",
                 ResourceId = room.AppointmentId.ToString(),
-                Result = "Success"
+                Result = deleteResult == LiveKitDeleteRoomResult.Deleted ? "Success" : "Warning",
+                Reason = deleteResult == LiveKitDeleteRoomResult.Deleted
+                    ? null
+                    : $"LiveKit delete result: {deleteResult}."
             });
         }
         await db.SaveChangesAsync(cancellationToken);

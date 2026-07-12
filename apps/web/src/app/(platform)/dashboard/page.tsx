@@ -11,6 +11,7 @@ import {
   SectionHeader,
   buttonClass,
 } from "@/components/ui";
+import { isAppointmentJoinWindowOpen, isAppointmentRoomJoinable, isAppointmentStaleInProgress } from "@/lib/appointments";
 import { formatDateTime, statusClass, statusLabel } from "@/lib/format";
 import type { Appointment, BusinessReportCompany, ClinicRole, CompanyPortal, Doctor, FinanceInvoice, Patient } from "@/lib/types";
 import { api, getSession } from "@/services/api";
@@ -1075,13 +1076,13 @@ function PatientCareHome({
         .sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime()),
     [appointments],
   );
-  const nextAppointment = sorted.find((item) => item.status === "InProgress") ??
+  const nextAppointment = sorted.find((item) => isAppointmentRoomJoinable(item)) ??
+    sorted.find((item) => item.status === "Scheduled" && isAppointmentJoinWindowOpen(item)) ??
+    sorted.find((item) => item.status === "Scheduled" && new Date(item.scheduledAt).getTime() >= Date.now()) ??
+    sorted.find((item) => item.status === "InProgress" && !isAppointmentStaleInProgress(item)) ??
     sorted.find((item) => item.status === "Scheduled");
   const history = sorted.slice(0, 4);
-  const joinAvailable =
-    nextAppointment?.status === "InProgress" &&
-    nextAppointment.consentAccepted &&
-    Boolean(nextAppointment.roomName);
+  const joinAvailable = nextAppointment ? isAppointmentRoomJoinable(nextAppointment) : false;
   const roomBlockedReason = nextAppointment ? careBlockReason(nextAppointment) : null;
   const nextStep = nextAppointment ? patientCareStep(nextAppointment) : null;
 
@@ -1302,7 +1303,7 @@ function AppointmentRow({
   canJoin: boolean;
 }) {
   const step = patientCareStep(appointment);
-  const joinReady = canJoin && appointment.status === "InProgress" && appointment.consentAccepted && Boolean(appointment.roomName);
+  const joinReady = canJoin && isAppointmentRoomJoinable(appointment);
 
   return (
     <div className="flex flex-col gap-4 px-6 py-5 sm:flex-row sm:items-center">
@@ -1433,6 +1434,9 @@ function careBlockReason(appointment: Appointment) {
   if (appointment.paymentRequired && appointment.paymentStatus !== "Paid") {
     return "Entrada aguardando confirmacao de pagamento.";
   }
+  if (isAppointmentStaleInProgress(appointment)) {
+    return "Horario de entrada encerrado. O atendimento precisa ser encerrado pelo medico responsavel.";
+  }
   if (!appointment.consentAccepted) {
     return "Termo de telemedicina pendente antes da entrada na sala.";
   }
@@ -1457,7 +1461,7 @@ function patientCareStep(appointment: Appointment) {
     };
   }
 
-  if (!appointment.consentAccepted && ["Scheduled", "InProgress"].includes(appointment.status)) {
+  if (!appointment.consentAccepted && ["Scheduled", "InProgress"].includes(appointment.status) && !isAppointmentStaleInProgress(appointment)) {
     return {
       cta: "Aceitar termo",
       status: "Termo pendente",
@@ -1468,7 +1472,7 @@ function patientCareStep(appointment: Appointment) {
     };
   }
 
-  if (appointment.status === "InProgress" && appointment.roomName) {
+  if (isAppointmentRoomJoinable(appointment)) {
     return {
       cta: "Entrar na sala",
       status: "Sala liberada",
@@ -1480,6 +1484,16 @@ function patientCareStep(appointment: Appointment) {
   }
 
   if (appointment.status === "InProgress") {
+    if (isAppointmentStaleInProgress(appointment)) {
+      return {
+        cta: "Horario encerrado",
+        status: "Horario encerrado",
+        primary: false,
+        icon: <Clock3 size={17} />,
+        badgeClass: "bg-slate-50 text-slate-500",
+      };
+    }
+
     return {
       cta: "Aguardando medico",
       status: "Aguardando medico",

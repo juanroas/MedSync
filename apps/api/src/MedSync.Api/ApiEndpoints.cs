@@ -2157,6 +2157,12 @@ public static class ApiEndpoints
             return Results.NotFound();
         if (!CanJoinVideo(actor, appointment))
             return Results.Forbid();
+        if (appointment.ConsultationRoom is not null &&
+            (!InJoinWindow(appointment) ||
+             appointment.ConsultationRoom.Status is VideoSessionStatus.Completed
+                 or VideoSessionStatus.Cancelled
+                 or VideoSessionStatus.Expired))
+            return Results.Conflict(new { message = "A sala nao esta disponivel." });
         return appointment.ConsultationRoom is null
             ? Results.NotFound(new { message = "Aguarde o médico iniciar a consulta." })
             : Results.Ok(ToResponse(appointment.ConsultationRoom));
@@ -2254,14 +2260,21 @@ public static class ApiEndpoints
             return Results.NotFound();
         if (!IsAssignedDoctor(actor, appointment))
             return Results.Forbid();
-        if (!await liveKit.DeleteAsync(appointment.ConsultationRoom.RoomName))
+        var deleteResult = await liveKit.DeleteAsync(appointment.ConsultationRoom.RoomName);
+        if (deleteResult == LiveKitDeleteRoomResult.Failed && InJoinWindow(appointment))
             return Results.Problem(
                 "Não foi possível desconectar os participantes. Tente encerrar novamente.",
                 statusCode: StatusCodes.Status503ServiceUnavailable);
         appointment.Status = AppointmentStatus.Completed;
         appointment.ConsultationRoom.Status = VideoSessionStatus.Completed;
         appointment.ConsultationRoom.EndedAt = DateTime.UtcNow;
-        audit.Add(actor, "Consultation.End", "Appointment", appointmentId);
+        audit.Add(
+            actor,
+            "Consultation.End",
+            "Appointment",
+            appointmentId,
+            deleteResult == LiveKitDeleteRoomResult.Deleted ? "Success" : "Warning",
+            deleteResult == LiveKitDeleteRoomResult.Deleted ? null : $"LiveKit delete result: {deleteResult}.");
         await db.SaveChangesAsync(cancellationToken);
         return Results.NoContent();
     }
@@ -2416,6 +2429,7 @@ public static class ApiEndpoints
             ClinicRole.Doctor,
             ClinicRole.MedicalDirector,
             ClinicRole.OccupationalHealthAdmin);
+        var now = DateTime.UtcNow;
         return query.OrderBy(x => x.ScheduledAt)
             .Select(x => new AppointmentResponse(
                 x.Id,
@@ -2434,7 +2448,14 @@ public static class ApiEndpoints
                     .Select(p => (PaymentStatus?)p.Status)
                     .FirstOrDefault(),
                 x.ConsentRecords.Any(c => c.TermVersion == SecurityText.ConsentTermVersion),
-                x.ConsultationRoom == null ? null : x.ConsultationRoom.RoomName,
+                x.ConsultationRoom == null ||
+                    x.ConsultationRoom.Status == VideoSessionStatus.Completed ||
+                    x.ConsultationRoom.Status == VideoSessionStatus.Cancelled ||
+                    x.ConsultationRoom.Status == VideoSessionStatus.Expired ||
+                    now < x.ScheduledAt.AddMinutes(-15) ||
+                    now > x.ScheduledAt.AddMinutes(x.DurationMinutes + 15)
+                    ? null
+                    : x.ConsultationRoom.RoomName,
                 x.ConsultationRoom == null ? null : x.ConsultationRoom.Status));
     }
 
