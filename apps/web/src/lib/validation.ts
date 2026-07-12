@@ -39,3 +39,14 @@ export function isFutureLocalDateTime(value: string) {
   if (!value) return false;
   return new Date(value).getTime() > Date.now();
 }
+
+export function brazilLocalDateTimeToUtcIso(value: string) {
+  if (!value) return "";
+  const normalized = value.length === 16 ? `${value}:00` : value;
+  return new Date(`${normalized}-03:00`).toISOString();
+}
+
+export function isFutureBrazilLocalDateTime(value: string) {
+  if (!value) return false;
+  return new Date(brazilLocalDateTimeToUtcIso(value)).getTime() > Date.now();
+}

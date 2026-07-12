@@ -1,8 +1,9 @@
 "use client";
 
 import { ErrorBanner, LoadingState, PageHeader, buttonClass, inputClass } from "@/components/ui";
+import { formatBrazilDateTimeInput } from "@/lib/format";
 import type { CareSpecialty, Doctor, Patient } from "@/lib/types";
-import { isFutureLocalDateTime } from "@/lib/validation";
+import { brazilLocalDateTimeToUtcIso, isFutureBrazilLocalDateTime } from "@/lib/validation";
 import { api, getSession } from "@/services/api";
 import { ArrowLeft, CalendarPlus, CheckCircle2 } from "lucide-react";
 import Link from "next/link";
@@ -83,8 +84,8 @@ export default function NewAppointmentPage() {
       setSaving(false);
       return;
     }
-    if (!isFutureLocalDateTime(form.scheduledAt)) {
-      setError("Escolha uma data e horario futuros.");
+    if (!isFutureBrazilLocalDateTime(form.scheduledAt)) {
+      setError("Escolha uma data e horario futuros no horario de Brasilia.");
       setSaving(false);
       return;
     }
@@ -98,7 +99,7 @@ export default function NewAppointmentPage() {
       if (isPatient) {
         await api.requestAppointment({
           specialty: form.specialty,
-          scheduledAt: new Date(form.scheduledAt).toISOString(),
+          scheduledAt: brazilLocalDateTimeToUtcIso(form.scheduledAt),
           durationMinutes: form.durationMinutes,
           notes: form.notes,
         });
@@ -106,7 +107,7 @@ export default function NewAppointmentPage() {
         await api.createAppointment({
           doctorId: form.doctorId,
           patientId: form.patientId,
-          scheduledAt: new Date(form.scheduledAt).toISOString(),
+          scheduledAt: brazilLocalDateTimeToUtcIso(form.scheduledAt),
           durationMinutes: form.durationMinutes,
           notes: form.notes,
           price: form.price ? Number(form.price) : undefined,
@@ -220,13 +221,13 @@ function PatientRequestForm({
             </select>
           </label>
           <label className="block sm:col-span-2">
-            <span className="mb-2 block text-sm font-bold text-slate-700">Data e horario</span>
+            <span className="mb-2 block text-sm font-bold text-slate-700">Data e horario de Brasilia</span>
             <input
               className={inputClass}
               type="datetime-local"
               value={form.scheduledAt}
               onChange={(event) => onChange({ ...form, scheduledAt: event.target.value })}
-              min={new Date().toISOString().slice(0, 16)}
+              min={formatBrazilDateTimeInput()}
               required
             />
           </label>
@@ -321,13 +322,13 @@ function OperationalScheduleForm({
             </select>
           </label>
           <label className="block sm:col-span-2">
-            <span className="mb-2 block text-sm font-bold text-slate-700">Data e horario</span>
+            <span className="mb-2 block text-sm font-bold text-slate-700">Data e horario de Brasilia</span>
             <input
               className={inputClass}
               type="datetime-local"
               value={form.scheduledAt}
               onChange={(event) => onChange({ ...form, scheduledAt: event.target.value })}
-              min={new Date().toISOString().slice(0, 16)}
+              min={formatBrazilDateTimeInput()}
               required
             />
           </label>

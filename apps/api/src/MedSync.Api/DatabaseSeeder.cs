@@ -298,7 +298,7 @@ public static class DatabaseSeeder
                 ClinicId = tenant.ClinicId,
                 DoctorId = doctorId,
                 PatientId = patientId,
-                ScheduledAt = DateTime.UtcNow.AddMinutes(10),
+                ScheduledAt = NextDemoAppointmentUtc(),
                 DurationMinutes = 60,
                 Notes = "Consulta inicial de demonstracao."
             });
@@ -308,8 +308,29 @@ public static class DatabaseSeeder
         appointment.ClinicId = tenant.ClinicId;
         appointment.DoctorId = doctorId;
         appointment.PatientId = patientId;
-        appointment.ScheduledAt = DateTime.UtcNow.AddMinutes(10);
+        appointment.ScheduledAt = NextDemoAppointmentUtc();
         appointment.Status = AppointmentStatus.Scheduled;
+    }
+
+    private static DateTime NextDemoAppointmentUtc()
+    {
+        var timeZone = BrazilTimeZone();
+        var brazilNow = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, timeZone);
+        var brazilScheduledAt = DateTime.SpecifyKind(brazilNow.AddMinutes(10), DateTimeKind.Unspecified);
+
+        return TimeZoneInfo.ConvertTimeToUtc(brazilScheduledAt, timeZone);
+    }
+
+    private static TimeZoneInfo BrazilTimeZone()
+    {
+        try
+        {
+            return TimeZoneInfo.FindSystemTimeZoneById("E. South America Standard Time");
+        }
+        catch (Exception ex) when (ex is TimeZoneNotFoundException or InvalidTimeZoneException)
+        {
+            return TimeZoneInfo.FindSystemTimeZoneById("America/Sao_Paulo");
+        }
     }
 
     private static async Task EnsureB2BFoundationAsync(
