@@ -162,7 +162,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   const isPlatformAdminProfile = user.roles.includes("PlatformAdmin");
+  const isPatientOnly = user.roles.includes("Patient") && !user.roles.some((role) => role !== "Patient");
+  const isDoctorOnly = user.roles.includes("Doctor") && !user.roles.some((role) => role !== "Doctor");
   const visibleNavigation = navigation.filter((item) => {
+    if ((isPatientOnly || isDoctorOnly) && item.href === "/perfil") {
+      return false;
+    }
     const platformAdminAllowed =
       item.href === "/dashboard" ||
       item.href === "/perfil" ||
@@ -176,7 +181,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     }
     return !item.roles || item.roles.some((role) => user.roles.includes(role));
   });
-  const isPatientOnly = user.roles.includes("Patient") && !user.roles.some((role) => role !== "Patient");
   const canSchedule =
     !isPlatformAdminProfile && (isPatientOnly || schedulingRoles.some((role) => user.roles.includes(role)));
 

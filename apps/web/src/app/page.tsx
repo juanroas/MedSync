@@ -65,20 +65,22 @@ export default function HomePage() {
             "linear-gradient(90deg, rgba(8, 37, 34, .94) 0%, rgba(11, 65, 58, .82) 44%, rgba(11, 65, 58, .24) 100%), url('https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?auto=format&fit=crop&w=2200&q=85')",
         }}
       >
-        <nav className="mx-auto flex max-w-7xl items-center justify-between px-5 py-6 sm:px-8">
-          <Logo />
-          <div className="flex items-center gap-3">
-            <Link href="/login" className="hidden text-sm font-bold text-white/80 hover:text-white sm:block">
-              Entrar
-            </Link>
-            <Link
-              href="/login"
-              className="inline-flex h-11 items-center gap-2 rounded-lg bg-white px-5 text-sm font-bold text-teal-950 transition hover:bg-teal-50"
-            >
-              Entrar na demo <ArrowRight size={16} />
-            </Link>
-          </div>
-        </nav>
+        <div className="relative z-10 border-b border-white/70 bg-white/95 text-ink shadow-sm backdrop-blur">
+          <nav className="mx-auto flex max-w-7xl items-center justify-between px-5 py-5 sm:px-8">
+            <Logo />
+            <div className="flex items-center gap-3">
+              <Link href="/login" className="hidden text-sm font-bold text-slate-600 hover:text-teal-700 sm:block">
+                Entrar
+              </Link>
+              <Link
+                href="/login"
+                className="inline-flex h-11 items-center gap-2 rounded-lg bg-teal-800 px-5 text-sm font-bold text-white shadow-sm transition hover:bg-teal-700"
+              >
+                Entrar na demo <ArrowRight size={16} />
+              </Link>
+            </div>
+          </nav>
+        </div>
 
         <div className="mx-auto grid max-w-7xl gap-10 px-5 pb-14 pt-16 sm:px-8 lg:pt-24">
           <div className="max-w-3xl">
