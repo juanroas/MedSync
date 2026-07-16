@@ -2483,7 +2483,7 @@ public static class ApiEndpoints
             ClinicRole.MedicalDirector,
             ClinicRole.OccupationalHealthAdmin);
         var now = DateTime.UtcNow;
-        return query.OrderBy(x => x.ScheduledAt)
+        return query.OrderByDescending(x => x.ScheduledAt)
             .Select(x => new AppointmentResponse(
                 x.Id,
                 x.DoctorId,

@@ -8,7 +8,7 @@ import { api, getSession } from "@/services/api";
 import { CalendarDays, Clock3, FileText, Plus, Stethoscope, UserRound, Video } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 export default function AppointmentsPage() {
   const router = useRouter();
@@ -27,14 +27,56 @@ export default function AppointmentsPage() {
   const [error, setError] = useState("");
   const [startingId, setStartingId] = useState("");
   const [endingId, setEndingId] = useState("");
+  const [, setNowTick] = useState(() => Date.now());
+  const isMountedRef = useRef(false);
+  const refreshingRef = useRef(false);
+
+  const loadAppointments = useCallback(async (showLoading: boolean) => {
+    if (refreshingRef.current) return;
+    refreshingRef.current = true;
+    if (showLoading) setLoading(true);
+
+    try {
+      const items = await api.getAppointments();
+      if (!isMountedRef.current) return;
+      setAppointments(items);
+      setError("");
+    } catch (err) {
+      if (!isMountedRef.current) return;
+      setError(err instanceof Error ? err.message : "Erro ao carregar consultas.");
+    } finally {
+      refreshingRef.current = false;
+      if (isMountedRef.current && showLoading) setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    api
-      .getAppointments()
-      .then(setAppointments)
-      .catch((err) => setError(err instanceof Error ? err.message : "Erro ao carregar consultas."))
-      .finally(() => setLoading(false));
-  }, []);
+    isMountedRef.current = true;
+    loadAppointments(true);
+
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, [loadAppointments]);
+
+  useEffect(() => {
+    function refreshWhenVisible() {
+      setNowTick(Date.now());
+      if (document.visibilityState === "visible") {
+        loadAppointments(false);
+      }
+    }
+
+    const minuteTick = window.setInterval(() => setNowTick(Date.now()), 60_000);
+    window.addEventListener("focus", refreshWhenVisible);
+    document.addEventListener("visibilitychange", refreshWhenVisible);
+
+    return () => {
+      window.clearInterval(minuteTick);
+      window.removeEventListener("focus", refreshWhenVisible);
+      document.removeEventListener("visibilitychange", refreshWhenVisible);
+    };
+  }, [loadAppointments]);
 
   async function startRoom(appointmentId: string) {
     setStartingId(appointmentId);
@@ -89,7 +131,7 @@ export default function AppointmentsPage() {
           >
             <Video size={15} /> {startingId === appointment.id ? "Iniciando..." : "Iniciar sala"}
           </button>
-        ) : isAppointmentRoomJoinable(appointment) ? (
+        ) : (isAppointmentRoomJoinable(appointment) || canDoctorEnterExistingRoom(appointment)) ? (
           <Link
             href={`/sala/${appointment.id}`}
             className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-ink px-4 text-xs font-bold text-white hover:bg-teal-700"
@@ -112,8 +154,10 @@ export default function AppointmentsPage() {
           >
             <FileText size={15} /> Aceitar termo
           </Link>
+        ) : isDoctor ? (
+          <DoctorRoomNextStep appointment={appointment} />
         ) : (
-          <AppointmentNextStep appointment={appointment} className={isDoctor ? "w-full" : undefined} />
+          <AppointmentNextStep appointment={appointment} />
         )}
       </div>
     );
@@ -221,6 +265,18 @@ function AppointmentNextStep({ appointment, className = "" }: { appointment: App
   );
 }
 
+function DoctorRoomNextStep({ appointment }: { appointment: Appointment }) {
+  if (appointment.status === "Scheduled") {
+    return (
+      <span className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-slate-50 px-3 text-xs font-bold text-slate-500">
+        <Clock3 size={15} /> Sala abre 15 min antes
+      </span>
+    );
+  }
+
+  return <AppointmentNextStep appointment={appointment} className="w-full" />;
+}
+
 function getAppointmentNextStep(appointment: Appointment) {
   if (appointment.paymentRequired && appointment.paymentStatus !== "Paid") {
     return {
@@ -285,4 +341,13 @@ function canStartRoom(appointment: Appointment) {
   }
 
   return isAppointmentJoinWindowOpen(appointment);
+}
+
+function canDoctorEnterExistingRoom(appointment: Appointment) {
+  return Boolean(appointment.roomName) &&
+    ["Scheduled", "InProgress"].includes(appointment.status) &&
+    appointment.videoStatus !== "Completed" &&
+    appointment.videoStatus !== "Cancelled" &&
+    appointment.videoStatus !== "Expired" &&
+    isAppointmentJoinWindowOpen(appointment);
 }
