@@ -166,6 +166,23 @@ export type ConsultationRoom = {
   endedAt?: string;
 };
 
+export type ClinicalRecord = {
+  id: string;
+  appointmentId: string;
+  content: string;
+  version: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type PatientClinicalRecord = ClinicalRecord & {
+  patientId: string;
+  patientName: string;
+  doctorName: string;
+  specialty: string;
+  scheduledAt: string;
+};
+
 export type Payment = {
   id: string;
   appointmentId: string;

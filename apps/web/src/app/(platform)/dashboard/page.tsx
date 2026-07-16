@@ -1324,8 +1324,8 @@ function AppointmentRow({
         <p className="text-sm font-semibold text-ink">
           {formatDateTime(appointment.scheduledAt)}
         </p>
-        <Badge className={statusClass[appointment.status]}>
-          {statusLabel[appointment.status]}
+        <Badge className={appointmentStatusClass(appointment)}>
+          {appointmentStatusText(appointment)}
         </Badge>
       </div>
       {joinReady ? (
@@ -1530,6 +1530,16 @@ function patientCareStep(appointment: Appointment) {
     icon: <Clock3 size={17} />,
     badgeClass: "bg-slate-50 text-slate-500",
   };
+}
+
+function appointmentStatusText(appointment: Appointment) {
+  if (isAppointmentStaleInProgress(appointment)) return "Horario encerrado";
+  return statusLabel[appointment.status];
+}
+
+function appointmentStatusClass(appointment: Appointment) {
+  if (isAppointmentStaleInProgress(appointment)) return "bg-slate-50 text-slate-500";
+  return statusClass[appointment.status];
 }
 
 const contractStatusLabel = {

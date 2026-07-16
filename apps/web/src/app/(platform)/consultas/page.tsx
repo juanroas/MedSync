@@ -68,6 +68,57 @@ export default function AppointmentsPage() {
     }
   }
 
+  function renderAppointmentAction(appointment: Appointment) {
+    return (
+      <div className="flex flex-wrap justify-end gap-2">
+        {isDoctor && (
+          <Link
+            href={`/prontuario/${appointment.id}`}
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-teal-200 bg-teal-50 px-4 text-xs font-bold text-teal-700 hover:bg-teal-100"
+          >
+            <FileText size={15} /> Prontuario
+          </Link>
+        )}
+
+        {isDoctor && canStartRoom(appointment) ? (
+          <button
+            type="button"
+            onClick={() => startRoom(appointment.id)}
+            disabled={startingId === appointment.id}
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-ink px-4 text-xs font-bold text-white hover:bg-teal-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+          >
+            <Video size={15} /> {startingId === appointment.id ? "Iniciando..." : "Iniciar sala"}
+          </button>
+        ) : isAppointmentRoomJoinable(appointment) ? (
+          <Link
+            href={`/sala/${appointment.id}`}
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-ink px-4 text-xs font-bold text-white hover:bg-teal-700"
+          >
+            <Video size={15} /> Entrar na sala
+          </Link>
+        ) : isDoctor && isAppointmentStaleInProgress(appointment) ? (
+          <button
+            type="button"
+            onClick={() => endRoom(appointment.id)}
+            disabled={endingId === appointment.id}
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 text-xs font-bold text-amber-700 hover:bg-amber-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+          >
+            <Clock3 size={15} /> {endingId === appointment.id ? "Encerrando..." : "Encerrar"}
+          </button>
+        ) : isPatient && !appointment.consentAccepted && ["Scheduled", "InProgress"].includes(appointment.status) ? (
+          <Link
+            href={`/sala/${appointment.id}`}
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-teal-200 bg-teal-50 px-4 text-xs font-bold text-teal-700 hover:bg-teal-100"
+          >
+            <FileText size={15} /> Aceitar termo
+          </Link>
+        ) : (
+          <AppointmentNextStep appointment={appointment} />
+        )}
+      </div>
+    );
+  }
+
   return (
     <>
       <PageHeader
@@ -145,47 +196,11 @@ export default function AppointmentsPage() {
                   <p className="mt-1 text-xs text-slate-400">Horario de Brasilia</p>
                 </div>
                 <span
-                  className={`w-fit rounded-full px-2.5 py-1.5 text-[11px] font-bold ${statusClass[appointment.status]}`}
+                  className={`w-fit rounded-full px-2.5 py-1.5 text-[11px] font-bold ${appointmentStatusClass(appointment)}`}
                 >
-                  {statusLabel[appointment.status]}
+                  {appointmentStatusText(appointment)}
                 </span>
-                {canJoinRole ? (
-                  isDoctor && canStartRoom(appointment) ? (
-                    <button
-                      type="button"
-                      onClick={() => startRoom(appointment.id)}
-                      disabled={startingId === appointment.id}
-                      className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-ink px-4 text-xs font-bold text-white hover:bg-teal-700 disabled:cursor-not-allowed disabled:bg-slate-300"
-                    >
-                      <Video size={15} /> {startingId === appointment.id ? "Iniciando..." : "Iniciar sala"}
-                    </button>
-                  ) : isAppointmentRoomJoinable(appointment) ? (
-                    <Link
-                      href={`/sala/${appointment.id}`}
-                      className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-ink px-4 text-xs font-bold text-white hover:bg-teal-700"
-                    >
-                      <Video size={15} /> Entrar na sala
-                    </Link>
-                  ) : isDoctor && isAppointmentStaleInProgress(appointment) ? (
-                    <button
-                      type="button"
-                      onClick={() => endRoom(appointment.id)}
-                      disabled={endingId === appointment.id}
-                      className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 text-xs font-bold text-amber-700 hover:bg-amber-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
-                    >
-                      <Clock3 size={15} /> {endingId === appointment.id ? "Encerrando..." : "Encerrar"}
-                    </button>
-                  ) : isPatient && !appointment.consentAccepted && ["Scheduled", "InProgress"].includes(appointment.status) ? (
-                    <Link
-                      href={`/sala/${appointment.id}`}
-                      className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-teal-200 bg-teal-50 px-4 text-xs font-bold text-teal-700 hover:bg-teal-100"
-                    >
-                      <FileText size={15} /> Aceitar termo
-                    </Link>
-                  ) : (
-                    <AppointmentNextStep appointment={appointment} />
-                  )
-                ) : <span />}
+                {canJoinRole ? renderAppointmentAction(appointment) : <span />}
               </article>
             ))}
           </div>
@@ -252,6 +267,16 @@ function getAppointmentNextStep(appointment: Appointment) {
     icon: <CalendarDays size={15} />,
     className: "bg-slate-50 text-slate-500",
   };
+}
+
+function appointmentStatusText(appointment: Appointment) {
+  if (isAppointmentStaleInProgress(appointment)) return "Horario encerrado";
+  return statusLabel[appointment.status];
+}
+
+function appointmentStatusClass(appointment: Appointment) {
+  if (isAppointmentStaleInProgress(appointment)) return "bg-slate-50 text-slate-500";
+  return statusClass[appointment.status];
 }
 
 function canStartRoom(appointment: Appointment) {

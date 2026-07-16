@@ -213,6 +213,19 @@ public sealed record ClinicalRecordResponse(
     DateTime CreatedAt,
     DateTime UpdatedAt);
 
+public sealed record PatientClinicalRecordResponse(
+    Guid Id,
+    Guid AppointmentId,
+    Guid PatientId,
+    string PatientName,
+    string DoctorName,
+    string Specialty,
+    DateTime ScheduledAt,
+    string Content,
+    int Version,
+    DateTime CreatedAt,
+    DateTime UpdatedAt);
+
 public sealed record PaymentResponse(
     Guid Id,
     Guid AppointmentId,

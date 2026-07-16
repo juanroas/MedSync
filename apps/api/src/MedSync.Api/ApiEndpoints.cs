@@ -56,6 +56,7 @@ public static class ApiEndpoints
         protectedApi.MapGet("/consent/term", GetConsentTerm);
         protectedApi.MapGet("/appointments/{id:guid}/clinical-record", GetClinicalRecord);
         protectedApi.MapPut("/appointments/{id:guid}/clinical-record", SaveClinicalRecord);
+        protectedApi.MapGet("/patients/{patientId:guid}/clinical-records", GetPatientClinicalRecords);
 
         protectedApi.MapPost("/consultations/{appointmentId:guid}/start", StartConsultation);
         protectedApi.MapGet("/consultations/{appointmentId:guid}/room", GetRoom);
@@ -2058,7 +2059,9 @@ public static class ApiEndpoints
         CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(request.Content))
-            return Validation("content", "O registro clínico não pode ficar vazio.");
+            return Validation("content", "O registro clinico nao pode ficar vazio.");
+        if (request.Content.Length > 12000)
+            return Validation("content", "O registro clinico deve ter no maximo 12000 caracteres.");
         var actor = RequestContext.From(principal);
         var appointment = await LoadAppointment(db, actor, id, cancellationToken);
         if (appointment is null)
@@ -2096,6 +2099,56 @@ public static class ApiEndpoints
         audit.Add(actor, "ClinicalRecord.Save", "Appointment", id);
         await db.SaveChangesAsync(cancellationToken);
         return Results.Ok(ToResponse(record));
+    }
+
+    private static async Task<IResult> GetPatientClinicalRecords(
+        Guid patientId,
+        ClaimsPrincipal principal,
+        MedSyncDbContext db,
+        AuditWriter audit,
+        CancellationToken cancellationToken)
+    {
+        var actor = RequestContext.From(principal);
+        var patientExists = await db.Patients.AsNoTracking()
+            .AnyAsync(x => x.Id == patientId && x.ClinicId == actor.ClinicId, cancellationToken);
+        if (!patientExists)
+            return Results.NotFound();
+
+        if (!await CanViewPatientClinicalHistory(db, actor, patientId, cancellationToken))
+        {
+            audit.Add(
+                actor,
+                "ClinicalRecord.History",
+                "Patient",
+                patientId,
+                "Denied",
+                "Perfil sem permissao assistencial para historico de prontuario.");
+            await db.SaveChangesAsync(cancellationToken);
+            return Results.Forbid();
+        }
+
+        var records = await db.Appointments.AsNoTracking()
+            .Where(x => x.ClinicId == actor.ClinicId &&
+                        x.PatientId == patientId &&
+                        x.ClinicalRecord != null)
+            .OrderByDescending(x => x.ScheduledAt)
+            .Select(x => new PatientClinicalRecordResponse(
+                x.ClinicalRecord!.Id,
+                x.Id,
+                x.PatientId,
+                x.Patient.Name,
+                x.Doctor.Name,
+                x.Doctor.Specialty,
+                x.ScheduledAt,
+                x.ClinicalRecord.Content,
+                x.ClinicalRecord.Version,
+                x.ClinicalRecord.CreatedAt,
+                x.ClinicalRecord.UpdatedAt))
+            .ToListAsync(cancellationToken);
+
+        audit.Add(actor, "ClinicalRecord.History", "Patient", patientId);
+        await db.SaveChangesAsync(cancellationToken);
+        return Results.Ok(records);
     }
 
     private static async Task<IResult> StartConsultation(
@@ -2519,6 +2572,28 @@ public static class ApiEndpoints
         actor.HasAny(ClinicRole.OccupationalHealthAdmin) ||
         IsAssignedDoctor(actor, appointment) ||
         IsPatient(actor, appointment);
+
+    private static Task<bool> CanViewPatientClinicalHistory(
+        MedSyncDbContext db,
+        RequestContext actor,
+        Guid patientId,
+        CancellationToken cancellationToken)
+    {
+        if (actor.HasAny(ClinicRole.MedicalDirector, ClinicRole.OccupationalHealthAdmin))
+            return Task.FromResult(true);
+
+        if (actor.HasAny(ClinicRole.Doctor))
+        {
+            return db.Appointments.AsNoTracking()
+                .AnyAsync(
+                    x => x.ClinicId == actor.ClinicId &&
+                         x.PatientId == patientId &&
+                         x.Doctor.UserId == actor.UserId,
+                    cancellationToken);
+        }
+
+        return Task.FromResult(false);
+    }
 
     private static bool CanJoinVideo(RequestContext actor, Appointment appointment) =>
         IsAssignedDoctor(actor, appointment) ||

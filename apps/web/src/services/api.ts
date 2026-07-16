@@ -2,6 +2,7 @@ import type {
   Appointment,
   BusinessReport,
   CareSpecialty,
+  ClinicalRecord,
   ClinicRole,
   CompanyActivation,
   CompanyBeneficiary,
@@ -13,6 +14,7 @@ import type {
   FinanceInvoice,
   LoginResponse,
   Patient,
+  PatientClinicalRecord,
   Payment,
   PersonalProfile,
   PrivacyRequest,
@@ -257,6 +259,15 @@ export const api = {
 
   getAppointments: () => request<Appointment[]>("/appointments"),
   getAppointment: (id: string) => request<Appointment>(`/appointments/${id}`),
+  getClinicalRecord: (appointmentId: string) =>
+    request<ClinicalRecord>(`/appointments/${appointmentId}/clinical-record`),
+  saveClinicalRecord: (appointmentId: string, input: { content: string }) =>
+    request<ClinicalRecord>(`/appointments/${appointmentId}/clinical-record`, {
+      method: "PUT",
+      body: JSON.stringify(input),
+    }),
+  getPatientClinicalRecords: (patientId: string) =>
+    request<PatientClinicalRecord[]>(`/patients/${patientId}/clinical-records`),
   createAppointment: (appointment: {
     doctorId: string;
     patientId: string;
