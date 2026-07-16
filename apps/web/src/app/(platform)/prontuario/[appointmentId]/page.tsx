@@ -4,7 +4,7 @@ import { AlertBanner, Button, Card, ErrorBanner, LoadingState, PageHeader, TextA
 import { formatDateTime } from "@/lib/format";
 import type { Appointment, ClinicalRecord, PatientClinicalRecord } from "@/lib/types";
 import { ApiError, api, getSession } from "@/services/api";
-import { ArrowLeft, ClipboardPlus, FileClock, Save, ShieldCheck, Stethoscope } from "lucide-react";
+import { ArrowLeft, ClipboardPlus, Eye, FileClock, Save, ShieldCheck, Stethoscope, X } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useState } from "react";
@@ -25,6 +25,7 @@ export default function ClinicalRecordPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [savedMessage, setSavedMessage] = useState("");
+  const [selectedHistory, setSelectedHistory] = useState<PatientClinicalRecord | null>(null);
 
   const currentHistory = useMemo(
     () => history.filter((item) => item.appointmentId !== appointmentId),
@@ -65,6 +66,17 @@ export default function ClinicalRecordPage() {
       isMounted = false;
     };
   }, [appointmentId]);
+
+  useEffect(() => {
+    if (!selectedHistory) return;
+
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") setSelectedHistory(null);
+    }
+
+    document.addEventListener("keydown", closeOnEscape);
+    return () => document.removeEventListener("keydown", closeOnEscape);
+  }, [selectedHistory]);
 
   async function saveRecord(event: FormEvent) {
     event.preventDefault();
@@ -238,6 +250,13 @@ export default function ClinicalRecordPage() {
                       <p className="max-h-36 overflow-hidden whitespace-pre-wrap text-sm leading-6 text-slate-600">
                         {item.content}
                       </p>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedHistory(item)}
+                        className="mt-4 inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-xs font-bold text-teal-700 hover:border-teal-200 hover:bg-teal-50"
+                      >
+                        <Eye size={14} /> Ver completo
+                      </button>
                     </article>
                   ))}
                 </div>
@@ -261,6 +280,10 @@ export default function ClinicalRecordPage() {
           </aside>
         </div>
       )}
+
+      {selectedHistory && (
+        <ClinicalHistoryModal record={selectedHistory} onClose={() => setSelectedHistory(null)} />
+      )}
     </>
   );
 }
@@ -281,6 +304,59 @@ function InfoPill({ label, value }: { label: string; value: string }) {
     <div className="rounded-lg border border-slate-100 bg-slate-50 px-3.5 py-3">
       <p className="text-xs font-bold uppercase tracking-[0.08em] text-slate-400">{label}</p>
       <p className="mt-1 font-semibold text-ink">{value}</p>
+    </div>
+  );
+}
+
+function ClinicalHistoryModal({
+  record,
+  onClose,
+}: {
+  record: PatientClinicalRecord;
+  onClose: () => void;
+}) {
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="clinical-history-title"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-ink/55 p-4 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div
+        className="flex max-h-[88vh] w-full max-w-3xl flex-col overflow-hidden rounded-lg border border-slate-200 bg-white shadow-2xl"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="flex items-start justify-between gap-4 border-b border-slate-100 px-6 py-5">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.08em] text-teal-700">Historico clinico</p>
+            <h2 id="clinical-history-title" className="mt-1 text-xl font-bold text-ink">
+              Registro anterior do paciente
+            </h2>
+            <p className="mt-1 text-sm text-slate-500">
+              {formatDateTime(record.scheduledAt)} - {record.doctorName} - {record.specialty}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="grid size-10 shrink-0 place-items-center rounded-lg border border-slate-200 text-slate-500 hover:border-red-100 hover:bg-red-50 hover:text-red-600"
+            aria-label="Fechar historico"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="grid gap-3 border-b border-slate-100 bg-slate-50 px-6 py-4 text-sm sm:grid-cols-3">
+          <InfoPill label="Paciente" value={record.patientName} />
+          <InfoPill label="Versao" value={`v${record.version}`} />
+          <InfoPill label="Atualizado" value={formatDateTime(record.updatedAt)} />
+        </div>
+
+        <div className="overflow-y-auto px-6 py-6">
+          <p className="whitespace-pre-wrap text-sm leading-7 text-slate-700">{record.content}</p>
+        </div>
+      </div>
     </div>
   );
 }

@@ -159,7 +159,9 @@ recebem uma senha temporária, que deve ser trocada no primeiro acesso.
 
 | Variável | Descrição |
 |---|---|
-| `NEXT_PUBLIC_API_URL` | URL pública da API, sem barra no final. |
+| `NEXT_PUBLIC_API_BASE_PATH` | Caminho usado pelo browser para chamar a API. Em Vercel, use `/api` para manter cookie same-origin. |
+| `NEXT_PUBLIC_API_URL` | URL pública da API, sem barra no final. Usada pelo rewrite/proxy do Next.js quando `API_PROXY_TARGET` nao for definido. |
+| `API_PROXY_TARGET` | URL interna ou publica da API usada pelo servidor Next.js no rewrite `/api/:path*`. |
 | `NEXT_PUBLIC_LIVEKIT_URL` | URL WebSocket pública do LiveKit (`wss://...`). |
 
 `LIVEKIT_API_SECRET` nunca deve ser configurada na Vercel ou exposta com o
@@ -259,7 +261,9 @@ projetos a partir de `apps/api`.
 3. Configure:
 
    ```env
+   NEXT_PUBLIC_API_BASE_PATH=/api
    NEXT_PUBLIC_API_URL=https://seu-dominio.up.railway.app
+   API_PROXY_TARGET=https://seu-dominio.up.railway.app
    NEXT_PUBLIC_LIVEKIT_URL=wss://seu-projeto.livekit.cloud
    ```
 
