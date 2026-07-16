@@ -11,7 +11,12 @@ import {
   SectionHeader,
   buttonClass,
 } from "@/components/ui";
-import { isAppointmentJoinWindowOpen, isAppointmentRoomJoinable, isAppointmentStaleInProgress } from "@/lib/appointments";
+import {
+  isAppointmentJoinWindowOpen,
+  isAppointmentMissed,
+  isAppointmentRoomJoinable,
+  isAppointmentStaleInProgress,
+} from "@/lib/appointments";
 import { formatDateTime, statusClass, statusLabel } from "@/lib/format";
 import type { Appointment, BusinessReportCompany, ClinicRole, CompanyPortal, Doctor, FinanceInvoice, Patient } from "@/lib/types";
 import { api, getSession } from "@/services/api";
@@ -1078,9 +1083,9 @@ function PatientCareHome({
   );
   const nextAppointment = sorted.find((item) => isAppointmentRoomJoinable(item)) ??
     sorted.find((item) => item.status === "Scheduled" && isAppointmentJoinWindowOpen(item)) ??
-    sorted.find((item) => item.status === "Scheduled" && new Date(item.scheduledAt).getTime() >= Date.now()) ??
+    sorted.find((item) => item.status === "Scheduled" && !isAppointmentMissed(item) && new Date(item.scheduledAt).getTime() >= Date.now()) ??
     sorted.find((item) => item.status === "InProgress" && !isAppointmentStaleInProgress(item)) ??
-    sorted.find((item) => item.status === "Scheduled");
+    sorted.find((item) => item.status === "Scheduled" && !isAppointmentMissed(item));
   const history = sorted.slice(0, 4);
   const joinAvailable = nextAppointment ? isAppointmentRoomJoinable(nextAppointment) : false;
   const roomBlockedReason = nextAppointment ? careBlockReason(nextAppointment) : null;
@@ -1434,6 +1439,9 @@ function careBlockReason(appointment: Appointment) {
   if (appointment.paymentRequired && appointment.paymentStatus !== "Paid") {
     return "Entrada aguardando confirmacao de pagamento.";
   }
+  if (isAppointmentMissed(appointment)) {
+    return "Horario de entrada encerrado. Solicite um novo atendimento se necessario.";
+  }
   if (isAppointmentStaleInProgress(appointment)) {
     return "Horario de entrada encerrado. O atendimento precisa ser encerrado pelo medico responsavel.";
   }
@@ -1457,6 +1465,16 @@ function patientCareStep(appointment: Appointment) {
       href: `/sala/${appointment.id}`,
       primary: false,
       icon: <Clock3 size={17} />,
+      badgeClass: "bg-amber-50 text-amber-700",
+    };
+  }
+
+  if (isAppointmentMissed(appointment)) {
+    return {
+      cta: "Nao compareceu",
+      status: "Nao compareceu",
+      primary: false,
+      icon: <CalendarCheck2 size={17} />,
       badgeClass: "bg-amber-50 text-amber-700",
     };
   }
@@ -1533,11 +1551,13 @@ function patientCareStep(appointment: Appointment) {
 }
 
 function appointmentStatusText(appointment: Appointment) {
+  if (isAppointmentMissed(appointment)) return "Nao compareceu";
   if (isAppointmentStaleInProgress(appointment)) return "Horario encerrado";
   return statusLabel[appointment.status];
 }
 
 function appointmentStatusClass(appointment: Appointment) {
+  if (isAppointmentMissed(appointment)) return "bg-amber-50 text-amber-700";
   if (isAppointmentStaleInProgress(appointment)) return "bg-slate-50 text-slate-500";
   return statusClass[appointment.status];
 }

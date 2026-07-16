@@ -9,6 +9,17 @@ export function isAppointmentJoinWindowOpen(appointment: Appointment) {
   return now >= opensAt && now <= closesAt;
 }
 
+export function isAppointmentJoinWindowClosed(appointment: Appointment) {
+  const scheduledAt = new Date(appointment.scheduledAt).getTime();
+  const closesAt = scheduledAt + (appointment.durationMinutes + 15) * 60 * 1000;
+
+  return Date.now() > closesAt;
+}
+
+export function isAppointmentMissed(appointment: Appointment) {
+  return appointment.status === "Scheduled" && isAppointmentJoinWindowClosed(appointment);
+}
+
 export function isAppointmentRoomJoinable(appointment: Appointment) {
   return appointment.status === "InProgress" &&
     appointment.videoStatus !== "Completed" &&
@@ -20,5 +31,5 @@ export function isAppointmentRoomJoinable(appointment: Appointment) {
 }
 
 export function isAppointmentStaleInProgress(appointment: Appointment) {
-  return appointment.status === "InProgress" && !isAppointmentJoinWindowOpen(appointment);
+  return appointment.status === "InProgress" && isAppointmentJoinWindowClosed(appointment);
 }

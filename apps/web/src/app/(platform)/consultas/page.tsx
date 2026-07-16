@@ -1,7 +1,12 @@
 "use client";
 
 import { EmptyState, ErrorBanner, LoadingState, PageHeader } from "@/components/ui";
-import { isAppointmentJoinWindowOpen, isAppointmentRoomJoinable, isAppointmentStaleInProgress } from "@/lib/appointments";
+import {
+  isAppointmentJoinWindowOpen,
+  isAppointmentMissed,
+  isAppointmentRoomJoinable,
+  isAppointmentStaleInProgress,
+} from "@/lib/appointments";
 import { formatDateTime, statusClass, statusLabel } from "@/lib/format";
 import type { Appointment } from "@/lib/types";
 import { api, getSession } from "@/services/api";
@@ -266,6 +271,10 @@ function AppointmentNextStep({ appointment, className = "" }: { appointment: App
 }
 
 function DoctorRoomNextStep({ appointment }: { appointment: Appointment }) {
+  if (isAppointmentMissed(appointment)) {
+    return <AppointmentNextStep appointment={appointment} className="w-full" />;
+  }
+
   if (appointment.status === "Scheduled") {
     return (
       <span className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-slate-50 px-3 text-xs font-bold text-slate-500">
@@ -282,6 +291,14 @@ function getAppointmentNextStep(appointment: Appointment) {
     return {
       label: "Pagamento pendente",
       icon: <Clock3 size={15} />,
+      className: "bg-amber-50 text-amber-700",
+    };
+  }
+
+  if (isAppointmentMissed(appointment)) {
+    return {
+      label: "Nao compareceu",
+      icon: <CalendarDays size={15} />,
       className: "bg-amber-50 text-amber-700",
     };
   }
@@ -326,11 +343,13 @@ function getAppointmentNextStep(appointment: Appointment) {
 }
 
 function appointmentStatusText(appointment: Appointment) {
+  if (isAppointmentMissed(appointment)) return "Nao compareceu";
   if (isAppointmentStaleInProgress(appointment)) return "Horario encerrado";
   return statusLabel[appointment.status];
 }
 
 function appointmentStatusClass(appointment: Appointment) {
+  if (isAppointmentMissed(appointment)) return "bg-amber-50 text-amber-700";
   if (isAppointmentStaleInProgress(appointment)) return "bg-slate-50 text-slate-500";
   return statusClass[appointment.status];
 }
