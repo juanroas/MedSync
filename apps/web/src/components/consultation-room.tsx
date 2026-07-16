@@ -11,6 +11,7 @@ import { ExternalE2EEKeyProvider, type E2EEOptions, type RoomOptions } from "liv
 import {
   ArrowLeft,
   CalendarClock,
+  ClipboardPlus,
   CreditCard,
   FileText,
   ShieldCheck,
@@ -304,6 +305,24 @@ export function ConsultationRoom({ appointmentId }: { appointmentId: string }) {
               <Detail icon={<FileText size={18} />} label="Observações" value={appointment.notes} />
             )}
           </div>
+          {isDoctor && (
+            <a
+              href={`/prontuario/${appointmentId}`}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-8 flex items-center gap-3 rounded-2xl border border-teal-300/20 bg-teal-300/10 p-4 text-left transition hover:border-teal-200/40 hover:bg-teal-300/15 focus:outline-none focus:ring-4 focus:ring-teal-300/20"
+            >
+              <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-teal-300/15 text-teal-200">
+                <ClipboardPlus size={19} />
+              </span>
+              <span className="min-w-0">
+                <span className="block text-sm font-bold text-white">Abrir prontuario</span>
+                <span className="mt-1 block text-xs leading-5 text-white/50">
+                  Registre a evolucao durante a consulta em uma nova aba, sem encerrar a sala.
+                </span>
+              </span>
+            </a>
+          )}
           <div className="mt-8 rounded-2xl border border-teal-300/10 bg-teal-300/5 p-4">
             <ShieldCheck size={19} className="text-teal-300" />
             <p className="mt-3 text-xs leading-5 text-white/45">

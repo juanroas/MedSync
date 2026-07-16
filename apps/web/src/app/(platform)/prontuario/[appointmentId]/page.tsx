@@ -4,12 +4,47 @@ import { AlertBanner, Button, Card, ErrorBanner, LoadingState, PageHeader, TextA
 import { formatDateTime } from "@/lib/format";
 import type { Appointment, ClinicalRecord, PatientClinicalRecord } from "@/lib/types";
 import { ApiError, api, getSession } from "@/services/api";
-import { ArrowLeft, ClipboardPlus, Eye, FileClock, Save, ShieldCheck, Stethoscope, X } from "lucide-react";
+import { ArrowLeft, ClipboardPlus, Eye, FileClock, Mic, MicOff, Save, ShieldCheck, Stethoscope, X } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 
 const MAX_RECORD_LENGTH = 12000;
+
+type SpeechRecognitionResultLike = {
+  isFinal: boolean;
+  0?: { transcript: string };
+};
+
+type SpeechRecognitionEventLike = {
+  resultIndex: number;
+  results: ArrayLike<SpeechRecognitionResultLike>;
+};
+
+type SpeechRecognitionErrorEventLike = {
+  error?: string;
+};
+
+type SpeechRecognitionLike = {
+  lang: string;
+  continuous: boolean;
+  interimResults: boolean;
+  maxAlternatives: number;
+  onstart: (() => void) | null;
+  onend: (() => void) | null;
+  onresult: ((event: SpeechRecognitionEventLike) => void) | null;
+  onerror: ((event: SpeechRecognitionErrorEventLike) => void) | null;
+  start: () => void;
+  stop: () => void;
+  abort: () => void;
+};
+
+type SpeechRecognitionConstructor = new () => SpeechRecognitionLike;
+
+type SpeechRecognitionWindow = Window & {
+  SpeechRecognition?: SpeechRecognitionConstructor;
+  webkitSpeechRecognition?: SpeechRecognitionConstructor;
+};
 
 export default function ClinicalRecordPage() {
   const params = useParams<{ appointmentId: string }>();
@@ -26,6 +61,11 @@ export default function ClinicalRecordPage() {
   const [error, setError] = useState("");
   const [savedMessage, setSavedMessage] = useState("");
   const [selectedHistory, setSelectedHistory] = useState<PatientClinicalRecord | null>(null);
+  const [dictationChecked, setDictationChecked] = useState(false);
+  const [dictationSupported, setDictationSupported] = useState(false);
+  const [dictationActive, setDictationActive] = useState(false);
+  const [dictationStatus, setDictationStatus] = useState("");
+  const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
 
   const currentHistory = useMemo(
     () => history.filter((item) => item.appointmentId !== appointmentId),
@@ -68,6 +108,17 @@ export default function ClinicalRecordPage() {
   }, [appointmentId]);
 
   useEffect(() => {
+    const SpeechRecognition = getSpeechRecognitionConstructor();
+    setDictationSupported(Boolean(SpeechRecognition));
+    setDictationChecked(true);
+
+    return () => {
+      recognitionRef.current?.abort();
+      recognitionRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
     if (!selectedHistory) return;
 
     function closeOnEscape(event: KeyboardEvent) {
@@ -102,6 +153,75 @@ export default function ClinicalRecordPage() {
     } finally {
       setSaving(false);
     }
+  }
+
+  function startDictation() {
+    if (!canEditClinicalRecord || dictationActive) return;
+
+    const SpeechRecognition = getSpeechRecognitionConstructor();
+    if (!SpeechRecognition) {
+      setDictationStatus("Ditado indisponivel neste navegador.");
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.lang = "pt-BR";
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.maxAlternatives = 1;
+
+    recognition.onstart = () => {
+      setDictationActive(true);
+      setDictationStatus("Ouvindo... fale o texto do registro clinico.");
+    };
+
+    recognition.onresult = (event) => {
+      let finalTranscript = "";
+      let interimTranscript = "";
+
+      for (let index = event.resultIndex; index < event.results.length; index++) {
+        const result = event.results[index];
+        const transcript = result[0]?.transcript ?? "";
+        if (result.isFinal) finalTranscript += ` ${transcript}`;
+        else interimTranscript += ` ${transcript}`;
+      }
+
+      if (finalTranscript.trim()) {
+        const normalized = normalizeDictationText(finalTranscript);
+        setContent((current) => appendDictationText(current, normalized));
+      }
+
+      setDictationStatus(
+        interimTranscript.trim()
+          ? `Captando: ${interimTranscript.trim()}`
+          : "Ouvindo... clique em parar quando terminar.",
+      );
+    };
+
+    recognition.onerror = (event) => {
+      setDictationActive(false);
+      setDictationStatus(getDictationErrorMessage(event.error));
+      recognitionRef.current = null;
+    };
+
+    recognition.onend = () => {
+      setDictationActive(false);
+      setDictationStatus("Ditado pausado. Revise o texto antes de salvar.");
+      recognitionRef.current = null;
+    };
+
+    try {
+      recognitionRef.current = recognition;
+      recognition.start();
+    } catch {
+      recognitionRef.current = null;
+      setDictationActive(false);
+      setDictationStatus("Nao foi possivel iniciar o ditado neste navegador.");
+    }
+  }
+
+  function stopDictation() {
+    recognitionRef.current?.stop();
   }
 
   if (loading) return <LoadingState label="Carregando prontuario..." />;
@@ -170,11 +290,24 @@ export default function ClinicalRecordPage() {
                     Use este campo para evolucao, achados relevantes, orientacao e conduta do atendimento.
                   </p>
                 </div>
-                {record && (
-                  <span className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-600">
-                    Versao {record.version}
-                  </span>
-                )}
+                <div className="flex shrink-0 flex-col items-end gap-2">
+                  {record && (
+                    <span className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-600">
+                      Versao {record.version}
+                    </span>
+                  )}
+                  {canEditClinicalRecord && (
+                    <button
+                      type="button"
+                      onClick={dictationActive ? stopDictation : startDictation}
+                      disabled={saving || (dictationChecked && !dictationSupported)}
+                      className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-teal-200 bg-teal-50 px-4 text-xs font-bold text-teal-700 hover:bg-teal-100 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-50 disabled:text-slate-400"
+                    >
+                      {dictationActive ? <MicOff size={15} /> : <Mic size={15} />}
+                      {dictationActive ? "Parar ditado" : "Iniciar ditado"}
+                    </button>
+                  )}
+                </div>
               </div>
 
               <form onSubmit={saveRecord} className="space-y-4">
@@ -185,10 +318,19 @@ export default function ClinicalRecordPage() {
                     onChange={(event) => setContent(event.target.value)}
                     maxLength={MAX_RECORD_LENGTH}
                     disabled={!canEditClinicalRecord || saving}
+                    spellCheck
+                    lang="pt-BR"
                     className="min-h-[320px] resize-y leading-6"
                     placeholder="Descreva o atendimento clinico com objetividade. Evite dados fora da finalidade assistencial."
                   />
                 </label>
+                {canEditClinicalRecord && (
+                  <div className="rounded-lg border border-slate-100 bg-slate-50 px-4 py-3 text-xs leading-5 text-slate-500">
+                    {dictationChecked && !dictationSupported
+                      ? "Ditado indisponivel neste navegador. O corretor ortografico do sistema continua ativo no campo de texto."
+                      : dictationStatus || "Ditado usa o microfone do navegador e insere texto como rascunho. Revise antes de salvar."}
+                  </div>
+                )}
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <p className="text-xs text-slate-400">
                     {content.length}/{MAX_RECORD_LENGTH} caracteres. Alteracoes geram versao e trilha de auditoria.
@@ -306,6 +448,50 @@ function InfoPill({ label, value }: { label: string; value: string }) {
       <p className="mt-1 font-semibold text-ink">{value}</p>
     </div>
   );
+}
+
+function getSpeechRecognitionConstructor() {
+  if (typeof window === "undefined") return undefined;
+  const speechWindow = window as SpeechRecognitionWindow;
+  return speechWindow.SpeechRecognition ?? speechWindow.webkitSpeechRecognition;
+}
+
+function normalizeDictationText(value: string) {
+  const text = value
+    .replace(/\s+/g, " ")
+    .replace(/\s+([,.!?;:])/g, "$1")
+    .trim();
+
+  if (!text) return "";
+
+  const withFirstUpper = text.charAt(0).toUpperCase() + text.slice(1);
+  return /[.!?]$/.test(withFirstUpper) ? withFirstUpper : `${withFirstUpper}.`;
+}
+
+function appendDictationText(current: string, addition: string) {
+  if (!addition) return current;
+
+  const spacer = current.trim()
+    ? current.endsWith("\n") || current.endsWith(" ") ? "" : "\n"
+    : "";
+
+  return `${current}${spacer}${addition}`.slice(0, MAX_RECORD_LENGTH);
+}
+
+function getDictationErrorMessage(error?: string) {
+  if (error === "not-allowed" || error === "service-not-allowed") {
+    return "Permissao do microfone negada. Libere o microfone no navegador para usar o ditado.";
+  }
+
+  if (error === "no-speech") {
+    return "Nenhuma fala detectada. Tente iniciar o ditado novamente.";
+  }
+
+  if (error === "network") {
+    return "O ditado depende do servico de reconhecimento do navegador e falhou por conexao.";
+  }
+
+  return "Nao foi possivel continuar o ditado. Revise o texto e tente novamente.";
 }
 
 function ClinicalHistoryModal({

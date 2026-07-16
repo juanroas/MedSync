@@ -70,11 +70,11 @@ export default function AppointmentsPage() {
 
   function renderAppointmentAction(appointment: Appointment) {
     return (
-      <div className="flex flex-wrap justify-end gap-2">
+      <div className={isDoctor ? "grid w-full gap-2 sm:grid-cols-[132px_minmax(144px,1fr)] lg:w-[300px]" : "flex justify-end"}>
         {isDoctor && (
           <Link
             href={`/prontuario/${appointment.id}`}
-            className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-teal-200 bg-teal-50 px-4 text-xs font-bold text-teal-700 hover:bg-teal-100"
+            className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-teal-200 bg-teal-50 px-4 text-xs font-bold text-teal-700 hover:bg-teal-100"
           >
             <FileText size={15} /> Prontuario
           </Link>
@@ -85,14 +85,14 @@ export default function AppointmentsPage() {
             type="button"
             onClick={() => startRoom(appointment.id)}
             disabled={startingId === appointment.id}
-            className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-ink px-4 text-xs font-bold text-white hover:bg-teal-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+            className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-ink px-4 text-xs font-bold text-white hover:bg-teal-700 disabled:cursor-not-allowed disabled:bg-slate-300"
           >
             <Video size={15} /> {startingId === appointment.id ? "Iniciando..." : "Iniciar sala"}
           </button>
         ) : isAppointmentRoomJoinable(appointment) ? (
           <Link
             href={`/sala/${appointment.id}`}
-            className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-ink px-4 text-xs font-bold text-white hover:bg-teal-700"
+            className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-ink px-4 text-xs font-bold text-white hover:bg-teal-700"
           >
             <Video size={15} /> Entrar na sala
           </Link>
@@ -101,19 +101,19 @@ export default function AppointmentsPage() {
             type="button"
             onClick={() => endRoom(appointment.id)}
             disabled={endingId === appointment.id}
-            className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 text-xs font-bold text-amber-700 hover:bg-amber-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+            className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 text-xs font-bold text-amber-700 hover:bg-amber-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
           >
             <Clock3 size={15} /> {endingId === appointment.id ? "Encerrando..." : "Encerrar"}
           </button>
         ) : isPatient && !appointment.consentAccepted && ["Scheduled", "InProgress"].includes(appointment.status) ? (
           <Link
             href={`/sala/${appointment.id}`}
-            className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-teal-200 bg-teal-50 px-4 text-xs font-bold text-teal-700 hover:bg-teal-100"
+            className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-teal-200 bg-teal-50 px-4 text-xs font-bold text-teal-700 hover:bg-teal-100"
           >
             <FileText size={15} /> Aceitar termo
           </Link>
         ) : (
-          <AppointmentNextStep appointment={appointment} />
+          <AppointmentNextStep appointment={appointment} className={isDoctor ? "w-full" : undefined} />
         )}
       </div>
     );
@@ -162,7 +162,7 @@ export default function AppointmentsPage() {
         />
       ) : (
         <div className="overflow-hidden rounded-lg border border-slate-100 bg-white shadow-sm">
-          <div className="hidden grid-cols-[1.15fr_1fr_1fr_.55fr_auto] gap-5 border-b border-slate-100 bg-slate-50/60 px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-400 lg:grid">
+          <div className="hidden grid-cols-[1.05fr_.95fr_1fr_.55fr_300px] gap-5 border-b border-slate-100 bg-slate-50/60 px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-400 lg:grid">
             <span>Paciente</span>
             <span>Medico</span>
             <span>Horario</span>
@@ -173,7 +173,7 @@ export default function AppointmentsPage() {
             {appointments.map((appointment) => (
               <article
                 key={appointment.id}
-                className="grid gap-5 px-6 py-5 transition hover:bg-slate-50/50 lg:grid-cols-[1.15fr_1fr_1fr_.55fr_auto] lg:items-center"
+                className="grid gap-5 px-6 py-5 transition hover:bg-slate-50/50 lg:grid-cols-[1.05fr_.95fr_1fr_.55fr_300px] lg:items-center"
               >
                 <div className="flex items-center gap-3">
                   <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-blue-50 text-blue-600">
@@ -210,11 +210,11 @@ export default function AppointmentsPage() {
   );
 }
 
-function AppointmentNextStep({ appointment }: { appointment: Appointment }) {
+function AppointmentNextStep({ appointment, className = "" }: { appointment: Appointment; className?: string }) {
   const step = getAppointmentNextStep(appointment);
 
   return (
-    <span className={`inline-flex h-10 items-center justify-center gap-2 rounded-lg px-3 text-xs font-bold ${step.className}`}>
+    <span className={`inline-flex h-10 items-center justify-center gap-2 rounded-lg px-3 text-xs font-bold ${step.className} ${className}`}>
       {step.icon}
       {step.label}
     </span>
