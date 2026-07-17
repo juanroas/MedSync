@@ -21,7 +21,7 @@ import {
   UserRound,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 type ConsentTerm = { termVersion: string; term: string };
 const MAX_RECORD_LENGTH = 12000;
@@ -46,6 +46,7 @@ export function ConsultationRoom({ appointmentId }: { appointmentId: string }) {
   const [clinicalSaving, setClinicalSaving] = useState(false);
   const [clinicalError, setClinicalError] = useState("");
   const [clinicalMessage, setClinicalMessage] = useState("");
+  const exitingRef = useRef(false);
   const serverUrl = process.env.NEXT_PUBLIC_LIVEKIT_URL;
   const session = getSession();
   const isDoctor =
@@ -210,7 +211,7 @@ export function ConsultationRoom({ appointmentId }: { appointmentId: string }) {
     }
   }
 
-  async function leave() {
+  async function saveClinicalDraftBeforeExit() {
     if (
       canEditClinicalRecord &&
       clinicalLoaded &&
@@ -218,20 +219,48 @@ export function ConsultationRoom({ appointmentId }: { appointmentId: string }) {
       clinicalContent !== (clinicalRecord?.content ?? "")
     ) {
       try {
-        await api.saveClinicalRecord(appointmentId, { content: clinicalContent });
+        const updated = await api.saveClinicalRecord(appointmentId, { content: clinicalContent });
+        setClinicalRecord(updated);
+        setClinicalContent(updated.content);
+        setClinicalLoaded(true);
+        setClinicalMessage(`Prontuario salvo. Versao ${updated.version}.`);
       } catch (err) {
         setError(
           err instanceof Error
             ? err.message
             : "Nao foi possivel salvar o prontuario antes de encerrar a consulta.",
         );
-        return;
+        return false;
       }
+    }
+
+    return true;
+  }
+
+  async function leave() {
+    if (exitingRef.current) return;
+    exitingRef.current = true;
+
+    if (!await saveClinicalDraftBeforeExit()) {
+      exitingRef.current = false;
+      return;
     }
 
     if (isDoctor) {
       await api.endConsultation(appointmentId).catch(() => undefined);
     }
+    router.push("/consultas");
+  }
+
+  async function handleRoomDisconnected() {
+    if (exitingRef.current) return;
+    exitingRef.current = true;
+
+    if (!await saveClinicalDraftBeforeExit()) {
+      exitingRef.current = false;
+      return;
+    }
+
     router.push("/consultas");
   }
 
@@ -347,7 +376,9 @@ export function ConsultationRoom({ appointmentId }: { appointmentId: string }) {
       onEncryptionError={() =>
         setError("A criptografia ponta a ponta da chamada foi interrompida.")
       }
-      onDisconnected={() => router.push("/consultas")}
+      onDisconnected={() => {
+        void handleRoomDisconnected();
+      }}
       data-lk-theme="default"
       className="medsync-room min-h-[100dvh] bg-[#0e1716] lg:h-[100dvh] lg:min-h-0 lg:overflow-hidden"
     >
