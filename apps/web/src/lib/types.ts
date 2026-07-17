@@ -175,6 +175,16 @@ export type ClinicalRecord = {
   updatedAt: string;
 };
 
+export type ClinicalRecordAttachment = {
+  id: string;
+  appointmentId: string;
+  fileName: string;
+  contentType: string;
+  sizeBytes: number;
+  releasedToPatient: boolean;
+  createdAt: string;
+};
+
 export type PatientClinicalRecord = ClinicalRecord & {
   patientId: string;
   patientName: string;

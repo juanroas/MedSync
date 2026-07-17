@@ -213,6 +213,15 @@ public sealed record ClinicalRecordResponse(
     DateTime CreatedAt,
     DateTime UpdatedAt);
 
+public sealed record ClinicalRecordAttachmentResponse(
+    Guid Id,
+    Guid AppointmentId,
+    string FileName,
+    string ContentType,
+    long SizeBytes,
+    bool ReleasedToPatient,
+    DateTime CreatedAt);
+
 public sealed record PatientClinicalRecordResponse(
     Guid Id,
     Guid AppointmentId,

@@ -2,9 +2,10 @@
 
 import "@livekit/components-styles";
 
-import { ErrorBanner, LoadingState, buttonClass } from "@/components/ui";
+import { ClinicalAttachmentsPanel } from "@/components/clinical-attachments-panel";
+import { ErrorBanner, LoadingState, TextArea, buttonClass, cn } from "@/components/ui";
 import { formatDateTime } from "@/lib/format";
-import type { Appointment } from "@/lib/types";
+import type { Appointment, ClinicalRecord } from "@/lib/types";
 import { ApiError, api, getSession } from "@/services/api";
 import { LiveKitRoom, RoomAudioRenderer, VideoConference } from "@livekit/components-react";
 import { ExternalE2EEKeyProvider, type E2EEOptions, type RoomOptions } from "livekit-client";
@@ -14,6 +15,7 @@ import {
   ClipboardPlus,
   CreditCard,
   FileText,
+  Save,
   ShieldCheck,
   Stethoscope,
   UserRound,
@@ -22,6 +24,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
 type ConsentTerm = { termVersion: string; term: string };
+const MAX_RECORD_LENGTH = 12000;
 
 export function ConsultationRoom({ appointmentId }: { appointmentId: string }) {
   const router = useRouter();
@@ -35,12 +38,21 @@ export function ConsultationRoom({ appointmentId }: { appointmentId: string }) {
   const [accepting, setAccepting] = useState(false);
   const [paying, setPaying] = useState(false);
   const [attempt, setAttempt] = useState(0);
+  const [sidebarMode, setSidebarMode] = useState<"details" | "record">("details");
+  const [clinicalRecord, setClinicalRecord] = useState<ClinicalRecord | null>(null);
+  const [clinicalContent, setClinicalContent] = useState("");
+  const [clinicalLoaded, setClinicalLoaded] = useState(false);
+  const [clinicalLoading, setClinicalLoading] = useState(false);
+  const [clinicalSaving, setClinicalSaving] = useState(false);
+  const [clinicalError, setClinicalError] = useState("");
+  const [clinicalMessage, setClinicalMessage] = useState("");
   const serverUrl = process.env.NEXT_PUBLIC_LIVEKIT_URL;
   const session = getSession();
   const isDoctor =
     session?.user.roles.includes("Doctor") ||
     session?.user.roles.includes("MedicalDirector") ||
     session?.user.roles.includes("OccupationalHealthAdmin");
+  const canEditClinicalRecord = session?.user.roles.includes("Doctor") ?? false;
   const isPatient = session?.user.roles.includes("Patient");
 
   useEffect(() => {
@@ -133,6 +145,37 @@ export function ConsultationRoom({ appointmentId }: { appointmentId: string }) {
     };
   }, [encryptionKey]);
 
+  useEffect(() => {
+    if (!canEditClinicalRecord || sidebarMode !== "record" || clinicalLoaded) return;
+
+    let active = true;
+
+    async function loadClinicalRecord() {
+      setClinicalLoading(true);
+      setClinicalError("");
+      try {
+        const record = await api.getClinicalRecord(appointmentId).catch((err) => {
+          if (err instanceof ApiError && err.status === 404) return null;
+          throw err;
+        });
+        if (!active) return;
+        setClinicalRecord(record);
+        setClinicalContent(record?.content ?? "");
+        setClinicalLoaded(true);
+      } catch (err) {
+        if (!active) return;
+        setClinicalError(err instanceof Error ? err.message : "Nao foi possivel carregar o prontuario.");
+      } finally {
+        if (active) setClinicalLoading(false);
+      }
+    }
+
+    loadClinicalRecord();
+    return () => {
+      active = false;
+    };
+  }, [appointmentId, canEditClinicalRecord, clinicalLoaded, sidebarMode]);
+
   const roomOptions = useMemo<RoomOptions | undefined>(
     () => (encryption ? { encryption } : undefined),
     [encryption],
@@ -168,10 +211,51 @@ export function ConsultationRoom({ appointmentId }: { appointmentId: string }) {
   }
 
   async function leave() {
+    if (
+      canEditClinicalRecord &&
+      clinicalLoaded &&
+      clinicalContent.trim() &&
+      clinicalContent !== (clinicalRecord?.content ?? "")
+    ) {
+      try {
+        await api.saveClinicalRecord(appointmentId, { content: clinicalContent });
+      } catch (err) {
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Nao foi possivel salvar o prontuario antes de encerrar a consulta.",
+        );
+        return;
+      }
+    }
+
     if (isDoctor) {
       await api.endConsultation(appointmentId).catch(() => undefined);
     }
     router.push("/consultas");
+  }
+
+  async function saveClinicalRecord() {
+    setClinicalError("");
+    setClinicalMessage("");
+
+    if (!clinicalContent.trim()) {
+      setClinicalError("O registro clinico nao pode ficar vazio.");
+      return;
+    }
+
+    setClinicalSaving(true);
+    try {
+      const updated = await api.saveClinicalRecord(appointmentId, { content: clinicalContent });
+      setClinicalRecord(updated);
+      setClinicalContent(updated.content);
+      setClinicalLoaded(true);
+      setClinicalMessage(`Prontuario salvo. Versao ${updated.version}.`);
+    } catch (err) {
+      setClinicalError(err instanceof Error ? err.message : "Nao foi possivel salvar o prontuario.");
+    } finally {
+      setClinicalSaving(false);
+    }
   }
 
   if (error) {
@@ -267,7 +351,7 @@ export function ConsultationRoom({ appointmentId }: { appointmentId: string }) {
       data-lk-theme="default"
       className="medsync-room min-h-[100dvh] bg-[#0e1716] lg:h-[100dvh] lg:min-h-0 lg:overflow-hidden"
     >
-      <div className="grid min-h-[100dvh] lg:h-full lg:min-h-0 lg:grid-cols-[minmax(0,1fr)_340px]">
+      <div className="grid min-h-[100dvh] lg:h-full lg:min-h-0 lg:grid-cols-[minmax(0,1fr)_420px]">
         <section className="flex h-[100dvh] min-h-0 min-w-0 flex-col overflow-hidden lg:h-full">
           <header className="flex h-16 shrink-0 items-center justify-between border-b border-white/10 bg-[#111d1b] px-5 text-white">
             <button
@@ -288,7 +372,51 @@ export function ConsultationRoom({ appointmentId }: { appointmentId: string }) {
 
         <aside className="border-l border-white/10 bg-[#15221f] p-6 text-white lg:h-full lg:min-h-0 lg:overflow-y-auto">
           <p className="text-xs font-bold uppercase tracking-[0.2em] text-teal-300">Consulta</p>
-          <h1 className="mt-3 text-2xl font-bold tracking-tight">Dados do atendimento</h1>
+          <h1 className="mt-3 text-2xl font-bold tracking-tight">
+            {sidebarMode === "record" ? "Prontuario da consulta" : "Dados do atendimento"}
+          </h1>
+          {canEditClinicalRecord && (
+            <div className="mt-6 grid grid-cols-2 rounded-xl bg-white/5 p-1">
+              <button
+                type="button"
+                onClick={() => setSidebarMode("details")}
+                className={cn(
+                  "h-10 rounded-lg text-xs font-bold transition",
+                  sidebarMode === "details"
+                    ? "bg-white text-[#15221f]"
+                    : "text-white/55 hover:bg-white/5 hover:text-white",
+                )}
+              >
+                Dados
+              </button>
+              <button
+                type="button"
+                onClick={() => setSidebarMode("record")}
+                className={cn(
+                  "h-10 rounded-lg text-xs font-bold transition",
+                  sidebarMode === "record"
+                    ? "bg-teal-300 text-[#15221f]"
+                    : "text-white/55 hover:bg-white/5 hover:text-white",
+                )}
+              >
+                Prontuario
+              </button>
+            </div>
+          )}
+          {sidebarMode === "record" && canEditClinicalRecord ? (
+            <RoomClinicalRecordPanel
+              appointmentId={appointmentId}
+              record={clinicalRecord}
+              content={clinicalContent}
+              loading={clinicalLoading}
+              saving={clinicalSaving}
+              error={clinicalError}
+              message={clinicalMessage}
+              onChange={setClinicalContent}
+              onSave={saveClinicalRecord}
+            />
+          ) : (
+            <>
           <div className="mt-7 space-y-5">
             <Detail icon={<UserRound size={18} />} label="Paciente" value={appointment.patientName} />
             <Detail
@@ -305,24 +433,6 @@ export function ConsultationRoom({ appointmentId }: { appointmentId: string }) {
               <Detail icon={<FileText size={18} />} label="Observações" value={appointment.notes} />
             )}
           </div>
-          {isDoctor && (
-            <a
-              href={`/prontuario/${appointmentId}`}
-              target="_blank"
-              rel="noreferrer"
-              className="mt-8 flex items-center gap-3 rounded-2xl border border-teal-300/20 bg-teal-300/10 p-4 text-left transition hover:border-teal-200/40 hover:bg-teal-300/15 focus:outline-none focus:ring-4 focus:ring-teal-300/20"
-            >
-              <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-teal-300/15 text-teal-200">
-                <ClipboardPlus size={19} />
-              </span>
-              <span className="min-w-0">
-                <span className="block text-sm font-bold text-white">Abrir prontuario</span>
-                <span className="mt-1 block text-xs leading-5 text-white/50">
-                  Registre a evolucao durante a consulta em uma nova aba, sem encerrar a sala.
-                </span>
-              </span>
-            </a>
-          )}
           <div className="mt-8 rounded-2xl border border-teal-300/10 bg-teal-300/5 p-4">
             <ShieldCheck size={19} className="text-teal-300" />
             <p className="mt-3 text-xs leading-5 text-white/45">
@@ -331,9 +441,112 @@ export function ConsultationRoom({ appointmentId }: { appointmentId: string }) {
               pelo MedSync.
             </p>
           </div>
+            </>
+          )}
         </aside>
       </div>
     </LiveKitRoom>
+  );
+}
+
+function RoomClinicalRecordPanel({
+  appointmentId,
+  record,
+  content,
+  loading,
+  saving,
+  error,
+  message,
+  onChange,
+  onSave,
+}: {
+  appointmentId: string;
+  record: ClinicalRecord | null;
+  content: string;
+  loading: boolean;
+  saving: boolean;
+  error: string;
+  message: string;
+  onChange: (value: string) => void;
+  onSave: () => void;
+}) {
+  return (
+    <div className="mt-6 space-y-4">
+      <div className="rounded-2xl border border-teal-300/20 bg-teal-300/10 p-4">
+        <div className="flex items-start gap-3">
+          <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-teal-300/15 text-teal-200">
+            <ClipboardPlus size={18} />
+          </span>
+          <div className="min-w-0">
+            <p className="text-sm font-bold text-white">Registro clinico durante a chamada</p>
+            <p className="mt-1 text-xs leading-5 text-white/55">
+              Escreva durante o atendimento e salve. O conteudo fica no mesmo prontuario e historico da consulta.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {loading ? (
+        <div className="rounded-2xl border border-white/10 bg-white/5 p-5 text-sm text-white/60">
+          Carregando prontuario...
+        </div>
+      ) : (
+        <>
+          {error && (
+            <div className="rounded-xl border border-red-300/30 bg-red-300/10 px-4 py-3 text-xs leading-5 text-red-100">
+              {error}
+            </div>
+          )}
+          {message && (
+            <div className="rounded-xl border border-teal-300/30 bg-teal-300/10 px-4 py-3 text-xs leading-5 text-teal-100">
+              {message}
+            </div>
+          )}
+
+          <label className="block">
+            <span className="mb-2 block text-xs font-bold uppercase tracking-[0.08em] text-white/50">
+              Evolucao e conduta
+            </span>
+            <TextArea
+              value={content}
+              onChange={(event) => onChange(event.target.value)}
+              maxLength={MAX_RECORD_LENGTH}
+              disabled={saving}
+              spellCheck
+              lang="pt-BR"
+              className="min-h-[320px] resize-y border-white/10 bg-white/95 leading-6 text-ink focus:border-teal-300 focus:ring-teal-300/20"
+              placeholder="Registre dados clinicos relevantes, orientacoes e conduta. Revise antes de salvar."
+            />
+          </label>
+
+          <div className="flex items-center justify-between gap-3 text-xs text-white/45">
+            <span>{content.length}/{MAX_RECORD_LENGTH} caracteres</span>
+            {record && <span>v{record.version}</span>}
+          </div>
+
+          <button
+            type="button"
+            onClick={onSave}
+            disabled={saving || !content.trim()}
+            className={`${buttonClass} w-full`}
+          >
+            <Save size={17} />
+            {saving ? "Salvando..." : "Salvar prontuario"}
+          </button>
+
+          <a
+            href={`/prontuario/${appointmentId}`}
+            target="_blank"
+            rel="noreferrer"
+            className="flex h-11 items-center justify-center rounded-lg border border-white/10 bg-white/5 px-4 text-sm font-bold text-white/75 transition hover:border-teal-300/30 hover:bg-white/10 hover:text-white"
+          >
+            Abrir prontuario completo
+          </a>
+        </>
+      )}
+
+      <ClinicalAttachmentsPanel appointmentId={appointmentId} canUpload variant="dark" />
+    </div>
   );
 }
 

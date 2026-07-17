@@ -1,6 +1,7 @@
 "use client";
 
 import { AlertBanner, Button, Card, ErrorBanner, LoadingState, PageHeader, TextArea } from "@/components/ui";
+import { ClinicalAttachmentsPanel } from "@/components/clinical-attachments-panel";
 import { formatDateTime } from "@/lib/format";
 import type { Appointment, ClinicalRecord, PatientClinicalRecord } from "@/lib/types";
 import { ApiError, api, getSession } from "@/services/api";
@@ -405,20 +406,7 @@ export default function ClinicalRecordPage() {
               )}
             </Card>
 
-            <Card className="p-6">
-              <div className="flex items-start gap-4">
-                <span className="grid size-11 shrink-0 place-items-center rounded-lg bg-sky-50 text-sky-700">
-                  <Stethoscope size={20} />
-                </span>
-                <div>
-                  <h2 className="font-bold text-ink">Proximas evolucoes</h2>
-                  <p className="mt-2 text-sm leading-6 text-slate-500">
-                    Templates por especialidade, anexos, prescricao e assinatura digital devem entrar em fase propria
-                    com validacao juridica, DPO e diretor tecnico.
-                  </p>
-                </div>
-              </div>
-            </Card>
+            <ClinicalAttachmentsPanel appointmentId={appointmentId} canUpload={canEditClinicalRecord} />
           </aside>
         </div>
       )}

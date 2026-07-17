@@ -206,6 +206,7 @@ public sealed class ClinicalRecord
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
     public ICollection<ClinicalRecordRevision> Revisions { get; set; } = [];
+    public ICollection<ClinicalRecordAttachment> Attachments { get; set; } = [];
 }
 
 public sealed class ClinicalRecordRevision
@@ -217,6 +218,24 @@ public sealed class ClinicalRecordRevision
     public Guid CreatedByUserId { get; set; }
     public required string Content { get; set; }
     public int Version { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+}
+
+public sealed class ClinicalRecordAttachment
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid ClinicId { get; set; }
+    public Guid AppointmentId { get; set; }
+    public Appointment Appointment { get; set; } = null!;
+    public Guid? ClinicalRecordId { get; set; }
+    public ClinicalRecord? ClinicalRecord { get; set; }
+    public Guid UploadedByUserId { get; set; }
+    public required string FileName { get; set; }
+    public required string StorageKey { get; set; }
+    public required string ContentType { get; set; }
+    public long SizeBytes { get; set; }
+    public required string Sha256 { get; set; }
+    public bool ReleasedToPatient { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }
 

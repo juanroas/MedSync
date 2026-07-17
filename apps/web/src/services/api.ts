@@ -3,6 +3,7 @@ import type {
   BusinessReport,
   CareSpecialty,
   ClinicalRecord,
+  ClinicalRecordAttachment,
   ClinicRole,
   CompanyActivation,
   CompanyBeneficiary,
@@ -41,7 +42,7 @@ export class ApiError extends Error {
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const headers = new Headers(options.headers);
-  if (options.body) headers.set("Content-Type", "application/json");
+  if (options.body && !(options.body instanceof FormData)) headers.set("Content-Type", "application/json");
 
   const response = await fetch(`${API_URL}${path}`, {
     ...options,
@@ -266,6 +267,18 @@ export const api = {
       method: "PUT",
       body: JSON.stringify(input),
     }),
+  getClinicalRecordAttachments: (appointmentId: string) =>
+    request<ClinicalRecordAttachment[]>(`/appointments/${appointmentId}/clinical-record/attachments`),
+  uploadClinicalRecordAttachment: (appointmentId: string, file: File) => {
+    const formData = new FormData();
+    formData.set("file", file);
+    return request<ClinicalRecordAttachment>(`/appointments/${appointmentId}/clinical-record/attachments`, {
+      method: "POST",
+      body: formData,
+    });
+  },
+  clinicalRecordAttachmentDownloadUrl: (appointmentId: string, attachmentId: string) =>
+    `${API_URL}/appointments/${appointmentId}/clinical-record/attachments/${attachmentId}/download`,
   getPatientClinicalRecords: (patientId: string) =>
     request<PatientClinicalRecord[]>(`/patients/${patientId}/clinical-records`),
   createAppointment: (appointment: {

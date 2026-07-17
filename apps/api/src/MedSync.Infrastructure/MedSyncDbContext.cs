@@ -15,6 +15,7 @@ public sealed class MedSyncDbContext(DbContextOptions<MedSyncDbContext> options)
     public DbSet<ConsentRecord> ConsentRecords => Set<ConsentRecord>();
     public DbSet<ClinicalRecord> ClinicalRecords => Set<ClinicalRecord>();
     public DbSet<ClinicalRecordRevision> ClinicalRecordRevisions => Set<ClinicalRecordRevision>();
+    public DbSet<ClinicalRecordAttachment> ClinicalRecordAttachments => Set<ClinicalRecordAttachment>();
     public DbSet<Payment> Payments => Set<Payment>();
     public DbSet<Company> Companies => Set<Company>();
     public DbSet<CompanyEmployee> CompanyEmployees => Set<CompanyEmployee>();
@@ -130,6 +131,20 @@ public sealed class MedSyncDbContext(DbContextOptions<MedSyncDbContext> options)
             entity.HasIndex(x => new { x.ClinicalRecordId, x.Version }).IsUnique();
             entity.HasOne(x => x.ClinicalRecord).WithMany(x => x.Revisions)
                 .HasForeignKey(x => x.ClinicalRecordId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<ClinicalRecordAttachment>(entity =>
+        {
+            entity.HasIndex(x => new { x.AppointmentId, x.CreatedAt });
+            entity.HasIndex(x => x.ClinicalRecordId);
+            entity.Property(x => x.FileName).HasMaxLength(180);
+            entity.Property(x => x.StorageKey).HasMaxLength(260);
+            entity.Property(x => x.ContentType).HasMaxLength(120);
+            entity.Property(x => x.Sha256).HasMaxLength(64);
+            entity.HasOne(x => x.Appointment).WithMany()
+                .HasForeignKey(x => x.AppointmentId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(x => x.ClinicalRecord).WithMany(x => x.Attachments)
+                .HasForeignKey(x => x.ClinicalRecordId).OnDelete(DeleteBehavior.SetNull);
         });
 
         modelBuilder.Entity<Payment>(entity =>

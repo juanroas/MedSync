@@ -40,6 +40,7 @@ else
 builder.Services.AddScoped<IPasswordService, PasswordService>();
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<AuditWriter>();
+builder.Services.AddSingleton<ClinicalAttachmentStorage>();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddHttpClient<IPaymentProvider, MercadoPagoPaymentProvider>();
 builder.Services.AddHttpClient(nameof(LiveKitRoomManager));

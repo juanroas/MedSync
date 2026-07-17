@@ -56,6 +56,12 @@ public static class ApiEndpoints
         protectedApi.MapGet("/consent/term", GetConsentTerm);
         protectedApi.MapGet("/appointments/{id:guid}/clinical-record", GetClinicalRecord);
         protectedApi.MapPut("/appointments/{id:guid}/clinical-record", SaveClinicalRecord);
+        protectedApi.MapGet("/appointments/{id:guid}/clinical-record/attachments", GetClinicalRecordAttachments);
+        protectedApi.MapPost("/appointments/{id:guid}/clinical-record/attachments", UploadClinicalRecordAttachment)
+            .DisableAntiforgery();
+        protectedApi.MapGet(
+            "/appointments/{id:guid}/clinical-record/attachments/{attachmentId:guid}/download",
+            DownloadClinicalRecordAttachment);
         protectedApi.MapGet("/patients/{patientId:guid}/clinical-records", GetPatientClinicalRecords);
 
         protectedApi.MapPost("/consultations/{appointmentId:guid}/start", StartConsultation);
@@ -2151,6 +2157,126 @@ public static class ApiEndpoints
         return Results.Ok(records);
     }
 
+    private static async Task<IResult> GetClinicalRecordAttachments(
+        Guid id,
+        ClaimsPrincipal principal,
+        MedSyncDbContext db,
+        AuditWriter audit,
+        CancellationToken cancellationToken)
+    {
+        var actor = RequestContext.From(principal);
+        var appointment = await LoadAppointment(db, actor, id, cancellationToken);
+        if (appointment is null)
+            return Results.NotFound();
+        if (!CanViewClinical(actor, appointment))
+            return Results.Forbid();
+
+        var query = db.ClinicalRecordAttachments.AsNoTracking()
+            .Where(x => x.AppointmentId == id && x.ClinicId == appointment.ClinicId);
+        if (IsPatient(actor, appointment))
+            query = query.Where(x => x.ReleasedToPatient);
+
+        var attachments = await query
+            .OrderByDescending(x => x.CreatedAt)
+            .Select(x => ToResponse(x))
+            .ToListAsync(cancellationToken);
+
+        audit.Add(actor, "ClinicalRecordAttachment.List", "Appointment", id);
+        await db.SaveChangesAsync(cancellationToken);
+        return Results.Ok(attachments);
+    }
+
+    private static async Task<IResult> UploadClinicalRecordAttachment(
+        Guid id,
+        IFormFile file,
+        ClaimsPrincipal principal,
+        MedSyncDbContext db,
+        ClinicalAttachmentStorage storage,
+        AuditWriter audit,
+        CancellationToken cancellationToken)
+    {
+        var actor = RequestContext.From(principal);
+        var appointment = await LoadAppointment(db, actor, id, cancellationToken);
+        if (appointment is null)
+            return Results.NotFound();
+        if (!IsAssignedDoctor(actor, appointment))
+            return Results.Forbid();
+
+        StoredClinicalAttachment stored;
+        try
+        {
+            stored = await storage.SaveAsync(appointment.ClinicId, id, file, cancellationToken);
+        }
+        catch (ClinicalAttachmentValidationException ex)
+        {
+            return Validation("file", ex.Message);
+        }
+
+        var record = await db.ClinicalRecords
+            .SingleOrDefaultAsync(x => x.AppointmentId == id, cancellationToken);
+        var attachment = new ClinicalRecordAttachment
+        {
+            Id = stored.Id,
+            ClinicId = appointment.ClinicId,
+            AppointmentId = id,
+            ClinicalRecordId = record?.Id,
+            UploadedByUserId = actor.UserId,
+            FileName = stored.FileName,
+            StorageKey = stored.StorageKey,
+            ContentType = stored.ContentType,
+            SizeBytes = stored.SizeBytes,
+            Sha256 = stored.Sha256,
+            ReleasedToPatient = false
+        };
+
+        db.ClinicalRecordAttachments.Add(attachment);
+        audit.Add(actor, "ClinicalRecordAttachment.Upload", "Appointment", id);
+        await db.SaveChangesAsync(cancellationToken);
+        return Results.Created(
+            $"/appointments/{id}/clinical-record/attachments/{attachment.Id}",
+            ToResponse(attachment));
+    }
+
+    private static async Task<IResult> DownloadClinicalRecordAttachment(
+        Guid id,
+        Guid attachmentId,
+        ClaimsPrincipal principal,
+        MedSyncDbContext db,
+        ClinicalAttachmentStorage storage,
+        AuditWriter audit,
+        CancellationToken cancellationToken)
+    {
+        var actor = RequestContext.From(principal);
+        var appointment = await LoadAppointment(db, actor, id, cancellationToken);
+        if (appointment is null)
+            return Results.NotFound();
+        if (!CanViewClinical(actor, appointment))
+            return Results.Forbid();
+
+        var attachment = await db.ClinicalRecordAttachments.AsNoTracking()
+            .SingleOrDefaultAsync(
+                x => x.Id == attachmentId &&
+                     x.AppointmentId == id &&
+                     x.ClinicId == appointment.ClinicId,
+                cancellationToken);
+        if (attachment is null)
+            return Results.NotFound();
+        if (IsPatient(actor, appointment) && !attachment.ReleasedToPatient)
+            return Results.Forbid();
+
+        var path = storage.GetAbsolutePath(attachment.StorageKey);
+        if (!File.Exists(path))
+            return Results.NotFound();
+
+        audit.Add(actor, "ClinicalRecordAttachment.Download", "Appointment", id);
+        await db.SaveChangesAsync(cancellationToken);
+        return Results.File(
+            path,
+            attachment.ContentType,
+            attachment.FileName,
+            enableRangeProcessing: false);
+    }
+
     private static async Task<IResult> StartConsultation(
         Guid appointmentId,
         ClaimsPrincipal principal,
@@ -2803,6 +2929,16 @@ public static class ApiEndpoints
             record.Version,
             record.CreatedAt,
             record.UpdatedAt);
+
+    private static ClinicalRecordAttachmentResponse ToResponse(ClinicalRecordAttachment attachment) =>
+        new(
+            attachment.Id,
+            attachment.AppointmentId,
+            attachment.FileName,
+            attachment.ContentType,
+            attachment.SizeBytes,
+            attachment.ReleasedToPatient,
+            attachment.CreatedAt);
 
     private static PaymentResponse ToResponse(Payment payment) =>
         new(
