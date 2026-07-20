@@ -236,6 +236,9 @@ public sealed class ClinicalRecordAttachment
     public long SizeBytes { get; set; }
     public required string Sha256 { get; set; }
     public bool ReleasedToPatient { get; set; }
+    public bool IsDeleted { get; set; }
+    public DateTime? DeletedAt { get; set; }
+    public Guid? DeletedByUserId { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }
 

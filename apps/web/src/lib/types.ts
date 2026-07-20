@@ -183,6 +183,7 @@ export type ClinicalRecordAttachment = {
   sizeBytes: number;
   releasedToPatient: boolean;
   createdAt: string;
+  canDelete: boolean;
 };
 
 export type PatientClinicalRecord = ClinicalRecord & {

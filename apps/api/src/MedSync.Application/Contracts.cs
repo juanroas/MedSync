@@ -220,7 +220,8 @@ public sealed record ClinicalRecordAttachmentResponse(
     string ContentType,
     long SizeBytes,
     bool ReleasedToPatient,
-    DateTime CreatedAt);
+    DateTime CreatedAt,
+    bool CanDelete);
 
 public sealed record PatientClinicalRecordResponse(
     Guid Id,

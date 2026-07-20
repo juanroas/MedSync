@@ -277,6 +277,10 @@ export const api = {
       body: formData,
     });
   },
+  deleteClinicalRecordAttachment: (appointmentId: string, attachmentId: string) =>
+    request<void>(`/appointments/${appointmentId}/clinical-record/attachments/${attachmentId}`, {
+      method: "DELETE",
+    }),
   clinicalRecordAttachmentDownloadUrl: (appointmentId: string, attachmentId: string) =>
     `${API_URL}/appointments/${appointmentId}/clinical-record/attachments/${attachmentId}/download`,
   getPatientClinicalRecords: (patientId: string) =>

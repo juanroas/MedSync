@@ -62,6 +62,9 @@ public static class ApiEndpoints
         protectedApi.MapGet(
             "/appointments/{id:guid}/clinical-record/attachments/{attachmentId:guid}/download",
             DownloadClinicalRecordAttachment);
+        protectedApi.MapDelete(
+            "/appointments/{id:guid}/clinical-record/attachments/{attachmentId:guid}",
+            DeleteClinicalRecordAttachment);
         protectedApi.MapGet("/patients/{patientId:guid}/clinical-records", GetPatientClinicalRecords);
 
         protectedApi.MapPost("/consultations/{appointmentId:guid}/start", StartConsultation);
@@ -2172,13 +2175,13 @@ public static class ApiEndpoints
             return Results.Forbid();
 
         var query = db.ClinicalRecordAttachments.AsNoTracking()
-            .Where(x => x.AppointmentId == id && x.ClinicId == appointment.ClinicId);
+            .Where(x => x.AppointmentId == id && x.ClinicId == appointment.ClinicId && !x.IsDeleted);
         if (IsPatient(actor, appointment))
             query = query.Where(x => x.ReleasedToPatient);
 
         var attachments = await query
             .OrderByDescending(x => x.CreatedAt)
-            .Select(x => ToResponse(x))
+            .Select(x => ToResponse(x, actor, appointment))
             .ToListAsync(cancellationToken);
 
         audit.Add(actor, "ClinicalRecordAttachment.List", "Appointment", id);
@@ -2199,7 +2202,7 @@ public static class ApiEndpoints
         var appointment = await LoadAppointment(db, actor, id, cancellationToken);
         if (appointment is null)
             return Results.NotFound();
-        if (!IsAssignedDoctor(actor, appointment))
+        if (!IsAssignedDoctor(actor, appointment) && !IsPatient(actor, appointment))
             return Results.Forbid();
 
         StoredClinicalAttachment stored;
@@ -2226,7 +2229,7 @@ public static class ApiEndpoints
             ContentType = stored.ContentType,
             SizeBytes = stored.SizeBytes,
             Sha256 = stored.Sha256,
-            ReleasedToPatient = false
+            ReleasedToPatient = IsPatient(actor, appointment)
         };
 
         db.ClinicalRecordAttachments.Add(attachment);
@@ -2234,7 +2237,7 @@ public static class ApiEndpoints
         await db.SaveChangesAsync(cancellationToken);
         return Results.Created(
             $"/appointments/{id}/clinical-record/attachments/{attachment.Id}",
-            ToResponse(attachment));
+            ToResponse(attachment, actor, appointment));
     }
 
     private static async Task<IResult> DownloadClinicalRecordAttachment(
@@ -2257,7 +2260,8 @@ public static class ApiEndpoints
             .SingleOrDefaultAsync(
                 x => x.Id == attachmentId &&
                      x.AppointmentId == id &&
-                     x.ClinicId == appointment.ClinicId,
+                     x.ClinicId == appointment.ClinicId &&
+                     !x.IsDeleted,
                 cancellationToken);
         if (attachment is null)
             return Results.NotFound();
@@ -2275,6 +2279,42 @@ public static class ApiEndpoints
             attachment.ContentType,
             attachment.FileName,
             enableRangeProcessing: false);
+    }
+
+    private static async Task<IResult> DeleteClinicalRecordAttachment(
+        Guid id,
+        Guid attachmentId,
+        ClaimsPrincipal principal,
+        MedSyncDbContext db,
+        AuditWriter audit,
+        CancellationToken cancellationToken)
+    {
+        var actor = RequestContext.From(principal);
+        var appointment = await LoadAppointment(db, actor, id, cancellationToken);
+        if (appointment is null)
+            return Results.NotFound();
+        if (!CanViewClinical(actor, appointment))
+            return Results.Forbid();
+
+        var attachment = await db.ClinicalRecordAttachments
+            .SingleOrDefaultAsync(
+                x => x.Id == attachmentId &&
+                     x.AppointmentId == id &&
+                     x.ClinicId == appointment.ClinicId &&
+                     !x.IsDeleted,
+                cancellationToken);
+        if (attachment is null)
+            return Results.NotFound();
+        if (!CanDeleteClinicalAttachment(actor, appointment, attachment))
+            return Results.Forbid();
+
+        attachment.IsDeleted = true;
+        attachment.DeletedAt = DateTime.UtcNow;
+        attachment.DeletedByUserId = actor.UserId;
+
+        audit.Add(actor, "ClinicalRecordAttachment.Delete", "Appointment", id);
+        await db.SaveChangesAsync(cancellationToken);
+        return Results.NoContent();
     }
 
     private static async Task<IResult> StartConsultation(
@@ -2731,6 +2771,15 @@ public static class ApiEndpoints
     private static bool IsPatient(RequestContext actor, Appointment appointment) =>
         actor.HasAny(ClinicRole.Patient) && appointment.Patient.UserId == actor.UserId;
 
+    private static bool CanDeleteClinicalAttachment(
+        RequestContext actor,
+        Appointment appointment,
+        ClinicalRecordAttachment attachment) =>
+        IsAssignedDoctor(actor, appointment) ||
+        (IsPatient(actor, appointment) &&
+         attachment.UploadedByUserId == actor.UserId &&
+         attachment.ReleasedToPatient);
+
     private static bool CanOperatePrivacy(RequestContext actor) =>
         actor.HasAny(
             ClinicRole.Support,
@@ -2930,7 +2979,10 @@ public static class ApiEndpoints
             record.CreatedAt,
             record.UpdatedAt);
 
-    private static ClinicalRecordAttachmentResponse ToResponse(ClinicalRecordAttachment attachment) =>
+    private static ClinicalRecordAttachmentResponse ToResponse(
+        ClinicalRecordAttachment attachment,
+        RequestContext actor,
+        Appointment appointment) =>
         new(
             attachment.Id,
             attachment.AppointmentId,
@@ -2938,7 +2990,8 @@ public static class ApiEndpoints
             attachment.ContentType,
             attachment.SizeBytes,
             attachment.ReleasedToPatient,
-            attachment.CreatedAt);
+            attachment.CreatedAt,
+            CanDeleteClinicalAttachment(actor, appointment, attachment));
 
     private static PaymentResponse ToResponse(Payment payment) =>
         new(

@@ -52,6 +52,7 @@ export default function ClinicalRecordPage() {
   const appointmentId = Array.isArray(params.appointmentId) ? params.appointmentId[0] : params.appointmentId;
   const roles = getSession()?.user.roles ?? [];
   const canEditClinicalRecord = roles.includes("Doctor");
+  const canUploadClinicalAttachment = canEditClinicalRecord || roles.includes("Patient");
 
   const [appointment, setAppointment] = useState<Appointment | null>(null);
   const [record, setRecord] = useState<ClinicalRecord | null>(null);
@@ -406,7 +407,7 @@ export default function ClinicalRecordPage() {
               )}
             </Card>
 
-            <ClinicalAttachmentsPanel appointmentId={appointmentId} canUpload={canEditClinicalRecord} />
+            <ClinicalAttachmentsPanel appointmentId={appointmentId} canUpload={canUploadClinicalAttachment} />
           </aside>
         </div>
       )}

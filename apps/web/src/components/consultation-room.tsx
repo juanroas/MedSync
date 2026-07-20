@@ -472,6 +472,11 @@ export function ConsultationRoom({ appointmentId }: { appointmentId: string }) {
               pelo MedSync.
             </p>
           </div>
+          {isPatient && (
+            <div className="mt-4">
+              <ClinicalAttachmentsPanel appointmentId={appointmentId} canUpload variant="dark" />
+            </div>
+          )}
             </>
           )}
         </aside>
