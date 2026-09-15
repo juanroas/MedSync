@@ -38,7 +38,7 @@ export default function RegisterCompanyPage() {
       saveSession(session);
       router.push("/dashboard");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Não foi possível criar a conta empresarial.");
+      setError(err instanceof Error ? err.message : "Não foi possível criar a conta da clínica.");
     } finally {
       setLoading(false);
     }
@@ -55,9 +55,11 @@ export default function RegisterCompanyPage() {
           <span className="grid size-12 place-items-center rounded-2xl bg-teal-50 text-teal-600">
             <Building2 size={22} />
           </span>
-          <h1 className="mt-6 text-3xl font-bold text-ink">Cadastrar empresa</h1>
+          <h1 className="mt-6 text-3xl font-bold text-ink">Cadastrar clínica</h1>
           <p className="mt-2 text-sm text-slate-500">
-            Esta conta será criada como administradora de uma empresa parceira do MedSync.
+            Esta conta será criada como administradora de uma clínica no MedSync. Se você representa uma
+            empresa parceira que já tem clínica contratante, peça ao suporte MedSync para incluir seu CNPJ
+            como beneficiário — não é necessário criar uma nova clínica.
           </p>
           <div className="mt-8 space-y-5">
             {error && <ErrorBanner message={error} />}
@@ -132,7 +134,7 @@ export default function RegisterCompanyPage() {
               Use ao menos 12 caracteres, com maiúscula, minúscula, número e símbolo.
             </p>
             <button className={`${buttonClass} w-full`} disabled={loading}>
-              {loading ? "Criando..." : "Criar empresa"}
+              {loading ? "Criando..." : "Criar clínica"}
             </button>
           </div>
         </form>

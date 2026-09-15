@@ -68,6 +68,7 @@ export type CompanyActivation = {
   companyName: string;
   taxIdMasked: string;
   planName?: string;
+  monthlyFee?: number;
   contractStatus?: CompanyContractStatus;
   isActive: boolean;
   createdAt: string;
@@ -91,6 +92,7 @@ export type Patient = {
   cpfMasked: string;
   birthDate: string;
   phone?: string;
+  continuousMedications?: string;
 };
 
 export type Doctor = {
@@ -103,12 +105,54 @@ export type Doctor = {
   phone?: string;
 };
 
+export type WeekDay =
+  | "Sunday"
+  | "Monday"
+  | "Tuesday"
+  | "Wednesday"
+  | "Thursday"
+  | "Friday"
+  | "Saturday";
+
+export const WEEKDAY_ORDER: WeekDay[] = [
+  "Sunday",
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+];
+
+export const WEEKDAY_LABELS: Record<WeekDay, string> = {
+  Sunday: "Domingo",
+  Monday: "Segunda-feira",
+  Tuesday: "Terca-feira",
+  Wednesday: "Quarta-feira",
+  Thursday: "Quinta-feira",
+  Friday: "Sexta-feira",
+  Saturday: "Sabado",
+};
+
+export type DoctorAvailabilitySlot = {
+  id: string;
+  dayOfWeek: WeekDay;
+  startTime: string;
+  endTime: string;
+};
+
+export type AvailableTime = {
+  startsAt: string;
+  durationMinutes: number;
+};
+
 export type CareSpecialty = {
   specialty: string;
   availableDoctors: number;
   doctors: Array<{
     id: string;
     name: string;
+    hasAvailability: boolean;
   }>;
 };
 
@@ -154,6 +198,7 @@ export type Appointment = {
   consentAccepted: boolean;
   roomName?: string;
   videoStatus?: VideoSessionStatus;
+  patientContinuousMedications?: string;
 };
 
 export type ConsultationRoom = {

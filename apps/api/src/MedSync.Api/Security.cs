@@ -94,11 +94,21 @@ public static class PasswordPolicy
 
 public static class SecurityText
 {
-    public const string ConsentTermVersion = "telemedicina-2026-01";
+    // ATENÇÃO: texto de consentimento informado para telemedicina. Alinhado ao conteúdo mínimo da
+    // Resolução CFM nº 2.314/2022 (identificação do profissional, limitações do atendimento remoto,
+    // caráter voluntário, direito de recusa/interrupção e tratamento de dados conforme a LGPD), mas
+    // ainda PRECISA de validação formal por jurídico/compliance antes de uso em produção real.
+    public const string ConsentTermVersion = "telemedicina-2026-02";
     public const string ConsentTerm =
-        "Autorizo o atendimento por telemedicina e a transmissão segura de áudio, vídeo e dados " +
-        "necessários à consulta. Fui informado sobre as limitações do atendimento remoto, o uso de " +
-        "fornecedores tecnológicos e meu direito de recusar esta modalidade e solicitar atendimento presencial.";
+        "Fui informado de que esta consulta será realizada por telemedicina, com transmissão seguindo por " +
+        "áudio, vídeo e dados necessários ao atendimento, prestada por profissional devidamente identificado " +
+        "e habilitado. Entendo as limitações do atendimento remoto em relação ao presencial, incluindo a " +
+        "impossibilidade de exame físico direto, e sei que o profissional pode encerrar a consulta e " +
+        "encaminhar-me ao atendimento presencial caso julgue necessário. Minha participação é voluntária: " +
+        "posso recusar esta modalidade a qualquer momento e solicitar atendimento presencial, sem prejuízo " +
+        "ao meu cuidado. Fui informado sobre os fornecedores tecnológicos envolvidos, sobre a forma de " +
+        "tratamento dos meus dados pessoais e de saúde conforme a Lei Geral de Proteção de Dados (LGPD) e " +
+        "sobre meus direitos como titular desses dados, incluindo acesso, correção e exclusão nos termos da lei.";
 
     public static string ConsentTermHash()
     {
@@ -134,6 +144,37 @@ public static class SecurityText
         var slug = string.Join('-', new string(letters)
             .Split('-', StringSplitOptions.RemoveEmptyEntries));
         return $"{slug}-{RandomNumberGenerator.GetHexString(4).ToLowerInvariant()}";
+    }
+
+    /// <summary>
+    /// Gera uma senha temporária aleatória que já satisfaz <see cref="PasswordPolicy"/>,
+    /// para uso em fluxos administrativos de redefinição de senha (o usuário é obrigado
+    /// a trocá-la no próximo login via <c>MustChangePassword</c>).
+    /// </summary>
+    public static string GenerateTemporaryPassword()
+    {
+        const string upper = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+        const string lower = "abcdefghijkmnopqrstuvwxyz";
+        const string digits = "23456789";
+        const string symbols = "!@#$%*?";
+        const string all = upper + lower + digits + symbols;
+
+        Span<char> buffer = stackalloc char[16];
+        buffer[0] = upper[RandomNumberGenerator.GetInt32(upper.Length)];
+        buffer[1] = lower[RandomNumberGenerator.GetInt32(lower.Length)];
+        buffer[2] = digits[RandomNumberGenerator.GetInt32(digits.Length)];
+        buffer[3] = symbols[RandomNumberGenerator.GetInt32(symbols.Length)];
+        for (var i = 4; i < buffer.Length; i++)
+            buffer[i] = all[RandomNumberGenerator.GetInt32(all.Length)];
+
+        // Embaralha para que as categorias fixas não fiquem sempre nas mesmas posições.
+        for (var i = buffer.Length - 1; i > 0; i--)
+        {
+            var j = RandomNumberGenerator.GetInt32(i + 1);
+            (buffer[i], buffer[j]) = (buffer[j], buffer[i]);
+        }
+
+        return new string(buffer);
     }
 }
 

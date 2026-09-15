@@ -140,7 +140,21 @@ public sealed class Patient
     public required string Cpf { get; set; }
     public DateOnly BirthDate { get; set; }
     public string? Phone { get; set; }
+    public string? ContinuousMedications { get; set; }
     public ICollection<Appointment> Appointments { get; set; } = [];
+}
+
+public sealed class DoctorAvailabilitySlot
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid ClinicId { get; set; }
+    public Clinic Clinic { get; set; } = null!;
+    public Guid DoctorId { get; set; }
+    public Doctor Doctor { get; set; } = null!;
+    public DayOfWeek DayOfWeek { get; set; }
+    public TimeOnly StartTime { get; set; }
+    public TimeOnly EndTime { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }
 
 public sealed class Appointment

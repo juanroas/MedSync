@@ -1,3 +1,5 @@
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
 using System.Text;
 using System.Text.Json.Serialization;
 using System.Threading.RateLimiting;
@@ -6,6 +8,7 @@ using MedSync.Application;
 using MedSync.Infrastructure;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.IdentityModel.Tokens;
 using StackExchange.Redis;
 
@@ -89,6 +92,25 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
                 if (context.Request.Cookies.TryGetValue("medsync_session", out var token))
                     context.Token = token;
                 return Task.CompletedTask;
+            },
+            // Revogacao de sessao: quando um admin desabilita o acesso ou reseta a senha de
+            // alguem, gravamos "session-revoked:{userId}" no cache distribuido. Qualquer token
+            // emitido ANTES desse instante passa a ser rejeitado aqui, mesmo que ainda nao
+            // tenha expirado (o JWT por si so nao pode ser revogado, entao checamos a cada request).
+            OnTokenValidated = async context =>
+            {
+                var userIdClaim = context.Principal?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (userIdClaim is null || context.SecurityToken is not JwtSecurityToken jwt)
+                    return;
+
+                var cache = context.HttpContext.RequestServices.GetRequiredService<IDistributedCache>();
+                var revokedBeforeRaw = await cache.GetStringAsync($"session-revoked:{userIdClaim}");
+                if (revokedBeforeRaw is not null &&
+                    long.TryParse(revokedBeforeRaw, out var revokedBeforeUnix) &&
+                    new DateTimeOffset(DateTime.SpecifyKind(jwt.IssuedAt, DateTimeKind.Utc)).ToUnixTimeSeconds() < revokedBeforeUnix)
+                {
+                    context.Fail("Sessao revogada.");
+                }
             }
         };
         options.TokenValidationParameters = new TokenValidationParameters
@@ -304,15 +326,23 @@ static SeedMode ResolveDemoSeedMode(IWebHostEnvironment environment)
         return new SeedMode(true, "Development", "Ambiente Development.");
     if (environment.IsEnvironment("Homologation"))
         return new SeedMode(true, "Homologation", "Ambiente Homologation.");
+
+    // Em Producao, ENABLE_HOMOLOGATION_SEED sozinho NUNCA habilita o seed demo.
+    // E exigida a combinacao das tres flags (dupla confirmacao explicita), para evitar
+    // que uma unica variavel mal configurada exponha o endpoint de seed em producao.
+    if (environment.IsProduction())
+        return presentationSeedInProduction
+            ? new SeedMode(
+                true,
+                "PresentationProduction",
+                "Seed demo habilitado explicitamente em ambiente unico publicado, com dupla confirmacao.")
+            : new SeedMode(
+                false,
+                "Disabled",
+                "Producao requer ALLOW_PRESENTATION_SEED_IN_PRODUCTION=true e PRESENTATION_SEED_ACK=DEMO_ONLY_NO_REAL_PATIENTS, alem de ENABLE_HOMOLOGATION_SEED=true.");
+
     if (homologationSeedEnabled)
-        return new SeedMode(
-            true,
-            environment.IsProduction() ? "PresentationProduction" : "NonProductionFlag",
-            environment.IsProduction()
-                ? "Seed demo habilitado em ambiente unico publicado."
-                : "Seed habilitado em ambiente nao-producao.");
-    if (presentationSeedInProduction)
-        return new SeedMode(true, "PresentationProduction", "Seed demo habilitado explicitamente em ambiente unico.");
+        return new SeedMode(true, "NonProductionFlag", "Seed habilitado em ambiente nao-producao.");
 
     return new SeedMode(false, "Disabled", "Variaveis de seed demo ausentes ou ambiente nao autorizado.");
 }

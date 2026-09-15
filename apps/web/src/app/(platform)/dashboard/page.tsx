@@ -104,7 +104,11 @@ export default function DashboardPage() {
   const upcoming = useMemo(
     () =>
       appointments
-        .filter((item) => item.status === "Scheduled" || item.status === "InProgress")
+        .filter(
+          (item) =>
+            (item.status === "Scheduled" && !isAppointmentMissed(item)) ||
+            (item.status === "InProgress" && !isAppointmentStaleInProgress(item)),
+        )
         .sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime())
         .slice(0, 4),
     [appointments],
@@ -827,7 +831,12 @@ function DoctorHome({
   const month = appointments.filter((item) => isSameRange(item.scheduledAt, now, "month")).length;
   const year = appointments.filter((item) => isSameRange(item.scheduledAt, now, "year")).length;
   const upcoming = appointments
-    .filter((item) => item.status === "Scheduled" || item.status === "InProgress")
+    .filter(
+      (item) =>
+        (item.status === "Scheduled" && !isAppointmentMissed(item)) ||
+        (item.status === "InProgress" && !isAppointmentStaleInProgress(item)),
+    )
+    .sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime())
     .slice(0, 5);
 
   return (
@@ -867,13 +876,12 @@ function DoctorHome({
             <AppointmentsPanel appointments={upcoming} canJoin />
             <Card className="p-6">
               <p className="text-xs font-bold uppercase text-teal-600">Pacientes vinculados</p>
-              <h2 className="mt-3 text-xl font-bold text-ink">{patients.length} pacientes</h2>
+              <h2 className="mt-3 text-xl font-bold text-ink">
+                {patients.length} {patients.length === 1 ? "paciente" : "pacientes"}
+              </h2>
               <p className="mt-3 text-sm leading-6 text-slate-500">
                 O medico visualiza pacientes somente quando existe consulta vinculada ao seu atendimento.
               </p>
-              <div className="mt-6 rounded-lg border border-amber-100 bg-amber-50 p-4 text-sm text-amber-800">
-                Edicao de perfil medico e disponibilidade por especialidade: TODO de produto/API.
-              </div>
             </Card>
           </section>
         </>
@@ -1001,12 +1009,13 @@ function PlatformOverviewHome({
               Visao de plataforma para acompanhar operacao, evidencias e evolucao do produto sem operar atendimento individual.
             </p>
           </section>
-          <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <section className="grid gap-4 sm:grid-cols-2">
             <MetricCard label="Consultas" value={appointments.length} detail="visao operacional" icon={<CalendarCheck2 size={20} />} tone="success" />
             <MetricCard label="CNPJs" value={1} detail="homologacao seed" icon={<Building2 size={20} />} tone="info" />
-            <MetricCard label="CNPJ tecnico" value="TODO" detail="fluxo pessoa fisica" icon={<ShieldCheck size={20} />} tone="warning" />
-            <MetricCard label="Exportacao" value="TODO" detail="relatorios aprovados" icon={<FileText size={20} />} tone="neutral" />
           </section>
+          <p className="mt-3 text-xs text-slate-400">
+            Fluxo pessoa fisica (CNPJ tecnico) e exportacao de relatorios aprovados ainda nao estao disponiveis nesta versao.
+          </p>
         </>
       )}
     </>
@@ -1086,7 +1095,7 @@ function PatientCareHome({
     sorted.find((item) => item.status === "Scheduled" && !isAppointmentMissed(item) && new Date(item.scheduledAt).getTime() >= Date.now()) ??
     sorted.find((item) => item.status === "InProgress" && !isAppointmentStaleInProgress(item)) ??
     sorted.find((item) => item.status === "Scheduled" && !isAppointmentMissed(item));
-  const history = sorted.slice(0, 4);
+  const history = sorted.slice(-4).reverse();
   const joinAvailable = nextAppointment ? isAppointmentRoomJoinable(nextAppointment) : false;
   const roomBlockedReason = nextAppointment ? careBlockReason(nextAppointment) : null;
   const nextStep = nextAppointment ? patientCareStep(nextAppointment) : null;
@@ -1230,6 +1239,7 @@ function PatientCareHome({
                     <AppointmentRow
                       key={appointment.id}
                       appointment={appointment}
+                      perspective="patient"
                       canJoin={
                         appointment.status === "InProgress" &&
                         appointment.consentAccepted &&
@@ -1241,20 +1251,19 @@ function PatientCareHome({
               )}
             </Card>
 
-            <Card className="p-6">
+            <Card className="p-5">
               <p className="text-xs font-bold uppercase text-teal-600">Privacidade</p>
-              <h2 className="mt-3 text-xl font-bold text-ink">Sua jornada e separada da empresa.</h2>
-              <p className="mt-3 text-sm leading-6 text-slate-500">
-                Empresas e parceiros veem apenas dados administrativos e agregados permitidos. Seu atendimento clinico fica restrito aos perfis autorizados.
+              <h2 className="mt-2 text-base font-bold text-ink">Sua jornada e separada da empresa.</h2>
+              <p className="mt-2 text-sm leading-6 text-slate-500">
+                Empresas e parceiros veem apenas dados administrativos e agregados permitidos.
               </p>
-              <div className="mt-6 space-y-3">
+              <div className="mt-4 space-y-2">
                 {[
-                  "Prontuario nao e exibido para empresa.",
-                  "Diagnostico nao aparece em relatorio empresarial.",
+                  "Prontuario e diagnostico nao sao exibidos para a empresa.",
                   "Entrada em sala exige vinculo, horario e consentimento.",
                 ].map((item) => (
-                  <p key={item} className="flex gap-2 text-sm text-slate-600">
-                    <ShieldCheck className="mt-0.5 shrink-0 text-teal-600" size={16} />
+                  <p key={item} className="flex gap-2 text-xs text-slate-600">
+                    <ShieldCheck className="mt-0.5 shrink-0 text-teal-600" size={14} />
                     {item}
                   </p>
                 ))}
@@ -1303,27 +1312,31 @@ function AppointmentsPanel({
 function AppointmentRow({
   appointment,
   canJoin,
+  perspective = "doctor",
 }: {
   appointment: Appointment;
   canJoin: boolean;
+  perspective?: "doctor" | "patient";
 }) {
   const step = patientCareStep(appointment);
   const joinReady = canJoin && isAppointmentRoomJoinable(appointment);
+  const primaryName = perspective === "patient" ? appointment.doctorName : appointment.patientName;
+  const secondaryLine = perspective === "patient"
+    ? appointment.specialty
+    : `${appointment.doctorName} - ${appointment.specialty}`;
 
   return (
     <div className="flex flex-col gap-4 px-6 py-5 sm:flex-row sm:items-center">
       <span className="grid size-11 shrink-0 place-items-center rounded-lg bg-teal-50 text-sm font-bold text-teal-700">
-        {appointment.patientName
+        {primaryName
           .split(" ")
           .slice(0, 2)
           .map((part) => part[0])
           .join("")}
       </span>
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-bold text-ink">{appointment.patientName}</p>
-        <p className="mt-1 text-xs text-slate-400">
-          {appointment.doctorName} - {appointment.specialty}
-        </p>
+        <p className="truncate text-sm font-bold text-ink">{primaryName}</p>
+        <p className="mt-1 text-xs text-slate-400">{secondaryLine}</p>
       </div>
       <div className="sm:text-right">
         <p className="text-sm font-semibold text-ink">

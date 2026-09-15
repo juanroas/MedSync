@@ -5,7 +5,7 @@ import "@livekit/components-styles";
 import { ClinicalAttachmentsPanel } from "@/components/clinical-attachments-panel";
 import { ErrorBanner, LoadingState, TextArea, buttonClass, cn } from "@/components/ui";
 import { formatDateTime } from "@/lib/format";
-import type { Appointment, ClinicalRecord } from "@/lib/types";
+import type { Appointment, ClinicalRecord, PatientClinicalRecord } from "@/lib/types";
 import { ApiError, api, getSession } from "@/services/api";
 import { LiveKitRoom, RoomAudioRenderer, VideoConference } from "@livekit/components-react";
 import { ExternalE2EEKeyProvider, type E2EEOptions, type RoomOptions } from "livekit-client";
@@ -15,6 +15,7 @@ import {
   ClipboardPlus,
   CreditCard,
   FileText,
+  Pill,
   Save,
   ShieldCheck,
   Stethoscope,
@@ -38,7 +39,7 @@ export function ConsultationRoom({ appointmentId }: { appointmentId: string }) {
   const [accepting, setAccepting] = useState(false);
   const [paying, setPaying] = useState(false);
   const [attempt, setAttempt] = useState(0);
-  const [sidebarMode, setSidebarMode] = useState<"details" | "record">("details");
+  const [sidebarMode, setSidebarMode] = useState<"details" | "record" | "history">("details");
   const [clinicalRecord, setClinicalRecord] = useState<ClinicalRecord | null>(null);
   const [clinicalContent, setClinicalContent] = useState("");
   const [clinicalLoaded, setClinicalLoaded] = useState(false);
@@ -46,6 +47,10 @@ export function ConsultationRoom({ appointmentId }: { appointmentId: string }) {
   const [clinicalSaving, setClinicalSaving] = useState(false);
   const [clinicalError, setClinicalError] = useState("");
   const [clinicalMessage, setClinicalMessage] = useState("");
+  const [patientHistory, setPatientHistory] = useState<PatientClinicalRecord[]>([]);
+  const [historyLoaded, setHistoryLoaded] = useState(false);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState("");
   const exitingRef = useRef(false);
   const serverUrl = process.env.NEXT_PUBLIC_LIVEKIT_URL;
   const session = getSession();
@@ -176,6 +181,33 @@ export function ConsultationRoom({ appointmentId }: { appointmentId: string }) {
       active = false;
     };
   }, [appointmentId, canEditClinicalRecord, clinicalLoaded, sidebarMode]);
+
+  useEffect(() => {
+    if (!canEditClinicalRecord || sidebarMode !== "history" || historyLoaded || !appointment) return;
+
+    let active = true;
+
+    async function loadHistory() {
+      setHistoryLoading(true);
+      setHistoryError("");
+      try {
+        const records = await api.getPatientClinicalRecords(appointment!.patientId);
+        if (!active) return;
+        setPatientHistory(records);
+        setHistoryLoaded(true);
+      } catch (err) {
+        if (!active) return;
+        setHistoryError(err instanceof Error ? err.message : "Nao foi possivel carregar o historico.");
+      } finally {
+        if (active) setHistoryLoading(false);
+      }
+    }
+
+    loadHistory();
+    return () => {
+      active = false;
+    };
+  }, [appointment, canEditClinicalRecord, historyLoaded, sidebarMode]);
 
   const roomOptions = useMemo<RoomOptions | undefined>(
     () => (encryption ? { encryption } : undefined),
@@ -404,10 +436,14 @@ export function ConsultationRoom({ appointmentId }: { appointmentId: string }) {
         <aside className="border-l border-white/10 bg-[#15221f] p-6 text-white lg:h-full lg:min-h-0 lg:overflow-y-auto">
           <p className="text-xs font-bold uppercase tracking-[0.2em] text-teal-300">Consulta</p>
           <h1 className="mt-3 text-2xl font-bold tracking-tight">
-            {sidebarMode === "record" ? "Prontuario da consulta" : "Dados do atendimento"}
+            {sidebarMode === "record"
+              ? "Prontuario da consulta"
+              : sidebarMode === "history"
+                ? "Historico do paciente"
+                : "Dados do atendimento"}
           </h1>
           {canEditClinicalRecord && (
-            <div className="mt-6 grid grid-cols-2 rounded-xl bg-white/5 p-1">
+            <div className="mt-6 grid grid-cols-3 rounded-xl bg-white/5 p-1">
               <button
                 type="button"
                 onClick={() => setSidebarMode("details")}
@@ -432,6 +468,18 @@ export function ConsultationRoom({ appointmentId }: { appointmentId: string }) {
               >
                 Prontuario
               </button>
+              <button
+                type="button"
+                onClick={() => setSidebarMode("history")}
+                className={cn(
+                  "h-10 rounded-lg text-xs font-bold transition",
+                  sidebarMode === "history"
+                    ? "bg-amber-300 text-[#15221f]"
+                    : "text-white/55 hover:bg-white/5 hover:text-white",
+                )}
+              >
+                Historico
+              </button>
             </div>
           )}
           {sidebarMode === "record" && canEditClinicalRecord ? (
@@ -445,6 +493,14 @@ export function ConsultationRoom({ appointmentId }: { appointmentId: string }) {
               message={clinicalMessage}
               onChange={setClinicalContent}
               onSave={saveClinicalRecord}
+            />
+          ) : sidebarMode === "history" && canEditClinicalRecord ? (
+            <RoomHistoryPanel
+              currentAppointmentId={appointmentId}
+              records={patientHistory}
+              loading={historyLoading}
+              error={historyError}
+              continuousMedications={appointment.patientContinuousMedications}
             />
           ) : (
             <>
@@ -582,6 +638,84 @@ function RoomClinicalRecordPanel({
       )}
 
       <ClinicalAttachmentsPanel appointmentId={appointmentId} canUpload variant="dark" />
+    </div>
+  );
+}
+
+function RoomHistoryPanel({
+  currentAppointmentId,
+  records,
+  loading,
+  error,
+  continuousMedications,
+}: {
+  currentAppointmentId: string;
+  records: PatientClinicalRecord[];
+  loading: boolean;
+  error: string;
+  continuousMedications?: string;
+}) {
+  const previous = records.filter((item) => item.appointmentId !== currentAppointmentId);
+
+  return (
+    <div className="mt-6 space-y-4">
+      {continuousMedications && (
+        <div className="rounded-2xl border border-amber-300/25 bg-amber-300/10 p-4">
+          <div className="flex items-start gap-3">
+            <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-amber-300/15 text-amber-200">
+              <Pill size={18} />
+            </span>
+            <div className="min-w-0">
+              <p className="text-sm font-bold text-white">Medicacoes de uso continuo</p>
+              <p className="mt-1 text-xs leading-5 text-white/70">{continuousMedications}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {loading ? (
+        <div className="rounded-2xl border border-white/10 bg-white/5 p-5 text-sm text-white/60">
+          Carregando historico...
+        </div>
+      ) : error ? (
+        <div className="rounded-xl border border-red-300/30 bg-red-300/10 px-4 py-3 text-xs leading-5 text-red-100">
+          {error}
+        </div>
+      ) : previous.length === 0 ? (
+        <div className="rounded-2xl border border-white/10 bg-white/5 p-5 text-sm text-white/60">
+          Nenhum registro anterior encontrado para este paciente.
+        </div>
+      ) : (
+        <div className="max-h-[520px] space-y-3 overflow-y-auto pr-1">
+          {previous.map((item) => (
+            <div key={item.id} className="rounded-2xl border border-white/10 bg-white/5 p-4">
+              <div className="mb-2 flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-sm font-bold text-white">{formatDateTime(item.scheduledAt)}</p>
+                  <p className="mt-1 text-xs text-white/45">
+                    {item.doctorName} - {item.specialty}
+                  </p>
+                </div>
+                <span className="rounded-full bg-white/10 px-2.5 py-1 text-xs font-bold text-white/60">
+                  v{item.version}
+                </span>
+              </div>
+              <p className="max-h-28 overflow-hidden whitespace-pre-wrap text-xs leading-5 text-white/70">
+                {item.content}
+              </p>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <a
+        href={`/prontuario/${currentAppointmentId}`}
+        target="_blank"
+        rel="noreferrer"
+        className="flex h-11 items-center justify-center rounded-lg border border-white/10 bg-white/5 px-4 text-sm font-bold text-white/75 transition hover:border-teal-300/30 hover:bg-white/10 hover:text-white"
+      >
+        Abrir prontuario completo
+      </a>
     </div>
   );
 }

@@ -86,14 +86,15 @@ export default function HomePage() {
           <div className="max-w-3xl">
             <span className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3.5 py-2 text-xs font-bold uppercase tracking-[0.08em] text-teal-50">
               <span className="size-2 rounded-full bg-coral" />
-              Saude digital B2B
+              Saude digital para clinicas
             </span>
             <h1 className="mt-7 text-5xl font-bold leading-[1.02] tracking-tight sm:text-6xl lg:text-7xl">
-              MedSync: cuidado digital para empresas, sem transformar saude em RH.
+              MedSync: a operacao digital da sua clinica, do agendamento ao atendimento por video.
             </h1>
             <p className="mt-6 max-w-2xl text-lg leading-8 text-white/78">
-              Uma plataforma para conectar pacientes, medicos e empresas em jornadas separadas:
-              cuidado assistencial para quem precisa de atendimento e governanca agregada para quem contrata.
+              Uma plataforma para clinicas atenderem pacientes por telemedicina com agenda, prontuario e
+              consultas por video em um so lugar. Empresas parceiras podem patrocinar o beneficio para seus
+              times sem acessar dado clinico individual — sem transformar a clinica em RH.
             </p>
             <div className="mt-9 flex flex-col gap-3 sm:flex-row">
               <Link
@@ -113,8 +114,8 @@ export default function HomePage() {
 
           <div className="grid gap-3 sm:grid-cols-3 lg:max-w-3xl">
             {[
-              ["CNPJs separados", "Multiempresa com escopo por perfil"],
-              ["Uso agregado", "Relatorios sem dado clinico individual"],
+              ["Agenda e atendimento", "Medicos atendem por especialidade e disponibilidade propria"],
+              ["Empresas parceiras", "Uso agregado por CNPJ, sem dado clinico individual"],
               ["Jornada assistencial", "Paciente solicita cuidado por especialidade"],
             ].map(([title, detail]) => (
               <div key={title} className="rounded-lg border border-white/12 bg-white/10 p-4 backdrop-blur">
@@ -155,13 +156,14 @@ export default function HomePage() {
       <section className="py-20">
         <div className="mx-auto grid max-w-7xl gap-8 px-5 sm:px-8 lg:grid-cols-[.95fr_1.05fr]">
           <div>
-            <p className="text-xs font-bold uppercase tracking-[0.16em] text-teal-700">Operacao B2B</p>
+            <p className="text-xs font-bold uppercase tracking-[0.16em] text-teal-700">Empresas parceiras</p>
             <h2 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">
-              O contratante acompanha valor. O paciente preserva privacidade.
+              A clinica atende. A empresa patrocinadora acompanha valor, sem ver o clinico.
             </h2>
             <p className="mt-4 text-sm leading-6 text-slate-500">
-              O MedSync evita misturar painel empresarial com informacao clinica. Empresas veem elegibilidade,
-              plano, faturas e indicadores agregados; dados assistenciais ficam nos fluxos autorizados.
+              Quando uma empresa patrocina o beneficio para seu time, o MedSync evita misturar painel
+              empresarial com informacao clinica. Empresas veem elegibilidade, plano, faturas e indicadores
+              agregados; dados assistenciais ficam nos fluxos autorizados da clinica.
             </p>
           </div>
           <div className="grid gap-3">

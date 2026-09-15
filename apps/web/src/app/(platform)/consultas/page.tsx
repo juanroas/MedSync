@@ -10,10 +10,26 @@ import {
 import { formatDateTime, statusClass, statusLabel } from "@/lib/format";
 import type { Appointment } from "@/lib/types";
 import { api, getSession } from "@/services/api";
-import { CalendarDays, Clock3, FileText, Plus, Stethoscope, UserRound, Video } from "lucide-react";
+import { CalendarDays, Clock3, FileText, Plus, Stethoscope, UserRound, Video, XCircle } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+
+type AppointmentTab = "active" | "history";
+
+// Uma consulta vai para o Historico quando nao ha mais nada acionavel nela: ja aconteceu
+// (concluida), foi cancelada, o paciente nao compareceu, ou a janela de atendimento fechou
+// sem que a sala fosse aberta/encerrada. Tudo o mais (agendada dentro do prazo, em andamento
+// dentro da janela) fica em Ativas.
+function isAppointmentHistory(appointment: Appointment) {
+  return (
+    appointment.status === "Completed" ||
+    appointment.status === "Cancelled" ||
+    appointment.status === "NoShow" ||
+    isAppointmentMissed(appointment) ||
+    (appointment.status === "InProgress" && isAppointmentStaleInProgress(appointment))
+  );
+}
 
 export default function AppointmentsPage() {
   const router = useRouter();
@@ -27,14 +43,36 @@ export default function AppointmentsPage() {
   const canJoinRole = roles.some((role) =>
     ["Doctor", "Patient", "MedicalDirector", "OccupationalHealthAdmin"].includes(role),
   );
+  // Simplificacao de tela: quando o proprio perfil ja e o paciente ou o medico da linha, a coluna
+  // correspondente so repetiria o mesmo nome em toda a lista, entao ela e omitida.
+  const showPatientColumn = !isPatient;
+  const showDoctorColumn = !isDoctor;
+  const columnsClass =
+    showPatientColumn && showDoctorColumn
+      ? "lg:grid-cols-[1.05fr_.95fr_1fr_.55fr_300px]"
+      : showPatientColumn
+        ? "lg:grid-cols-[1.05fr_1fr_.55fr_300px]"
+        : "lg:grid-cols-[.95fr_1fr_.55fr_300px]";
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [startingId, setStartingId] = useState("");
   const [endingId, setEndingId] = useState("");
+  const [cancelingId, setCancelingId] = useState("");
+  const [tab, setTab] = useState<AppointmentTab>("active");
   const [, setNowTick] = useState(() => Date.now());
   const isMountedRef = useRef(false);
   const refreshingRef = useRef(false);
+
+  const activeAppointments = useMemo(
+    () => appointments.filter((appointment) => !isAppointmentHistory(appointment)),
+    [appointments],
+  );
+  const historyAppointments = useMemo(
+    () => appointments.filter((appointment) => isAppointmentHistory(appointment)),
+    [appointments],
+  );
+  const visibleAppointments = tab === "active" ? activeAppointments : historyAppointments;
 
   const loadAppointments = useCallback(async (showLoading: boolean) => {
     if (refreshingRef.current) return;
@@ -115,9 +153,28 @@ export default function AppointmentsPage() {
     }
   }
 
+  async function cancelAppointment(appointmentId: string) {
+    if (!window.confirm("Cancelar esta consulta? Esta acao nao pode ser desfeita.")) return;
+    setCancelingId(appointmentId);
+    setError("");
+    try {
+      const updated = await api.cancelAppointment(appointmentId);
+      setAppointments((items) => items.map((item) => (item.id === appointmentId ? updated : item)));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Nao foi possivel cancelar a consulta.");
+    } finally {
+      setCancelingId("");
+    }
+  }
+
   function renderAppointmentAction(appointment: Appointment) {
+    const canCancel =
+      appointment.status === "Scheduled" &&
+      !isAppointmentMissed(appointment) &&
+      (isPatient || isDoctor || canOperationalSchedule);
+
     return (
-      <div className={isDoctor ? "grid w-full gap-2 sm:grid-cols-[132px_minmax(144px,1fr)] lg:w-[300px]" : "flex justify-end"}>
+      <div className={isDoctor ? "grid w-full gap-2 sm:grid-cols-[132px_minmax(144px,1fr)] lg:w-[300px]" : "flex flex-col items-end gap-2"}>
         {isDoctor && (
           <Link
             href={`/prontuario/${appointment.id}`}
@@ -159,10 +216,26 @@ export default function AppointmentsPage() {
           >
             <FileText size={15} /> Aceitar termo
           </Link>
+        ) : isAppointmentMissed(appointment) ? (
+          // A coluna Status ja exibe "Nao compareceu"; evita repetir o mesmo rotulo aqui.
+          <span className="inline-flex h-10 w-full items-center justify-center px-3 text-xs text-slate-300">
+            —
+          </span>
         ) : isDoctor ? (
           <DoctorRoomNextStep appointment={appointment} />
         ) : (
           <AppointmentNextStep appointment={appointment} />
+        )}
+
+        {canCancel && (
+          <button
+            type="button"
+            onClick={() => cancelAppointment(appointment.id)}
+            disabled={cancelingId === appointment.id}
+            className="inline-flex h-11 items-center justify-center gap-1.5 px-3 text-xs font-bold text-slate-400 hover:text-red-600 disabled:cursor-not-allowed disabled:text-slate-300"
+          >
+            <XCircle size={14} /> {cancelingId === appointment.id ? "Cancelando..." : "Cancelar consulta"}
+          </button>
         )}
       </div>
     );
@@ -210,50 +283,96 @@ export default function AppointmentsPage() {
           ) : undefined}
         />
       ) : (
-        <div className="overflow-hidden rounded-lg border border-slate-100 bg-white shadow-sm">
-          <div className="hidden grid-cols-[1.05fr_.95fr_1fr_.55fr_300px] gap-5 border-b border-slate-100 bg-slate-50/60 px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-400 lg:grid">
-            <span>Paciente</span>
-            <span>Medico</span>
-            <span>Horario</span>
-            <span>Status</span>
-            <span>Acao</span>
-          </div>
-          <div className="divide-y divide-slate-100">
-            {appointments.map((appointment) => (
-              <article
-                key={appointment.id}
-                className="grid gap-5 px-6 py-5 transition hover:bg-slate-50/50 lg:grid-cols-[1.05fr_.95fr_1fr_.55fr_300px] lg:items-center"
+        <>
+          <div className="mb-4 inline-flex rounded-lg border border-slate-200 bg-white p-1">
+            <button
+              type="button"
+              onClick={() => setTab("active")}
+              className={`inline-flex h-9 items-center gap-2 rounded-md px-4 text-xs font-bold transition ${
+                tab === "active" ? "bg-teal-600 text-white" : "text-slate-500 hover:text-ink"
+              }`}
+            >
+              Ativas
+              <span
+                className={`rounded-full px-1.5 py-0.5 text-[10px] ${
+                  tab === "active" ? "bg-white/20 text-white" : "bg-slate-100 text-slate-500"
+                }`}
               >
-                <div className="flex items-center gap-3">
-                  <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-blue-50 text-blue-600">
-                    <UserRound size={17} />
-                  </span>
-                  <div>
-                    <p className="text-sm font-bold text-ink">{appointment.patientName}</p>
-                    <p className="mt-1 text-xs text-slate-400">Paciente</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <Stethoscope size={16} className="shrink-0 text-teal-600" />
-                  <div>
-                    <p className="text-sm font-semibold text-ink">{appointment.doctorName}</p>
-                    <p className="mt-1 text-xs text-slate-400">{appointment.specialty}</p>
-                  </div>
-                </div>
-                <div>
-                  <p className="text-sm font-semibold text-ink">{formatDateTime(appointment.scheduledAt)}</p>
-                  <p className="mt-1 text-xs text-slate-400">Horario de Brasilia</p>
-                </div>
-                <span
-                  className={`w-fit rounded-full px-2.5 py-1.5 text-[11px] font-bold ${appointmentStatusClass(appointment)}`}
-                >
-                  {appointmentStatusText(appointment)}
-                </span>
-                {canJoinRole ? renderAppointmentAction(appointment) : <span />}
-              </article>
-            ))}
+                {activeAppointments.length}
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setTab("history")}
+              className={`inline-flex h-9 items-center gap-2 rounded-md px-4 text-xs font-bold transition ${
+                tab === "history" ? "bg-teal-600 text-white" : "text-slate-500 hover:text-ink"
+              }`}
+            >
+              Historico
+              <span
+                className={`rounded-full px-1.5 py-0.5 text-[10px] ${
+                  tab === "history" ? "bg-white/20 text-white" : "bg-slate-100 text-slate-500"
+                }`}
+              >
+                {historyAppointments.length}
+              </span>
+            </button>
           </div>
-        </div>
+          {visibleAppointments.length === 0 ? (
+            <div className="rounded-lg border border-slate-100 bg-white p-12 text-center text-sm text-slate-400 shadow-sm">
+              {tab === "active" ? "Nenhuma consulta ativa no momento." : "Nenhuma consulta no historico ainda."}
+            </div>
+          ) : (
+            <div className="overflow-hidden rounded-lg border border-slate-100 bg-white shadow-sm">
+              <div className={`hidden gap-5 border-b border-slate-100 bg-slate-50/60 px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-400 lg:grid ${columnsClass}`}>
+                {showPatientColumn && <span>Paciente</span>}
+                {showDoctorColumn && <span>Medico</span>}
+                <span>Horario</span>
+                <span>Status</span>
+                <span>Acao</span>
+              </div>
+              <div className="divide-y divide-slate-100">
+                {visibleAppointments.map((appointment) => (
+                  <article
+                    key={appointment.id}
+                    className={`grid gap-5 px-6 py-5 transition hover:bg-slate-50/50 lg:items-center ${columnsClass}`}
+                  >
+                    {showPatientColumn && (
+                      <div className="flex items-center gap-3">
+                        <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-blue-50 text-blue-600">
+                          <UserRound size={17} />
+                        </span>
+                        <div>
+                          <p className="text-sm font-bold text-ink">{appointment.patientName}</p>
+                          <p className="mt-1 text-xs text-slate-400">Paciente</p>
+                        </div>
+                      </div>
+                    )}
+                    {showDoctorColumn && (
+                      <div className="flex items-center gap-3">
+                        <Stethoscope size={16} className="shrink-0 text-teal-600" />
+                        <div>
+                          <p className="text-sm font-semibold text-ink">{appointment.doctorName}</p>
+                          <p className="mt-1 text-xs text-slate-400">{appointment.specialty}</p>
+                        </div>
+                      </div>
+                    )}
+                    <div>
+                      <p className="text-sm font-semibold text-ink">{formatDateTime(appointment.scheduledAt)}</p>
+                      <p className="mt-1 text-xs text-slate-400">Horario de Brasilia</p>
+                    </div>
+                    <span
+                      className={`w-fit rounded-full px-2.5 py-1.5 text-[11px] font-bold ${appointmentStatusClass(appointment)}`}
+                    >
+                      {appointmentStatusText(appointment)}
+                    </span>
+                    {canJoinRole || canOperationalSchedule ? renderAppointmentAction(appointment) : <span />}
+                  </article>
+                ))}
+              </div>
+            </div>
+          )}
+        </>
       )}
     </>
   );
@@ -299,7 +418,7 @@ function getAppointmentNextStep(appointment: Appointment) {
     return {
       label: "Nao compareceu",
       icon: <CalendarDays size={15} />,
-      className: "bg-amber-50 text-amber-700",
+      className: "bg-slate-100 text-slate-500",
     };
   }
 
@@ -349,7 +468,7 @@ function appointmentStatusText(appointment: Appointment) {
 }
 
 function appointmentStatusClass(appointment: Appointment) {
-  if (isAppointmentMissed(appointment)) return "bg-amber-50 text-amber-700";
+  if (isAppointmentMissed(appointment)) return "bg-slate-100 text-slate-500";
   if (isAppointmentStaleInProgress(appointment)) return "bg-slate-50 text-slate-500";
   return statusClass[appointment.status];
 }

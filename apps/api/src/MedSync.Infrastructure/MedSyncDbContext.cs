@@ -10,6 +10,7 @@ public sealed class MedSyncDbContext(DbContextOptions<MedSyncDbContext> options)
     public DbSet<ClinicMembership> ClinicMemberships => Set<ClinicMembership>();
     public DbSet<Doctor> Doctors => Set<Doctor>();
     public DbSet<Patient> Patients => Set<Patient>();
+    public DbSet<DoctorAvailabilitySlot> DoctorAvailabilitySlots => Set<DoctorAvailabilitySlot>();
     public DbSet<Appointment> Appointments => Set<Appointment>();
     public DbSet<ConsultationRoom> ConsultationRooms => Set<ConsultationRoom>();
     public DbSet<ConsentRecord> ConsentRecords => Set<ConsentRecord>();
@@ -77,10 +78,20 @@ public sealed class MedSyncDbContext(DbContextOptions<MedSyncDbContext> options)
             entity.Property(x => x.Name).HasMaxLength(160);
             entity.Property(x => x.Email).HasMaxLength(180);
             entity.Property(x => x.Cpf).HasMaxLength(14);
+            entity.Property(x => x.ContinuousMedications).HasMaxLength(2000);
             entity.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId)
                 .OnDelete(DeleteBehavior.SetNull);
             entity.HasOne(x => x.Clinic).WithMany().HasForeignKey(x => x.ClinicId)
                 .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<DoctorAvailabilitySlot>(entity =>
+        {
+            entity.HasIndex(x => new { x.DoctorId, x.DayOfWeek });
+            entity.HasOne(x => x.Clinic).WithMany().HasForeignKey(x => x.ClinicId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(x => x.Doctor).WithMany().HasForeignKey(x => x.DoctorId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<Appointment>(entity =>

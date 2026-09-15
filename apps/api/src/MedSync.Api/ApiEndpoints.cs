@@ -5,6 +5,7 @@ using MedSync.Application;
 using MedSync.Domain;
 using MedSync.Infrastructure;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Distributed;
 
 namespace MedSync.Api;
 
@@ -27,12 +28,14 @@ public static class ApiEndpoints
         protectedApi.MapPost("/staff-users", CreateStaffUser);
         protectedApi.MapGet("/staff-users", GetStaffUsers);
         protectedApi.MapPut("/staff-users/{id:guid}/activation", UpdateStaffUserActivation);
+        protectedApi.MapPost("/staff-users/{id:guid}/reset-password", ResetStaffUserPassword);
         protectedApi.MapGet("/audit-events", GetAuditEvents);
         protectedApi.MapPost("/companies/onboarding", CreateCompanyOnboarding);
         protectedApi.MapGet("/companies/activation", GetCompanyActivations);
         protectedApi.MapPut("/companies/{id:guid}/activation", UpdateCompanyActivation);
         protectedApi.MapGet("/company-portal", GetCompanyPortal);
         protectedApi.MapGet("/company-beneficiaries", GetCompanyBeneficiaries);
+        protectedApi.MapPost("/company-beneficiaries", CreateCompanyBeneficiary);
         protectedApi.MapPut("/company-beneficiaries/{id:guid}/eligibility", UpdateCompanyBeneficiaryEligibility);
         protectedApi.MapGet("/finance/invoices", GetFinanceInvoices);
         protectedApi.MapGet("/finance/export", GetFinancialExport);
@@ -47,12 +50,17 @@ public static class ApiEndpoints
         protectedApi.MapPost("/doctors", CreateDoctor);
         protectedApi.MapGet("/doctors", GetDoctors);
         protectedApi.MapPut("/doctors/{id:guid}", UpdateDoctor);
+        protectedApi.MapGet("/doctors/me/availability", GetMyAvailability);
+        protectedApi.MapPost("/doctors/me/availability", CreateMyAvailabilitySlot);
+        protectedApi.MapDelete("/doctors/me/availability/{id:guid}", DeleteMyAvailabilitySlot);
+        protectedApi.MapGet("/doctors/{id:guid}/available-times", GetAvailableTimes);
         protectedApi.MapGet("/care/specialties", GetCareSpecialties);
         protectedApi.MapPost("/appointments/request", RequestAppointment);
         protectedApi.MapPost("/appointments", CreateAppointment);
         protectedApi.MapGet("/appointments", GetAppointments);
         protectedApi.MapGet("/appointments/{id:guid}", GetAppointment);
         protectedApi.MapPost("/appointments/{id:guid}/consent", AcceptConsent);
+        protectedApi.MapPost("/appointments/{id:guid}/cancel", CancelAppointment);
         protectedApi.MapGet("/consent/term", GetConsentTerm);
         protectedApi.MapGet("/appointments/{id:guid}/clinical-record", GetClinicalRecord);
         protectedApi.MapPut("/appointments/{id:guid}/clinical-record", SaveClinicalRecord);
@@ -78,11 +86,15 @@ public static class ApiEndpoints
         return app;
     }
 
+    // Brasil nao usa horario de verao desde 2019; deslocamento fixo em relacao ao UTC.
+    private static readonly TimeSpan BrazilUtcOffset = TimeSpan.FromHours(-3);
+
     private static readonly ClinicRole[] StaffRoles =
     [
         ClinicRole.Receptionist,
         ClinicRole.Finance,
         ClinicRole.ClinicAdmin,
+        ClinicRole.MedicalDirector,
         ClinicRole.PrivacyAuditor,
         ClinicRole.CompanyAdmin,
         ClinicRole.CompanyFinance,
@@ -109,7 +121,21 @@ public static class ApiEndpoints
     [
         ClinicRole.CompanyAdmin,
         ClinicRole.CompanyFinance,
-        ClinicRole.CompanyAuditor
+        ClinicRole.CompanyAuditor,
+        ClinicRole.Receptionist,
+        ClinicRole.MedicalDirector
+    ];
+
+    // Perfis que um ClinicAdmin "puro" (sem PlatformAdmin nem CompanyAdmin) pode gerenciar.
+    // Sem este limite, um admin de clinica conseguia criar/promover contas com papeis de
+    // plataforma (ex.: PlatformAdmin) ou de empresa parceira — escalonamento de privilegio.
+    private static readonly ClinicRole[] ClinicStaffRoles =
+    [
+        ClinicRole.Receptionist,
+        ClinicRole.Finance,
+        ClinicRole.ClinicAdmin,
+        ClinicRole.MedicalDirector,
+        ClinicRole.PrivacyAuditor
     ];
 
     private static async Task<IResult> CreateStaffUser(
@@ -132,6 +158,10 @@ public static class ApiEndpoints
             !actor.HasAny(ClinicRole.PlatformAdmin) &&
             !CompanyStaffRoles.Contains(request.Role))
             return Validation("role", "Empresa admin pode criar apenas perfis da propria empresa.");
+        if (actor.HasAny(ClinicRole.ClinicAdmin) &&
+            !actor.HasAny(ClinicRole.PlatformAdmin, ClinicRole.CompanyAdmin) &&
+            !ClinicStaffRoles.Contains(request.Role))
+            return Validation("role", "Admin da clinica pode criar apenas perfis operacionais da propria clinica.");
         if (string.IsNullOrWhiteSpace(request.Name) || string.IsNullOrWhiteSpace(request.Email))
             return Validation("user", "Nome e e-mail são obrigatórios.");
         if (PasswordPolicy.Validate(request.TemporaryPassword) is { } passwordError)
@@ -190,7 +220,14 @@ public static class ApiEndpoints
             ? PlatformStaffRoles
             : actor.HasAny(ClinicRole.CompanyAdmin)
                 ? CompanyStaffRoles
-                : StaffRoles;
+                : actor.HasAny(ClinicRole.ClinicAdmin) &&
+                  !actor.HasAny(
+                      ClinicRole.PrivacyAuditor,
+                      ClinicRole.CompanyAuditor,
+                      ClinicRole.PlatformAuditor,
+                      ClinicRole.DataProtectionOfficer)
+                    ? ClinicStaffRoles
+                    : StaffRoles;
 
         var users = await db.ClinicMemberships.AsNoTracking()
             .Where(x => x.ClinicId == actor.ClinicId && allowedRoles.Contains(x.Role))
@@ -211,6 +248,8 @@ public static class ApiEndpoints
         ClaimsPrincipal principal,
         MedSyncDbContext db,
         AuditWriter audit,
+        IDistributedCache cache,
+        IConfiguration configuration,
         CancellationToken cancellationToken)
     {
         var actor = RequestContext.From(principal);
@@ -238,6 +277,11 @@ public static class ApiEndpoints
             !CompanyStaffRoles.Contains(membership.Role))
             return Results.Forbid();
 
+        if (actor.HasAny(ClinicRole.ClinicAdmin) &&
+            !actor.HasAny(ClinicRole.PlatformAdmin, ClinicRole.CompanyAdmin) &&
+            !ClinicStaffRoles.Contains(membership.Role))
+            return Results.Forbid();
+
         membership.User.IsActive = request.IsActive;
         audit.Add(
             actor,
@@ -247,12 +291,84 @@ public static class ApiEndpoints
             reason: request.Reason);
         await db.SaveChangesAsync(cancellationToken);
 
+        if (!request.IsActive)
+            await RevokeSessionsAsync(cache, configuration, id, cancellationToken);
+
         return Results.Ok(new StaffUserResponse(
             membership.UserId,
             membership.User.Name,
             membership.User.Email,
             membership.Role,
             membership.User.IsActive));
+    }
+
+    private static async Task<IResult> ResetStaffUserPassword(
+        Guid id,
+        ClaimsPrincipal principal,
+        MedSyncDbContext db,
+        IPasswordService passwords,
+        AuditWriter audit,
+        IDistributedCache cache,
+        IConfiguration configuration,
+        CancellationToken cancellationToken)
+    {
+        var actor = RequestContext.From(principal);
+        if (!actor.HasAny(ClinicRole.ClinicAdmin, ClinicRole.PlatformAdmin, ClinicRole.CompanyAdmin))
+            return Results.Forbid();
+
+        var membership = await db.ClinicMemberships
+            .Include(x => x.User)
+            .SingleOrDefaultAsync(
+                x => x.ClinicId == actor.ClinicId && x.UserId == id && StaffRoles.Contains(x.Role),
+                cancellationToken);
+
+        if (membership is null)
+            return Results.NotFound(new { message = "Acesso nao encontrado neste escopo." });
+
+        if (actor.HasAny(ClinicRole.PlatformAdmin) &&
+            !PlatformStaffRoles.Contains(membership.Role))
+            return Results.Forbid();
+
+        if (actor.HasAny(ClinicRole.CompanyAdmin) &&
+            !actor.HasAny(ClinicRole.PlatformAdmin) &&
+            !CompanyStaffRoles.Contains(membership.Role))
+            return Results.Forbid();
+
+        if (actor.HasAny(ClinicRole.ClinicAdmin) &&
+            !actor.HasAny(ClinicRole.PlatformAdmin, ClinicRole.CompanyAdmin) &&
+            !ClinicStaffRoles.Contains(membership.Role))
+            return Results.Forbid();
+
+        var temporaryPassword = SecurityText.GenerateTemporaryPassword();
+        membership.User.PasswordHash = passwords.Hash(temporaryPassword);
+        membership.User.MustChangePassword = true;
+        audit.Add(actor, "StaffUser.ResetPassword", "User", id);
+        await db.SaveChangesAsync(cancellationToken);
+        await RevokeSessionsAsync(cache, configuration, id, cancellationToken);
+
+        return Results.Ok(new ResetPasswordResponse(id, temporaryPassword));
+    }
+
+    // Marca no cache distribuido que qualquer sessao (JWT) emitida ANTES de agora para este
+    // usuario deve ser rejeitada. Usado ao desabilitar acesso ou resetar senha por um admin,
+    // para que a sessao antiga nao continue valida ate o token expirar naturalmente.
+    private static Task RevokeSessionsAsync(
+        IDistributedCache cache,
+        IConfiguration configuration,
+        Guid userId,
+        CancellationToken cancellationToken)
+    {
+        var expiresMinutes = configuration.GetValue<int?>("Jwt:ExpiresMinutes") ?? 15;
+        var revokedBefore = DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString();
+        return cache.SetStringAsync(
+            $"session-revoked:{userId}",
+            revokedBefore,
+            new DistributedCacheEntryOptions
+            {
+                // Margem sobre a validade maxima do token, cobrindo o ClockSkew da validacao.
+                AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(expiresMinutes + 5)
+            },
+            cancellationToken);
     }
 
     private static async Task<IResult> GetAuditEvents(
@@ -417,6 +533,10 @@ public static class ApiEndpoints
                 .FirstOrDefault(),
             x.Contracts
                 .OrderByDescending(c => c.StartsAt)
+                .Select(c => (decimal?)c.BenefitPlan.MonthlyFee)
+                .FirstOrDefault(),
+            x.Contracts
+                .OrderByDescending(c => c.StartsAt)
                 .Select(c => (CompanyContractStatus?)c.Status)
                 .FirstOrDefault(),
             x.IsActive,
@@ -452,11 +572,17 @@ public static class ApiEndpoints
             : request.Reason.Trim();
         if (reason.Length > 240)
             return Validation("reason", "Motivo deve ter ate 240 caracteres.");
+        if (request.MonthlyFee is { } monthlyFee && (monthlyFee <= 0 || monthlyFee > 1_000_000))
+            return Validation("monthlyFee", "Valor mensal deve ser maior que zero e menor que 1.000.000.");
 
         company.IsActive = request.IsActive;
         var latestContract = company.Contracts.OrderByDescending(x => x.StartsAt).FirstOrDefault();
         if (latestContract is not null)
+        {
             latestContract.Status = request.IsActive ? CompanyContractStatus.Active : CompanyContractStatus.Suspended;
+            if (request.MonthlyFee is { } newMonthlyFee)
+                latestContract.BenefitPlan.MonthlyFee = newMonthlyFee;
+        }
 
         audit.Add(actor, "Company.ActivationUpdate", "Company", company.Id, "Success", reason);
         await db.SaveChangesAsync(cancellationToken);
@@ -468,6 +594,7 @@ public static class ApiEndpoints
             company.TradeName ?? company.LegalName,
             MaskTaxId(company.TaxId),
             latestContract?.BenefitPlan.Name,
+            latestContract?.BenefitPlan.MonthlyFee,
             latestContract?.Status,
             company.IsActive,
             company.CreatedAt));
@@ -583,6 +710,99 @@ public static class ApiEndpoints
                 "Uso clinico individual nao e exposto no portal empresarial.",
                 "Relatorios dependem de grupo minimo para reduzir risco de reidentificacao."
             ]));
+    }
+
+    private static async Task<IResult> CreateCompanyBeneficiary(
+        CreateCompanyBeneficiaryRequest request,
+        ClaimsPrincipal principal,
+        MedSyncDbContext db,
+        AuditWriter audit,
+        CancellationToken cancellationToken)
+    {
+        var actor = RequestContext.From(principal);
+        if (!actor.HasAny(ClinicRole.CompanyAdmin, ClinicRole.Support, ClinicRole.PlatformAdmin))
+        {
+            audit.Add(actor, "CompanyEligibility.Create", "CompanyEmployee", null, "Denied", "Perfil sem permissao para cadastrar beneficiario.");
+            await db.SaveChangesAsync(cancellationToken);
+            return Results.Forbid();
+        }
+
+        var name = request.Name.Trim();
+        if (name.Length is < 3 or > 160)
+            return Validation("name", "Nome deve ter entre 3 e 160 caracteres.");
+        if (!IsValidEmail(request.Email))
+            return Validation("email", "Informe um e-mail valido.");
+        var employeeCode = string.IsNullOrWhiteSpace(request.EmployeeCode) ? null : request.EmployeeCode.Trim();
+        if (employeeCode is { Length: > 60 })
+            return Validation("employeeCode", "Matricula deve ter ate 60 caracteres.");
+
+        var email = request.Email.Trim().ToLowerInvariant();
+
+        var company = await db.Companies
+            .Where(x => x.ClinicId == actor.ClinicId && x.IsActive)
+            .OrderBy(x => x.CreatedAt)
+            .FirstOrDefaultAsync(cancellationToken);
+        if (company is null)
+            return Results.NotFound(new { message = "Empresa contratante nao encontrada para este ambiente." });
+
+        var activeContract = await db.CompanyContracts
+            .Include(x => x.BenefitPlan)
+            .Where(x =>
+                x.ClinicId == actor.ClinicId &&
+                x.CompanyId == company.Id &&
+                x.Status == CompanyContractStatus.Active)
+            .OrderByDescending(x => x.StartsAt)
+            .FirstOrDefaultAsync(cancellationToken);
+        if (activeContract is null)
+            return Results.Conflict(new { message = "Nao existe contrato ativo para cadastrar beneficiario." });
+
+        if (await db.CompanyEmployees.AnyAsync(
+                x => x.ClinicId == actor.ClinicId && x.CompanyId == company.Id && x.Email == email,
+                cancellationToken))
+            return Results.Conflict(new { message = "Ja existe um beneficiario com este e-mail nesta empresa." });
+        if (employeeCode is not null && await db.CompanyEmployees.AnyAsync(
+                x => x.ClinicId == actor.ClinicId && x.CompanyId == company.Id && x.EmployeeCode == employeeCode,
+                cancellationToken))
+            return Results.Conflict(new { message = "Ja existe um beneficiario com esta matricula nesta empresa." });
+
+        var today = DateOnly.FromDateTime(DateTime.UtcNow.Date);
+        var beneficiary = new CompanyEmployee
+        {
+            ClinicId = actor.ClinicId,
+            CompanyId = company.Id,
+            Name = name,
+            Email = email,
+            EmployeeCode = employeeCode,
+            IsActive = true
+        };
+        var eligibility = new EmployeeEligibility
+        {
+            ClinicId = actor.ClinicId,
+            CompanyEmployee = beneficiary,
+            BenefitPlanId = activeContract.BenefitPlanId,
+            IsEligible = true,
+            EligibleFrom = today,
+            Reason = "Cadastro inicial de beneficiario pela empresa."
+        };
+
+        db.CompanyEmployees.Add(beneficiary);
+        db.EmployeeEligibilities.Add(eligibility);
+        audit.Add(actor, "CompanyEligibility.Create", "CompanyEmployee", beneficiary.Id);
+        await db.SaveChangesAsync(cancellationToken);
+
+        return Results.Created(
+            $"/company-beneficiaries/{beneficiary.Id}",
+            new CompanyBeneficiaryResponse(
+                beneficiary.Id,
+                beneficiary.Name,
+                beneficiary.Email,
+                beneficiary.EmployeeCode,
+                beneficiary.IsActive,
+                activeContract.BenefitPlan.Name,
+                eligibility.IsEligible,
+                eligibility.EligibleFrom,
+                eligibility.EligibleUntil,
+                eligibility.Reason));
     }
 
     private static async Task<IResult> GetCompanyBeneficiaries(
@@ -1455,6 +1675,8 @@ public static class ApiEndpoints
             return Validation("birthDate", "A data de nascimento não pode estar no futuro.");
         if (!IsValidOptionalPhone(request.Phone))
             return Validation("phone", "Informe um telefone válido com DDD.");
+        if (request.ContinuousMedications?.Length > 2000)
+            return Validation("continuousMedications", "Medicações de uso contínuo devem ter até 2000 caracteres.");
 
         var email = request.Email.Trim().ToLowerInvariant();
         if (await db.Patients.AnyAsync(
@@ -1497,9 +1719,22 @@ public static class ApiEndpoints
             Email = email,
             Cpf = cpf,
             BirthDate = request.BirthDate,
-            Phone = request.Phone?.Trim()
+            Phone = request.Phone?.Trim(),
+            ContinuousMedications = string.IsNullOrWhiteSpace(request.ContinuousMedications)
+                ? null
+                : request.ContinuousMedications.Trim()
         };
         db.Patients.Add(patient);
+
+        var matchingBeneficiary = await db.CompanyEmployees.FirstOrDefaultAsync(
+            x => x.ClinicId == actor.ClinicId && x.Email == email && x.PatientId == null,
+            cancellationToken);
+        if (matchingBeneficiary is not null)
+        {
+            matchingBeneficiary.PatientId = patient.Id;
+            audit.Add(actor, "CompanyEligibility.LinkPatient", "CompanyEmployee", matchingBeneficiary.Id);
+        }
+
         audit.Add(actor, "Patient.Create", "Patient", patient.Id);
         await db.SaveChangesAsync(cancellationToken);
         return Results.Created($"/patients/{patient.Id}", ToResponse(patient));
@@ -1530,10 +1765,20 @@ public static class ApiEndpoints
             return Results.Forbid();
         }
 
+        // Dados clinicos sensiveis (LGPD) na listagem: somente papeis assistenciais
+        // (ou o proprio paciente) veem medicacoes de uso continuo. Perfis administrativos
+        // e de auditoria (Receptionist, ClinicAdmin, Support, CompanyAuditor, PlatformAuditor)
+        // veem a lista, mas sem este campo clinico.
+        var canSeeMedications = actor.HasAny(
+            ClinicRole.Doctor,
+            ClinicRole.MedicalDirector,
+            ClinicRole.OccupationalHealthAdmin,
+            ClinicRole.Patient);
+
         var patients = await query.OrderBy(x => x.Name).ToListAsync(cancellationToken);
         audit.Add(actor, "Patient.List", "Patient", null);
         await db.SaveChangesAsync(cancellationToken);
-        return Results.Ok(patients.Select(ToResponse));
+        return Results.Ok(patients.Select(x => ToResponse(x, canSeeMedications)));
     }
 
     private static async Task<IResult> UpdatePatient(
@@ -1561,28 +1806,33 @@ public static class ApiEndpoints
         if (name.Length < 3)
             return Validation("name", "Informe o nome completo com pelo menos 3 caracteres.");
         if (!IsValidEmail(request.Email))
-            return Validation("email", "Informe um e-mail vÃ¡lido.");
+            return Validation("email", "Informe um e-mail válido.");
         if (request.BirthDate == default)
             return Validation("birthDate", "Informe a data de nascimento.");
         if (request.BirthDate > DateOnly.FromDateTime(DateTime.UtcNow))
-            return Validation("birthDate", "A data de nascimento nÃ£o pode estar no futuro.");
+            return Validation("birthDate", "A data de nascimento não pode estar no futuro.");
         if (!IsValidOptionalPhone(request.Phone))
-            return Validation("phone", "Informe um telefone vÃ¡lido com DDD.");
+            return Validation("phone", "Informe um telefone válido com DDD.");
+        if (request.ContinuousMedications?.Length > 2000)
+            return Validation("continuousMedications", "Medicações de uso contínuo devem ter até 2000 caracteres.");
 
         var email = request.Email.Trim().ToLowerInvariant();
         if (await db.Patients.AnyAsync(
                 x => x.ClinicId == actor.ClinicId && x.Id != id && x.Email == email,
                 cancellationToken))
-            return Results.Conflict(new { message = "JÃ¡ existe um paciente com este e-mail na empresa." });
+            return Results.Conflict(new { message = "Já existe um paciente com este e-mail na empresa." });
         if (await db.Users.AnyAsync(
                 x => x.Id != patient.UserId && x.Email == email,
                 cancellationToken))
-            return Results.Conflict(new { message = "JÃ¡ existe uma conta usando este e-mail." });
+            return Results.Conflict(new { message = "Já existe uma conta usando este e-mail." });
 
         patient.Name = name;
         patient.Email = email;
         patient.BirthDate = request.BirthDate;
         patient.Phone = request.Phone?.Trim();
+        patient.ContinuousMedications = string.IsNullOrWhiteSpace(request.ContinuousMedications)
+            ? null
+            : request.ContinuousMedications.Trim();
         if (patient.User is not null)
         {
             patient.User.Name = name;
@@ -1716,29 +1966,29 @@ public static class ApiEndpoints
 
         var name = request.Name.Trim();
         if (name.Length < 3)
-            return Validation("name", "Informe o nome completo do mÃ©dico.");
+            return Validation("name", "Informe o nome completo do médico.");
         if (!IsValidEmail(request.Email))
-            return Validation("email", "Informe um e-mail vÃ¡lido.");
+            return Validation("email", "Informe um e-mail válido.");
         if (string.IsNullOrWhiteSpace(request.Crm))
-            return Validation("crm", "CRM Ã© obrigatÃ³rio.");
+            return Validation("crm", "CRM é obrigatório.");
         var crmUf = request.CrmUf.Trim().ToUpperInvariant();
         if (crmUf.Length != 2 || !crmUf.All(char.IsLetter))
             return Validation("crmUf", "Informe a UF do CRM com duas letras.");
         if (string.IsNullOrWhiteSpace(request.Specialty))
-            return Validation("specialty", "Especialidade Ã© obrigatÃ³ria.");
+            return Validation("specialty", "Especialidade é obrigatória.");
         if (!IsValidOptionalPhone(request.Phone))
-            return Validation("phone", "Informe um telefone vÃ¡lido com DDD.");
+            return Validation("phone", "Informe um telefone válido com DDD.");
 
         var email = request.Email.Trim().ToLowerInvariant();
         var crm = request.Crm.Trim();
         if (await db.Doctors.AnyAsync(
                 x => x.ClinicId == actor.ClinicId && x.Id != id && (x.Email == email || x.Crm == crm),
                 cancellationToken))
-            return Results.Conflict(new { message = "JÃ¡ existe um mÃ©dico com este e-mail ou CRM na empresa." });
+            return Results.Conflict(new { message = "Já existe um médico com este e-mail ou CRM na empresa." });
         if (await db.Users.AnyAsync(
                 x => x.Id != doctor.UserId && x.Email == email,
                 cancellationToken))
-            return Results.Conflict(new { message = "JÃ¡ existe uma conta usando este e-mail." });
+            return Results.Conflict(new { message = "Já existe uma conta usando este e-mail." });
 
         doctor.Name = name;
         doctor.Email = email;
@@ -1755,6 +2005,170 @@ public static class ApiEndpoints
         audit.Add(actor, "Doctor.Update", "Doctor", doctor.Id);
         await db.SaveChangesAsync(cancellationToken);
         return Results.Ok(ToResponse(doctor));
+    }
+
+    private static async Task<Doctor?> FindOwnDoctorAsync(
+        MedSyncDbContext db,
+        RequestContext actor,
+        CancellationToken cancellationToken) =>
+        await db.Doctors.SingleOrDefaultAsync(
+            x => x.ClinicId == actor.ClinicId && x.UserId == actor.UserId,
+            cancellationToken);
+
+    private static async Task<IResult> GetMyAvailability(
+        ClaimsPrincipal principal,
+        MedSyncDbContext db,
+        AuditWriter audit,
+        CancellationToken cancellationToken)
+    {
+        var actor = RequestContext.From(principal);
+        if (!actor.HasAny(ClinicRole.Doctor))
+            return Results.Forbid();
+
+        var doctor = await FindOwnDoctorAsync(db, actor, cancellationToken);
+        if (doctor is null)
+            return Results.NotFound(new { message = "Perfil medico nao encontrado para este ambiente." });
+
+        var slots = await db.DoctorAvailabilitySlots.AsNoTracking()
+            .Where(x => x.DoctorId == doctor.Id)
+            .OrderBy(x => x.DayOfWeek).ThenBy(x => x.StartTime)
+            .Select(x => new DoctorAvailabilitySlotResponse(x.Id, x.DayOfWeek, x.StartTime, x.EndTime))
+            .ToListAsync(cancellationToken);
+
+        audit.Add(actor, "DoctorAvailability.List", "DoctorAvailabilitySlot", null);
+        await db.SaveChangesAsync(cancellationToken);
+        return Results.Ok(slots);
+    }
+
+    private static async Task<IResult> CreateMyAvailabilitySlot(
+        CreateDoctorAvailabilitySlotRequest request,
+        ClaimsPrincipal principal,
+        MedSyncDbContext db,
+        AuditWriter audit,
+        CancellationToken cancellationToken)
+    {
+        var actor = RequestContext.From(principal);
+        if (!actor.HasAny(ClinicRole.Doctor))
+            return Results.Forbid();
+
+        var doctor = await FindOwnDoctorAsync(db, actor, cancellationToken);
+        if (doctor is null)
+            return Results.NotFound(new { message = "Perfil medico nao encontrado para este ambiente." });
+
+        if (request.StartTime >= request.EndTime)
+            return Validation("startTime", "O horario inicial precisa ser antes do horario final.");
+        if (request.EndTime.ToTimeSpan().Subtract(request.StartTime.ToTimeSpan()) < TimeSpan.FromMinutes(30))
+            return Validation("endTime", "A janela de disponibilidade precisa ter pelo menos 30 minutos.");
+
+        var overlaps = await db.DoctorAvailabilitySlots.AnyAsync(
+            x => x.DoctorId == doctor.Id &&
+                 x.DayOfWeek == request.DayOfWeek &&
+                 x.StartTime < request.EndTime &&
+                 x.EndTime > request.StartTime,
+            cancellationToken);
+        if (overlaps)
+            return Results.Conflict(new { message = "Ja existe uma janela de disponibilidade que se sobrepoe a este horario." });
+
+        var slot = new DoctorAvailabilitySlot
+        {
+            ClinicId = actor.ClinicId,
+            DoctorId = doctor.Id,
+            DayOfWeek = request.DayOfWeek,
+            StartTime = request.StartTime,
+            EndTime = request.EndTime
+        };
+        db.DoctorAvailabilitySlots.Add(slot);
+        audit.Add(actor, "DoctorAvailability.Create", "DoctorAvailabilitySlot", slot.Id);
+        await db.SaveChangesAsync(cancellationToken);
+        return Results.Created(
+            "/doctors/me/availability",
+            new DoctorAvailabilitySlotResponse(slot.Id, slot.DayOfWeek, slot.StartTime, slot.EndTime));
+    }
+
+    private static async Task<IResult> DeleteMyAvailabilitySlot(
+        Guid id,
+        ClaimsPrincipal principal,
+        MedSyncDbContext db,
+        AuditWriter audit,
+        CancellationToken cancellationToken)
+    {
+        var actor = RequestContext.From(principal);
+        if (!actor.HasAny(ClinicRole.Doctor))
+            return Results.Forbid();
+
+        var doctor = await FindOwnDoctorAsync(db, actor, cancellationToken);
+        if (doctor is null)
+            return Results.NotFound();
+
+        var slot = await db.DoctorAvailabilitySlots.SingleOrDefaultAsync(
+            x => x.Id == id && x.DoctorId == doctor.Id, cancellationToken);
+        if (slot is null)
+            return Results.NotFound();
+
+        db.DoctorAvailabilitySlots.Remove(slot);
+        audit.Add(actor, "DoctorAvailability.Delete", "DoctorAvailabilitySlot", slot.Id);
+        await db.SaveChangesAsync(cancellationToken);
+        return Results.NoContent();
+    }
+
+    private static async Task<IResult> GetAvailableTimes(
+        Guid id,
+        DateOnly date,
+        ClaimsPrincipal principal,
+        MedSyncDbContext db,
+        AuditWriter audit,
+        CancellationToken cancellationToken)
+    {
+        var actor = RequestContext.From(principal);
+        if (!actor.HasAny(ClinicRole.Patient) && !actor.HasAny(AccessRules.ManageAppointments))
+            return Results.Forbid();
+
+        var doctor = await db.Doctors.AsNoTracking()
+            .SingleOrDefaultAsync(x => x.Id == id && x.ClinicId == actor.ClinicId, cancellationToken);
+        if (doctor is null)
+            return Results.NotFound();
+
+        if (date == default)
+            return Validation("date", "Informe a data desejada.");
+
+        var dayOfWeek = date.DayOfWeek;
+        var windows = await db.DoctorAvailabilitySlots.AsNoTracking()
+            .Where(x => x.DoctorId == doctor.Id && x.DayOfWeek == dayOfWeek)
+            .ToListAsync(cancellationToken);
+
+        var busy = await db.Appointments.AsNoTracking()
+            .Where(x =>
+                x.DoctorId == doctor.Id &&
+                x.Status != AppointmentStatus.Cancelled &&
+                x.Status != AppointmentStatus.Completed)
+            .Select(x => new { x.ScheduledAt, x.DurationMinutes })
+            .ToListAsync(cancellationToken);
+
+        const int slotMinutes = 30;
+        var available = new List<AvailableTimeResponse>();
+        var now = DateTime.UtcNow;
+        foreach (var window in windows)
+        {
+            var cursor = window.StartTime;
+            while (cursor.AddMinutes(slotMinutes) <= window.EndTime)
+            {
+                var startsAtLocal = date.ToDateTime(cursor);
+                var startsAtUtc = DateTime.SpecifyKind(startsAtLocal - BrazilUtcOffset, DateTimeKind.Utc);
+                var endsAtUtc = startsAtUtc.AddMinutes(slotMinutes);
+
+                var conflicts = startsAtUtc <= now || busy.Any(a =>
+                    a.ScheduledAt < endsAtUtc && a.ScheduledAt.AddMinutes(a.DurationMinutes) > startsAtUtc);
+
+                if (!conflicts)
+                    available.Add(new AvailableTimeResponse(startsAtUtc, slotMinutes));
+
+                cursor = cursor.AddMinutes(slotMinutes);
+            }
+        }
+
+        audit.Add(actor, "DoctorAvailability.AvailableTimes", "Doctor", doctor.Id);
+        await db.SaveChangesAsync(cancellationToken);
+        return Results.Ok(available.OrderBy(x => x.StartsAt));
     }
 
     private static async Task<IResult> GetCareSpecialties(
@@ -1775,17 +2189,27 @@ public static class ApiEndpoints
             return Results.Conflict(new { message = "Seu beneficio nao esta elegivel para solicitar consulta. Entre em contato com o suporte MedSync." });
         }
 
-        var specialties = await db.Doctors.AsNoTracking()
+        var doctorsWithAvailability = await db.Doctors.AsNoTracking()
             .Where(x => x.ClinicId == actor.ClinicId)
+            .Select(x => new
+            {
+                x.Id,
+                x.Name,
+                x.Specialty,
+                HasAvailability = db.DoctorAvailabilitySlots.Any(s => s.DoctorId == x.Id),
+            })
+            .ToListAsync(cancellationToken);
+
+        var specialties = doctorsWithAvailability
             .GroupBy(x => x.Specialty)
             .OrderBy(x => x.Key)
-            .Select(x => new CareSpecialtyResponse(
-                x.Key,
-                x.Count(),
-                x.OrderBy(doctor => doctor.Name)
-                    .Select(doctor => new CareDoctorOptionResponse(doctor.Id, doctor.Name))
+            .Select(group => new CareSpecialtyResponse(
+                group.Key,
+                group.Count(),
+                group.OrderBy(doctor => doctor.Name)
+                    .Select(doctor => new CareDoctorOptionResponse(doctor.Id, doctor.Name, doctor.HasAvailability))
                     .ToList()))
-            .ToListAsync(cancellationToken);
+            .ToList();
 
         audit.Add(actor, "CareSpecialty.List", "Doctor", null);
         await db.SaveChangesAsync(cancellationToken);
@@ -1831,6 +2255,10 @@ public static class ApiEndpoints
         }
 
         var scheduledEndsAt = scheduledAt.AddMinutes(request.DurationMinutes);
+        var brazilLocal = scheduledAt + BrazilUtcOffset;
+        var brazilDayOfWeek = brazilLocal.DayOfWeek;
+        var brazilStartTime = TimeOnly.FromDateTime(brazilLocal);
+        var brazilEndTime = TimeOnly.FromDateTime((brazilLocal + (scheduledEndsAt - scheduledAt)));
         var specialtyKey = specialty.ToLowerInvariant();
         var doctorQuery = db.Doctors
             .Where(x =>
@@ -1841,7 +2269,15 @@ public static class ApiEndpoints
                     a.Status != AppointmentStatus.Cancelled &&
                     a.Status != AppointmentStatus.Completed &&
                     a.ScheduledAt < scheduledEndsAt &&
-                    a.ScheduledAt.AddMinutes(a.DurationMinutes) > scheduledAt));
+                    a.ScheduledAt.AddMinutes(a.DurationMinutes) > scheduledAt) &&
+                // Se o medico configurou disponibilidade, o horario precisa estar dentro dela.
+                // Medicos sem disponibilidade configurada mantem o comportamento anterior (sem restricao).
+                (!db.DoctorAvailabilitySlots.Any(s => s.DoctorId == x.Id) ||
+                 db.DoctorAvailabilitySlots.Any(s =>
+                     s.DoctorId == x.Id &&
+                     s.DayOfWeek == brazilDayOfWeek &&
+                     s.StartTime <= brazilStartTime &&
+                     s.EndTime >= brazilEndTime)));
 
         if (request.DoctorId is { } doctorId)
             doctorQuery = doctorQuery.Where(x => x.Id == doctorId);
@@ -1853,7 +2289,7 @@ public static class ApiEndpoints
         if (doctor is null)
         {
             var message = request.DoctorId is { }
-                ? "O medico selecionado nao esta disponivel neste horario. Escolha outro horario ou outro medico da especialidade."
+                ? "O medico selecionado nao esta disponivel neste horario. Escolha outro horario dentro da disponibilidade dele."
                 : "Nao ha medico disponivel para esta especialidade no horario escolhido.";
             return Results.Conflict(new { message });
         }
@@ -2035,6 +2471,49 @@ public static class ApiEndpoints
             termVersion = SecurityText.ConsentTermVersion,
             term = SecurityText.ConsentTerm
         });
+
+    private static async Task<IResult> CancelAppointment(
+        Guid id,
+        CancelAppointmentRequest request,
+        ClaimsPrincipal principal,
+        MedSyncDbContext db,
+        AuditWriter audit,
+        CancellationToken cancellationToken)
+    {
+        var actor = RequestContext.From(principal);
+        var appointment = await db.Appointments
+            .Include(x => x.Doctor)
+            .Include(x => x.Patient)
+            .Include(x => x.ConsultationRoom)
+            .SingleOrDefaultAsync(x => x.Id == id && x.ClinicId == actor.ClinicId, cancellationToken);
+        if (appointment is null)
+            return Results.NotFound();
+
+        var isOwnerPatient = actor.HasAny(ClinicRole.Patient) && appointment.Patient.UserId == actor.UserId;
+        var isOwnerDoctor = actor.HasAny(ClinicRole.Doctor) && appointment.Doctor.UserId == actor.UserId;
+        var isStaff = actor.HasAny(AccessRules.ManageAppointments);
+        if (!isOwnerPatient && !isOwnerDoctor && !isStaff)
+        {
+            audit.Add(actor, "Appointment.Cancel", "Appointment", id, "Denied", "Sem permissao sobre esta consulta.");
+            await db.SaveChangesAsync(cancellationToken);
+            return Results.Forbid();
+        }
+
+        if (appointment.Status is AppointmentStatus.Completed or AppointmentStatus.Cancelled or AppointmentStatus.NoShow)
+            return Validation("status", "Esta consulta ja foi encerrada e nao pode mais ser cancelada.");
+
+        if (appointment.ConsultationRoom is { Status: VideoSessionStatus.InProgress })
+            return Validation("status", "Nao e possivel cancelar uma consulta em andamento. Encerre a chamada primeiro.");
+
+        appointment.Status = AppointmentStatus.Cancelled;
+        if (appointment.ConsultationRoom is { Status: VideoSessionStatus.Pending or VideoSessionStatus.Ready } room)
+            room.Status = VideoSessionStatus.Cancelled;
+
+        audit.Add(actor, "Appointment.Cancel", "Appointment", id, reason: request.Reason);
+        await db.SaveChangesAsync(cancellationToken);
+
+        return Results.Ok(await AppointmentQuery(db, actor, id).SingleAsync(cancellationToken));
+    }
 
     private static async Task<IResult> GetClinicalRecord(
         Guid id,
@@ -2675,7 +3154,8 @@ public static class ApiEndpoints
                     now > x.ScheduledAt.AddMinutes(x.DurationMinutes + 15)
                     ? null
                     : x.ConsultationRoom.RoomName,
-                x.ConsultationRoom == null ? null : x.ConsultationRoom.Status));
+                x.ConsultationRoom == null ? null : x.ConsultationRoom.Status,
+                canSeeNotes ? x.Patient.ContinuousMedications : null));
     }
 
     private static Task<bool> HasEligibleBenefitAsync(
@@ -2948,14 +3428,15 @@ public static class ApiEndpoints
             lockedFields);
     }
 
-    private static PatientResponse ToResponse(Patient patient) =>
+    private static PatientResponse ToResponse(Patient patient, bool includeContinuousMedications = true) =>
         new(
             patient.Id,
             patient.Name,
             patient.Email,
             SecurityText.MaskCpf(patient.Cpf),
             patient.BirthDate,
-            patient.Phone);
+            patient.Phone,
+            includeContinuousMedications ? patient.ContinuousMedications : null);
 
     private static DoctorResponse ToResponse(Doctor doctor) =>
         new(doctor.Id, doctor.Name, doctor.Email, doctor.Crm, doctor.CrmUf, doctor.Specialty, doctor.Phone);

@@ -25,6 +25,15 @@ export function formatBrazilDateTimeInput(value = new Date()) {
   return `${part("year")}-${part("month")}-${part("day")}T${part("hour")}:${part("minute")}`;
 }
 
+export function formatBrazilDateInput(value = new Date()) {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: BRAZIL_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(value);
+}
+
 export function formatDate(value: string) {
   const [year, month, day] = value.split("-").map(Number);
   return new Intl.DateTimeFormat("pt-BR", { dateStyle: "medium" }).format(
@@ -45,5 +54,5 @@ export const statusClass: Record<AppointmentStatus, string> = {
   InProgress: "bg-amber-50 text-amber-700",
   Completed: "bg-teal-50 text-teal-700",
   Cancelled: "bg-red-50 text-red-700",
-  NoShow: "bg-amber-50 text-amber-700",
+  NoShow: "bg-slate-100 text-slate-500",
 };

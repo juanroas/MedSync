@@ -57,6 +57,12 @@ public sealed record UpdateStaffUserActivationRequest(
     bool IsActive,
     string? Reason);
 
+public sealed record ResetPasswordResponse(
+    Guid UserId,
+    string TemporaryPassword);
+
+public sealed record CancelAppointmentRequest(string? Reason);
+
 public sealed record CreateCompanyOnboardingRequest(
     string LegalName,
     string? TradeName,
@@ -85,13 +91,15 @@ public sealed record CompanyActivationResponse(
     string CompanyName,
     string TaxIdMasked,
     string? PlanName,
+    decimal? MonthlyFee,
     CompanyContractStatus? ContractStatus,
     bool IsActive,
     DateTime CreatedAt);
 
 public sealed record UpdateCompanyActivationRequest(
     bool IsActive,
-    string? Reason);
+    string? Reason,
+    decimal? MonthlyFee);
 
 public sealed record AuditEventResponse(
     Guid Id,
@@ -109,7 +117,8 @@ public sealed record CreatePatientRequest(
     string Cpf,
     DateOnly BirthDate,
     string? Phone,
-    string TemporaryPassword);
+    string TemporaryPassword,
+    string? ContinuousMedications = null);
 
 public sealed record PatientResponse(
     Guid Id,
@@ -117,13 +126,15 @@ public sealed record PatientResponse(
     string Email,
     string CpfMasked,
     DateOnly BirthDate,
-    string? Phone);
+    string? Phone,
+    string? ContinuousMedications);
 
 public sealed record UpdatePatientRequest(
     string Name,
     string Email,
     DateOnly BirthDate,
-    string? Phone);
+    string? Phone,
+    string? ContinuousMedications = null);
 
 public sealed record CreateDoctorRequest(
     string Name,
@@ -150,7 +161,8 @@ public sealed record CareSpecialtyResponse(
 
 public sealed record CareDoctorOptionResponse(
     Guid Id,
-    string Name);
+    string Name,
+    bool HasAvailability);
 
 public sealed record UpdateDoctorRequest(
     string Name,
@@ -192,7 +204,23 @@ public sealed record AppointmentResponse(
     PaymentStatus? PaymentStatus,
     bool ConsentAccepted,
     string? RoomName,
-    VideoSessionStatus? VideoStatus);
+    VideoSessionStatus? VideoStatus,
+    string? PatientContinuousMedications = null);
+
+public sealed record DoctorAvailabilitySlotResponse(
+    Guid Id,
+    DayOfWeek DayOfWeek,
+    TimeOnly StartTime,
+    TimeOnly EndTime);
+
+public sealed record CreateDoctorAvailabilitySlotRequest(
+    DayOfWeek DayOfWeek,
+    TimeOnly StartTime,
+    TimeOnly EndTime);
+
+public sealed record AvailableTimeResponse(
+    DateTime StartsAt,
+    int DurationMinutes);
 
 public sealed record RoomResponse(
     Guid Id,
@@ -302,6 +330,11 @@ public sealed record UpdateCompanyBeneficiaryEligibilityRequest(
     bool IsEligible,
     DateOnly? EligibleUntil,
     string? Reason);
+
+public sealed record CreateCompanyBeneficiaryRequest(
+    string Name,
+    string Email,
+    string? EmployeeCode);
 
 public sealed record FinanceInvoiceResponse(
     string Id,

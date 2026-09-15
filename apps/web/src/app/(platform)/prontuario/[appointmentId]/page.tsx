@@ -5,7 +5,7 @@ import { ClinicalAttachmentsPanel } from "@/components/clinical-attachments-pane
 import { formatDateTime } from "@/lib/format";
 import type { Appointment, ClinicalRecord, PatientClinicalRecord } from "@/lib/types";
 import { ApiError, api, getSession } from "@/services/api";
-import { ArrowLeft, ClipboardPlus, Eye, FileClock, Mic, MicOff, Save, ShieldCheck, Stethoscope, X } from "lucide-react";
+import { ArrowLeft, ClipboardPlus, Eye, FileClock, Mic, MicOff, Pill, Save, ShieldCheck, Stethoscope, X } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
@@ -279,6 +279,15 @@ export default function ClinicalRecordPage() {
                   <InfoPill label="Status" value={appointment.status} />
                 </div>
               </div>
+              {appointment.patientContinuousMedications && (
+                <div className="mt-5 flex gap-3 rounded-lg border border-amber-100 bg-amber-50/70 p-4 text-sm text-amber-800">
+                  <Pill size={17} className="mt-0.5 shrink-0" />
+                  <div>
+                    <p className="font-bold">Medicacoes de uso continuo</p>
+                    <p className="mt-1 leading-6">{appointment.patientContinuousMedications}</p>
+                  </div>
+                </div>
+              )}
             </Card>
 
             <Card className="p-6">

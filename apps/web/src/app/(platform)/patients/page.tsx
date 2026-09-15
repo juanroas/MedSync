@@ -5,7 +5,7 @@ import { formatDate, formatDateTime, statusClass, statusLabel } from "@/lib/form
 import type { Appointment, AppointmentStatus, Patient } from "@/lib/types";
 import { isValidCpf, isValidOptionalPhone, maskCpf } from "@/lib/validation";
 import { api, getSession, saveSession } from "@/services/api";
-import { Mail, Phone, Plus, Search, UserRound } from "lucide-react";
+import { Mail, Phone, Pill, Plus, Search, UserRound } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
 const initialForm = {
@@ -15,6 +15,7 @@ const initialForm = {
   birthDate: "",
   phone: "",
   temporaryPassword: "",
+  continuousMedications: "",
 };
 
 const initialEditForm = {
@@ -22,6 +23,7 @@ const initialEditForm = {
   email: "",
   birthDate: "",
   phone: "",
+  continuousMedications: "",
 };
 
 export default function PatientsPage() {
@@ -70,6 +72,7 @@ export default function PatientsPage() {
       email: ownPatient.email,
       birthDate: ownPatient.birthDate,
       phone: ownPatient.phone ?? "",
+      continuousMedications: ownPatient.continuousMedications ?? "",
     });
   }, [ownPatient]);
 
@@ -255,6 +258,16 @@ export default function PatientsPage() {
               />
             </label>
           </div>
+          <label className="mt-4 block">
+            <span className="mb-2 block text-xs font-bold text-slate-600">Medicacoes de uso continuo</span>
+            <textarea
+              className={`${inputClass} h-24 resize-none py-2.5`}
+              placeholder="Ex.: Losartana 50mg (1x ao dia), Metformina 850mg (2x ao dia)"
+              value={editForm.continuousMedications}
+              onChange={(event) => setEditForm({ ...editForm, continuousMedications: event.target.value })}
+              maxLength={2000}
+            />
+          </label>
           <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-xs text-slate-400">Atualizacoes geram trilha de auditoria.</p>
             <button className={buttonClass} disabled={updating}>
@@ -303,6 +316,16 @@ export default function PatientsPage() {
               </label>
             ))}
           </div>
+          <label className="mt-4 block">
+            <span className="mb-2 block text-xs font-bold text-slate-600">Medicacoes de uso continuo (opcional)</span>
+            <textarea
+              className={`${inputClass} h-24 resize-none py-2.5`}
+              placeholder="Ex.: Losartana 50mg (1x ao dia), Metformina 850mg (2x ao dia)"
+              value={form.continuousMedications}
+              onChange={(event) => setForm({ ...form, continuousMedications: event.target.value })}
+              maxLength={2000}
+            />
+          </label>
           <div className="mt-5 flex justify-end gap-3">
             <button type="button" className="h-11 px-4 text-sm font-bold text-slate-500" onClick={() => setShowForm(false)}>
               Cancelar
@@ -400,6 +423,15 @@ export default function PatientsPage() {
                 <p className="flex items-center gap-2.5"><Phone size={15} className="text-teal-600" /> {patient.phone || "Nao informado"}</p>
                 <p className="text-xs text-slate-400">Nascimento: {formatDate(patient.birthDate)}</p>
               </div>
+              {(isDoctor || canManage) && patient.continuousMedications && (
+                <div className="mt-4 flex gap-2.5 rounded-lg border border-amber-100 bg-amber-50/70 p-3 text-xs text-amber-800">
+                  <Pill size={15} className="mt-0.5 shrink-0" />
+                  <div>
+                    <p className="font-bold">Medicacoes de uso continuo</p>
+                    <p className="mt-0.5 leading-5">{patient.continuousMedications}</p>
+                  </div>
+                </div>
+              )}
               {isDoctor && nextLinkedAppointment && (
                 <div className="mt-5 rounded-lg border border-slate-100 bg-slate-50/70 p-4">
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">

@@ -3,7 +3,7 @@
 import { Badge, Card, EmptyState, ErrorBanner, LoadingState, PageHeader, buttonClass, inputClass } from "@/components/ui";
 import type { ClinicRole, StaffUser } from "@/lib/types";
 import { api, getSession } from "@/services/api";
-import { Plus, Power, Search, ShieldCheck, UserCog } from "lucide-react";
+import { KeyRound, Plus, Power, Search, ShieldCheck, UserCog } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
 const staffRoleOptions: Array<{ value: ClinicRole; label: string }> = [
@@ -16,6 +16,8 @@ const staffRoleOptions: Array<{ value: ClinicRole; label: string }> = [
   { value: "DataProtectionOfficer", label: "DPO/Privacidade" },
   { value: "OccupationalHealthAdmin", label: "ADM Medico do Trabalho" },
   { value: "PlatformAdmin", label: "Admin plataforma" },
+  { value: "Receptionist", label: "Recepcao (cadastra pacientes/beneficiarios)" },
+  { value: "MedicalDirector", label: "Diretor medico (cadastra medicos)" },
 ];
 
 const platformStaffRoleValues: ClinicRole[] = [
@@ -31,6 +33,8 @@ const companyStaffRoleValues: ClinicRole[] = [
   "CompanyAdmin",
   "CompanyFinance",
   "CompanyAuditor",
+  "Receptionist",
+  "MedicalDirector",
 ];
 
 const initialForm = {
@@ -52,10 +56,10 @@ const roleLabel: Partial<Record<ClinicRole, string>> = {
   DataProtectionOfficer: "DPO/Privacidade",
   OccupationalHealthAdmin: "ADM Medico do Trabalho",
   PlatformAdmin: "Admin plataforma",
-  Receptionist: "Recepcao legado",
+  Receptionist: "Recepcao",
   Finance: "Financeiro legado",
   ClinicAdmin: "Admin legado",
-  MedicalDirector: "Diretor medico legado",
+  MedicalDirector: "Diretor medico",
   PrivacyAuditor: "Auditor privacidade legado",
 };
 
@@ -89,6 +93,8 @@ export default function AccessPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [savingId, setSavingId] = useState("");
+  const [resettingId, setResettingId] = useState("");
+  const [resetResult, setResetResult] = useState<{ name: string; temporaryPassword: string } | null>(null);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
@@ -162,6 +168,21 @@ export default function AccessPage() {
     }
   }
 
+  async function resetPassword(user: StaffUser) {
+    if (!window.confirm(`Gerar uma nova senha temporaria para ${user.name}? A senha atual deixara de funcionar.`)) return;
+    setResettingId(user.id);
+    setError("");
+    setSuccess("");
+    try {
+      const result = await api.resetStaffUserPassword(user.id);
+      setResetResult({ name: user.name, temporaryPassword: result.temporaryPassword });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro ao redefinir senha.");
+    } finally {
+      setResettingId("");
+    }
+  }
+
   return (
     <>
       <PageHeader
@@ -180,6 +201,23 @@ export default function AccessPage() {
           {success}
         </div>
       )}
+      {resetResult && (
+        <div className="mb-5 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+          <p className="font-bold">Nova senha temporaria de {resetResult.name}:</p>
+          <p className="mt-1 font-mono text-base tracking-wide">{resetResult.temporaryPassword}</p>
+          <p className="mt-2 text-xs leading-5">
+            Repasse esta senha com seguranca ao usuario (nunca por canal publico). Ela sera exigida trocar
+            no proximo login e nao sera exibida novamente.
+          </p>
+          <button
+            type="button"
+            className="mt-3 inline-flex h-11 items-center px-1 text-xs font-bold text-amber-800 underline"
+            onClick={() => setResetResult(null)}
+          >
+            Ocultar
+          </button>
+        </div>
+      )}
       <div className="mb-5 rounded-lg border border-teal-100 bg-teal-50 p-5 text-sm leading-6 text-teal-900">
         Perfis administrativos, financeiros e de auditoria nao recebem acesso a prontuario,
         diagnostico, observacao clinica ou conteudo de chamada. Tentativas indevidas devem
@@ -192,6 +230,7 @@ export default function AccessPage() {
           <input
             className="h-12 w-full bg-transparent text-sm outline-none placeholder:text-slate-400"
             placeholder="Buscar por nome, e-mail ou perfil"
+            aria-label="Buscar por nome, e-mail ou perfil"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
           />
@@ -200,6 +239,7 @@ export default function AccessPage() {
           className={inputClass}
           value={roleFilter}
           onChange={(event) => setRoleFilter(event.target.value)}
+          aria-label="Filtrar por perfil"
         >
           <option value="all">Todos os perfis</option>
           {availableRoleOptions.map((option) => (
@@ -210,6 +250,7 @@ export default function AccessPage() {
           className={inputClass}
           value={statusFilter}
           onChange={(event) => setStatusFilter(event.target.value)}
+          aria-label="Filtrar por status"
         >
           <option value="all">Todos os status</option>
           <option value="active">Ativos</option>
@@ -259,7 +300,7 @@ export default function AccessPage() {
         <Card className="overflow-hidden">
           <div className="overflow-x-auto">
             <div className="min-w-[900px]">
-              <div className="grid grid-cols-[1.2fr_1.2fr_1fr_.7fr_.8fr] gap-4 bg-slate-50 px-6 py-4 text-xs font-bold uppercase text-slate-400">
+              <div className="grid grid-cols-[1.2fr_1.2fr_1fr_.7fr_1.1fr] gap-4 bg-slate-50 px-6 py-4 text-xs font-bold uppercase text-slate-400">
                 <span>Nome</span>
                 <span>E-mail</span>
                 <span>Perfil</span>
@@ -270,7 +311,7 @@ export default function AccessPage() {
                 {visibleUsers.map((user) => (
                   <article
                     key={`${user.id}-${user.role}`}
-                    className="grid grid-cols-[1.2fr_1.2fr_1fr_.7fr_.8fr] items-center gap-4 px-6 py-5 text-sm"
+                    className="grid grid-cols-[1.2fr_1.2fr_1fr_.7fr_1.1fr] items-center gap-4 px-6 py-5 text-sm"
                   >
                     <div className="flex min-w-0 items-center gap-3">
                       <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-teal-50 text-teal-600">
@@ -283,9 +324,17 @@ export default function AccessPage() {
                       {roleLabel[user.role] ?? user.role}
                     </span>
                     <Badge tone={user.isActive ? "success" : "warning"}>{user.isActive ? "Ativo" : "Inativo"}</Badge>
-                    <div className="text-right">
+                    <div className="flex flex-wrap justify-end gap-2 text-right">
                       <button
-                        className={`inline-flex h-10 items-center justify-center gap-2 rounded-lg px-4 text-xs font-bold transition focus:outline-none focus:ring-4 disabled:cursor-not-allowed disabled:opacity-60 ${
+                        className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-xs font-bold text-slate-700 transition hover:border-teal-200 hover:bg-teal-50 focus:outline-none focus:ring-4 focus:ring-teal-100 disabled:cursor-not-allowed disabled:opacity-60"
+                        onClick={() => resetPassword(user)}
+                        disabled={resettingId === user.id}
+                      >
+                        <KeyRound size={15} />
+                        {resettingId === user.id ? "Gerando..." : "Redefinir senha"}
+                      </button>
+                      <button
+                        className={`inline-flex h-10 items-center justify-center gap-2 rounded-lg px-3 text-xs font-bold transition focus:outline-none focus:ring-4 disabled:cursor-not-allowed disabled:opacity-60 ${
                           user.isActive
                             ? "border border-slate-200 bg-white text-slate-700 hover:border-amber-200 hover:bg-amber-50 focus:ring-amber-100"
                             : "bg-teal-700 text-white hover:bg-teal-800 focus:ring-teal-100"

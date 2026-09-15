@@ -1,11 +1,11 @@
 "use client";
 
 import { ErrorBanner, LoadingState, PageHeader, buttonClass, inputClass } from "@/components/ui";
-import { formatBrazilDateTimeInput } from "@/lib/format";
-import type { CareSpecialty, Doctor, Patient } from "@/lib/types";
+import { formatBrazilDateInput, formatBrazilDateTimeInput } from "@/lib/format";
+import type { AvailableTime, CareSpecialty, Doctor, Patient } from "@/lib/types";
 import { brazilLocalDateTimeToUtcIso, isFutureBrazilLocalDateTime } from "@/lib/validation";
 import { api, getSession } from "@/services/api";
-import { ArrowLeft, CalendarPlus, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, CalendarPlus, CheckCircle2, Clock, Paperclip, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useState } from "react";
@@ -34,6 +34,7 @@ export default function NewAppointmentPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [attachments, setAttachments] = useState<File[]>([]);
 
   useEffect(() => {
     if (!canUsePage) {
@@ -98,13 +99,18 @@ export default function NewAppointmentPage() {
 
     try {
       if (isPatient) {
-        await api.requestAppointment({
+        const appointment = await api.requestAppointment({
           specialty: form.specialty,
           doctorId: form.doctorId,
           scheduledAt: brazilLocalDateTimeToUtcIso(form.scheduledAt),
-          durationMinutes: form.durationMinutes,
+          durationMinutes: 30,
           notes: form.notes,
         });
+        if (attachments.length > 0) {
+          await Promise.all(
+            attachments.map((file) => api.uploadClinicalRecordAttachment(appointment.id, file)),
+          );
+        }
       } else {
         await api.createAppointment({
           doctorId: form.doctorId,
@@ -152,6 +158,8 @@ export default function NewAppointmentPage() {
           saving={saving}
           onChange={setForm}
           onSubmit={submit}
+          attachments={attachments}
+          onAttachmentsChange={setAttachments}
         />
       ) : doctors.length === 0 || patients.length === 0 ? (
         <div className="rounded-3xl border border-amber-100 bg-amber-50 p-6 text-sm text-amber-800">
@@ -188,18 +196,53 @@ function PatientRequestForm({
   saving,
   onChange,
   onSubmit,
+  attachments,
+  onAttachmentsChange,
 }: {
   form: AppointmentForm;
   specialties: CareSpecialty[];
   saving: boolean;
   onChange: (form: AppointmentForm) => void;
   onSubmit: (event: FormEvent) => void;
+  attachments: File[];
+  onAttachmentsChange: (files: File[]) => void;
 }) {
   const selectedSpecialty = useMemo(
     () => specialties.find((item) => item.specialty === form.specialty) ?? specialties[0],
     [form.specialty, specialties],
   );
   const availableDoctors = selectedSpecialty?.doctors ?? [];
+  const selectedDoctor = availableDoctors.find((doctor) => doctor.id === form.doctorId);
+  const doctorHasAvailability = selectedDoctor?.hasAvailability ?? false;
+
+  const [slotDate, setSlotDate] = useState(formatBrazilDateInput());
+  const [availableTimes, setAvailableTimes] = useState<AvailableTime[]>([]);
+  const [slotsLoading, setSlotsLoading] = useState(false);
+  const [slotsError, setSlotsError] = useState("");
+
+  useEffect(() => {
+    if (!doctorHasAvailability || !form.doctorId || !slotDate) {
+      setAvailableTimes([]);
+      return;
+    }
+    let active = true;
+    setSlotsLoading(true);
+    setSlotsError("");
+    api
+      .getAvailableTimes(form.doctorId, slotDate)
+      .then((times) => {
+        if (active) setAvailableTimes(times);
+      })
+      .catch((err) => {
+        if (active) setSlotsError(err instanceof Error ? err.message : "Erro ao carregar horarios disponiveis.");
+      })
+      .finally(() => {
+        if (active) setSlotsLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [doctorHasAvailability, form.doctorId, slotDate]);
 
   if (specialties.length === 0) {
     return (
@@ -224,6 +267,7 @@ function PatientRequestForm({
                   ...form,
                   specialty: event.target.value,
                   doctorId: nextSpecialty?.doctors[0]?.id ?? "",
+                  scheduledAt: "",
                 });
               }}
               required
@@ -240,12 +284,13 @@ function PatientRequestForm({
             <select
               className={inputClass}
               value={form.doctorId}
-              onChange={(event) => onChange({ ...form, doctorId: event.target.value })}
+              onChange={(event) => onChange({ ...form, doctorId: event.target.value, scheduledAt: "" })}
               required
             >
               {availableDoctors.map((doctor) => (
                 <option key={doctor.id} value={doctor.id}>
                   {doctor.name}
+                  {doctor.hasAvailability ? " (agenda fixa)" : ""}
                 </option>
               ))}
             </select>
@@ -253,29 +298,67 @@ function PatientRequestForm({
               {availableDoctors.length} opcao{availableDoctors.length === 1 ? "" : "es"} nesta especialidade.
             </span>
           </label>
-          <label className="block sm:col-span-2">
-            <span className="mb-2 block text-sm font-bold text-slate-700">Data e horario de Brasilia</span>
-            <input
-              className={inputClass}
-              type="datetime-local"
-              value={form.scheduledAt}
-              onChange={(event) => onChange({ ...form, scheduledAt: event.target.value })}
-              min={formatBrazilDateTimeInput()}
-              required
-            />
-          </label>
-          <label className="block">
-            <span className="mb-2 block text-sm font-bold text-slate-700">Duracao</span>
-            <select
-              className={inputClass}
-              value={form.durationMinutes}
-              onChange={(event) => onChange({ ...form, durationMinutes: Number(event.target.value) })}
-            >
-              {[15, 30, 45, 60].map((minutes) => (
-                <option key={minutes} value={minutes}>{minutes} minutos</option>
-              ))}
-            </select>
-          </label>
+          {doctorHasAvailability ? (
+            <div className="block sm:col-span-2">
+              <span className="mb-2 block text-sm font-bold text-slate-700">Data e horario de Brasilia</span>
+              <p className="mb-3 text-xs text-slate-400">
+                Este medico configurou dias e horarios fixos de atendimento. Escolha um horario disponivel abaixo.
+              </p>
+              <input
+                className={`${inputClass} mb-4`}
+                type="date"
+                value={slotDate}
+                onChange={(event) => {
+                  setSlotDate(event.target.value);
+                  onChange({ ...form, scheduledAt: "" });
+                }}
+                min={formatBrazilDateInput()}
+                required
+              />
+              {slotsError && <p className="mb-3 text-xs font-semibold text-red-600">{slotsError}</p>}
+              {slotsLoading ? (
+                <p className="text-sm text-slate-400">Carregando horarios...</p>
+              ) : availableTimes.length === 0 ? (
+                <p className="rounded-xl border border-amber-100 bg-amber-50 px-4 py-3 text-xs font-semibold text-amber-800">
+                  Nenhum horario disponivel nesta data. Tente outra data.
+                </p>
+              ) : (
+                <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+                  {availableTimes.map((time) => {
+                    const localValue = formatBrazilDateTimeInput(new Date(time.startsAt));
+                    const isSelected = localValue === form.scheduledAt;
+                    const label = localValue.slice(11, 16);
+                    return (
+                      <button
+                        key={time.startsAt}
+                        type="button"
+                        onClick={() => onChange({ ...form, scheduledAt: localValue })}
+                        className={`flex h-11 items-center justify-center gap-1.5 rounded-lg border text-sm font-bold transition ${
+                          isSelected
+                            ? "border-teal-600 bg-teal-600 text-white"
+                            : "border-slate-200 bg-white text-slate-600 hover:border-teal-300 hover:text-teal-700"
+                        }`}
+                      >
+                        <Clock size={13} /> {label}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          ) : (
+            <label className="block sm:col-span-2">
+              <span className="mb-2 block text-sm font-bold text-slate-700">Data e horario de Brasilia</span>
+              <input
+                className={inputClass}
+                type="datetime-local"
+                value={form.scheduledAt}
+                onChange={(event) => onChange({ ...form, scheduledAt: event.target.value })}
+                min={formatBrazilDateTimeInput()}
+                required
+              />
+            </label>
+          )}
           <label className="block sm:col-span-2">
             <span className="mb-2 block text-sm font-bold text-slate-700">Observacao para o atendimento</span>
             <textarea
@@ -286,6 +369,42 @@ function PatientRequestForm({
               onChange={(event) => onChange({ ...form, notes: event.target.value })}
             />
           </label>
+          <div className="block sm:col-span-2">
+            <span className="mb-2 block text-sm font-bold text-slate-700">Anexo (opcional)</span>
+            <label className="flex cursor-pointer items-center gap-2 rounded-2xl border border-dashed border-slate-200 px-4 py-3 text-sm font-semibold text-slate-500 hover:border-teal-300 hover:text-teal-600">
+              <Paperclip size={16} />
+              Anexar exame ou documento
+              <input
+                type="file"
+                className="hidden"
+                multiple
+                onChange={(event) => {
+                  const files = Array.from(event.target.files ?? []);
+                  if (files.length > 0) onAttachmentsChange([...attachments, ...files]);
+                  event.target.value = "";
+                }}
+              />
+            </label>
+            {attachments.length > 0 && (
+              <ul className="mt-3 space-y-2">
+                {attachments.map((file, index) => (
+                  <li
+                    key={`${file.name}-${index}`}
+                    className="flex items-center justify-between rounded-xl bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-600"
+                  >
+                    <span className="truncate">{file.name}</span>
+                    <button
+                      type="button"
+                      className="text-slate-400 hover:text-rose-500"
+                      onClick={() => onAttachmentsChange(attachments.filter((_, i) => i !== index))}
+                    >
+                      <X size={14} />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
         </div>
         <div className="mt-7 flex justify-end">
           <button className={buttonClass} disabled={saving}>

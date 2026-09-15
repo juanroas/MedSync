@@ -31,9 +31,13 @@ const demoAccounts = [
   { label: "Medico", email: "medico@medsync.dev" },
 ];
 
+// Atalho de demonstracao (seleciona o e-mail e mostra os perfis seed). So deve aparecer em
+// ambiente de homologacao/demo, nunca em producao real com dados de paciente.
+const demoAccountsEnabled = process.env.NEXT_PUBLIC_ENABLE_DEMO_ACCOUNTS === "true";
+
 export default function LoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState("medico@medsync.dev");
+  const [email, setEmail] = useState(demoAccountsEnabled ? "medico@medsync.dev" : "");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -70,18 +74,20 @@ export default function LoginPage() {
             Pacientes, medicos, empresas e operacao entram pelo mesmo acesso, mas cada perfil enxerga apenas o escopo permitido.
           </p>
 
-          <div className="mt-7 grid gap-2 sm:grid-cols-2">
-            {demoAccounts.map((account) => (
-              <button
-                key={account.email}
-                type="button"
-                className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-left text-xs font-bold text-slate-600 transition hover:border-teal-200 hover:bg-teal-50 hover:text-teal-800 focus:outline-none focus:ring-4 focus:ring-teal-100"
-                onClick={() => setEmail(account.email)}
-              >
-                {account.label}
-              </button>
-            ))}
-          </div>
+          {demoAccountsEnabled && (
+            <div className="mt-7 grid gap-2 sm:grid-cols-2">
+              {demoAccounts.map((account) => (
+                <button
+                  key={account.email}
+                  type="button"
+                  className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-left text-xs font-bold text-slate-600 transition hover:border-teal-200 hover:bg-teal-50 hover:text-teal-800 focus:outline-none focus:ring-4 focus:ring-teal-100"
+                  onClick={() => setEmail(account.email)}
+                >
+                  {account.label}
+                </button>
+              ))}
+            </div>
+          )}
 
           <form className="mt-9 space-y-5" onSubmit={handleSubmit}>
             {error && <ErrorBanner message={error} />}
@@ -97,7 +103,12 @@ export default function LoginPage() {
               />
             </label>
             <label className="block">
-              <span className="mb-2 block text-sm font-bold text-slate-700">Senha</span>
+              <span className="mb-2 flex items-center justify-between text-sm font-bold text-slate-700">
+                Senha
+                <span className="text-xs font-semibold text-slate-400">
+                  Esqueceu a senha? Peca uma redefinicao ao administrador da sua clinica.
+                </span>
+              </span>
               <span className="relative block">
                 <input
                   className={`${inputClass} pr-11`}
@@ -123,14 +134,16 @@ export default function LoginPage() {
           </form>
 
           <p className="mt-6 text-center text-sm text-slate-500">
-            Nova empresa parceira? O primeiro cadastro e assistido pelo suporte MedSync.
+            Nova clinica parceira? O primeiro cadastro e assistido pelo suporte MedSync.
           </p>
 
-          <div className="mt-7 rounded-lg border border-teal-100 bg-teal-50/70 p-4 text-xs leading-5 text-slate-600">
-            <strong className="text-teal-900">Acesso de demonstracao:</strong>
-            <br />
-            selecione um perfil acima e use a senha definida em <code>SEED_DEMO_PASSWORD</code>.
-          </div>
+          {demoAccountsEnabled && (
+            <div className="mt-7 rounded-lg border border-teal-100 bg-teal-50/70 p-4 text-xs leading-5 text-slate-600">
+              <strong className="text-teal-900">Acesso de demonstracao:</strong>
+              <br />
+              selecione um perfil acima e use a senha de demonstracao fornecida pela equipe MedSync.
+            </div>
+          )}
         </div>
         <p className="text-xs text-slate-400">© 2026 MedSync. Cuidado que aproxima.</p>
       </section>

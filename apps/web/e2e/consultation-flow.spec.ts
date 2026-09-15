@@ -50,7 +50,7 @@ test.describe("fluxo completo de consulta", () => {
     });
     expect(changePassword.status()).toBe(204);
     const consent = await patientContext.post(`/appointments/${appointment.id}/consent`, {
-      data: { accepted: true, termVersion: "telemedicina-2026-01" },
+      data: { accepted: true, termVersion: "telemedicina-2026-02" },
     });
     expect(consent.status()).toBe(200);
 

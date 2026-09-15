@@ -3,7 +3,7 @@
 import { Badge, Card, EmptyState, ErrorBanner, LoadingState, PageHeader, buttonClass, inputClass } from "@/components/ui";
 import type { CompanyActivation, CompanyBeneficiary } from "@/lib/types";
 import { api, getSession } from "@/services/api";
-import { CheckCircle2, ClipboardCheck, Search, ShieldCheck, XCircle } from "lucide-react";
+import { CheckCircle2, ClipboardCheck, Search, ShieldCheck, UserPlus, XCircle } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
 type EligibilityForm = {
@@ -11,6 +11,8 @@ type EligibilityForm = {
   eligibleUntil: string;
   reason: string;
 };
+
+const initialBeneficiaryForm = { name: "", email: "", employeeCode: "" };
 
 function toForm(beneficiary: CompanyBeneficiary): EligibilityForm {
   return {
@@ -33,6 +35,9 @@ export default function EligibilityPage() {
   const [savingId, setSavingId] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [feeDrafts, setFeeDrafts] = useState<Record<string, string>>({});
+  const [beneficiaryForm, setBeneficiaryForm] = useState(initialBeneficiaryForm);
+  const [creatingBeneficiary, setCreatingBeneficiary] = useState(false);
 
   useEffect(() => {
     Promise.all([
@@ -43,6 +48,11 @@ export default function EligibilityPage() {
         setCompanies(companyItems);
         setBeneficiaries(beneficiaryItems);
         setForms(Object.fromEntries(beneficiaryItems.map((item) => [item.id, toForm(item)])));
+        setFeeDrafts(
+          Object.fromEntries(
+            companyItems.map((item) => [item.companyId, item.monthlyFee?.toFixed(2) ?? ""]),
+          ),
+        );
       })
       .catch((err) => setError(err instanceof Error ? err.message : "Erro ao carregar elegibilidade."))
       .finally(() => setLoading(false));
@@ -123,6 +133,58 @@ export default function EligibilityPage() {
     }
   }
 
+  async function saveFee(company: CompanyActivation) {
+    const draft = feeDrafts[company.companyId] ?? "";
+    const monthlyFee = Number(draft.replace(",", "."));
+    if (!draft || Number.isNaN(monthlyFee) || monthlyFee <= 0) {
+      setError("Informe um valor mensal valido antes de salvar.");
+      return;
+    }
+    setSavingId(company.companyId);
+    setError("");
+    setSuccess("");
+    try {
+      const updated = await api.updateCompanyActivation(company.companyId, {
+        isActive: company.isActive,
+        reason: "Valor mensal atualizado pelo ADM MedSync.",
+        monthlyFee,
+      });
+      setCompanies((items) => items.map((item) => (item.companyId === updated.companyId ? updated : item)));
+      setFeeDrafts((current) => ({ ...current, [company.companyId]: updated.monthlyFee?.toFixed(2) ?? "" }));
+      setSuccess("Valor mensal atualizado.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro ao atualizar valor mensal.");
+    } finally {
+      setSavingId("");
+    }
+  }
+
+  async function createBeneficiary(event: FormEvent) {
+    event.preventDefault();
+    if (beneficiaryForm.name.trim().length < 3) {
+      setError("Informe o nome completo do beneficiario.");
+      return;
+    }
+    setCreatingBeneficiary(true);
+    setError("");
+    setSuccess("");
+    try {
+      const created = await api.createCompanyBeneficiary({
+        name: beneficiaryForm.name.trim(),
+        email: beneficiaryForm.email.trim(),
+        employeeCode: beneficiaryForm.employeeCode.trim() || undefined,
+      });
+      setBeneficiaries((items) => [...items, created].sort((a, b) => a.name.localeCompare(b.name)));
+      setForms((current) => ({ ...current, [created.id]: toForm(created) }));
+      setBeneficiaryForm(initialBeneficiaryForm);
+      setSuccess("Beneficiario cadastrado. Elegibilidade inicial liberada conforme o plano ativo.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro ao cadastrar beneficiario.");
+    } finally {
+      setCreatingBeneficiary(false);
+    }
+  }
+
   return (
     <>
       <PageHeader
@@ -184,12 +246,13 @@ export default function EligibilityPage() {
         ) : (
           <Card className="overflow-hidden">
             <div className="overflow-x-auto">
-              <div className="min-w-[1060px]">
-                <div className="grid grid-cols-[1.35fr_1fr_.9fr_1fr_.8fr_.9fr] gap-4 bg-slate-50 px-6 py-4 text-xs font-bold uppercase text-slate-400">
+              <div className="min-w-[1280px]">
+                <div className="grid grid-cols-[1.2fr_.9fr_.8fr_.9fr_.9fr_.8fr_1.1fr] gap-4 bg-slate-50 px-6 py-4 text-xs font-bold uppercase text-slate-400">
                   <span>Empresa</span>
                   <span>CNPJ</span>
                   <span>Tenant</span>
                   <span>Plano</span>
+                  <span>Valor mensal</span>
                   <span>Status</span>
                   <span className="text-right">Acao</span>
                 </div>
@@ -197,7 +260,7 @@ export default function EligibilityPage() {
                   {filteredCompanies.map((company) => (
                     <article
                       key={company.companyId}
-                      className="grid grid-cols-[1.35fr_1fr_.9fr_1fr_.8fr_.9fr] items-center gap-4 px-6 py-5 text-sm"
+                      className="grid grid-cols-[1.2fr_.9fr_.8fr_.9fr_.9fr_.8fr_1.1fr] items-center gap-4 px-6 py-5 text-sm"
                     >
                       <div className="min-w-0">
                         <p className="truncate font-bold text-ink" title={company.companyName}>
@@ -216,6 +279,27 @@ export default function EligibilityPage() {
                           {company.planName ?? "Sem plano"}
                         </p>
                         <p className="mt-1 text-xs text-slate-400">{company.contractStatus ?? "Sem contrato"}</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-slate-400">R$</span>
+                        <input
+                          className={`${inputClass} h-9 px-2 text-sm`}
+                          type="number"
+                          min={0.01}
+                          step="0.01"
+                          value={feeDrafts[company.companyId] ?? ""}
+                          onChange={(event) =>
+                            setFeeDrafts((current) => ({ ...current, [company.companyId]: event.target.value }))
+                          }
+                        />
+                        <button
+                          type="button"
+                          className="shrink-0 text-xs font-bold text-teal-700 hover:underline disabled:opacity-50"
+                          onClick={() => saveFee(company)}
+                          disabled={savingId === company.companyId}
+                        >
+                          Salvar
+                        </button>
                       </div>
                       <Badge tone={company.isActive ? "success" : "warning"}>
                         {company.isActive ? "Habilitada" : "Pendente"}
@@ -238,17 +322,78 @@ export default function EligibilityPage() {
             </div>
           </Card>
         )
-      ) : filtered.length === 0 ? (
-        <EmptyState
-          icon={<ClipboardCheck size={22} />}
-          title={query ? "Nenhum resultado" : "Nenhum beneficiario"}
-          description={
-            query
-              ? "Tente buscar usando outro termo."
-              : "Beneficiarios elegiveis aparecem aqui quando vinculados ao CNPJ."
-          }
-        />
       ) : (
+        <>
+          {canManageBeneficiaries && (
+            <Card className="mb-6 p-6">
+              <div className="flex items-center gap-3 border-b border-slate-100 pb-5">
+                <span className="grid size-11 place-items-center rounded-lg bg-teal-50 text-teal-700">
+                  <UserPlus size={20} />
+                </span>
+                <div>
+                  <h2 className="font-bold text-ink">Cadastrar beneficiario</h2>
+                  <p className="text-sm text-slate-500">
+                    Adiciona a pessoa a lista administrativa do CNPJ, com elegibilidade inicial liberada.
+                  </p>
+                </div>
+              </div>
+              <form onSubmit={createBeneficiary} className="mt-6 grid gap-4 md:grid-cols-3">
+                <label className="block">
+                  <span className="mb-2 block text-xs font-bold text-slate-600">Nome completo</span>
+                  <input
+                    className={inputClass}
+                    value={beneficiaryForm.name}
+                    maxLength={160}
+                    onChange={(event) =>
+                      setBeneficiaryForm((current) => ({ ...current, name: event.target.value }))
+                    }
+                    required
+                  />
+                </label>
+                <label className="block">
+                  <span className="mb-2 block text-xs font-bold text-slate-600">E-mail</span>
+                  <input
+                    className={inputClass}
+                    type="email"
+                    value={beneficiaryForm.email}
+                    maxLength={180}
+                    onChange={(event) =>
+                      setBeneficiaryForm((current) => ({ ...current, email: event.target.value }))
+                    }
+                    required
+                  />
+                </label>
+                <label className="block">
+                  <span className="mb-2 block text-xs font-bold text-slate-600">Matricula (opcional)</span>
+                  <input
+                    className={inputClass}
+                    value={beneficiaryForm.employeeCode}
+                    maxLength={60}
+                    onChange={(event) =>
+                      setBeneficiaryForm((current) => ({ ...current, employeeCode: event.target.value }))
+                    }
+                  />
+                </label>
+                <div className="md:col-span-3 flex justify-end">
+                  <button className={buttonClass} disabled={creatingBeneficiary}>
+                    {creatingBeneficiary ? "Cadastrando..." : "Cadastrar beneficiario"}
+                  </button>
+                </div>
+              </form>
+            </Card>
+          )}
+
+          {filtered.length === 0 ? (
+            <EmptyState
+              icon={<ClipboardCheck size={22} />}
+              title={query ? "Nenhum resultado" : "Nenhum beneficiario"}
+              description={
+                query
+                  ? "Tente buscar usando outro termo."
+                  : "Cadastre o primeiro beneficiario acima para liberar acesso ao CNPJ."
+              }
+            />
+          ) : (
         <section className="grid gap-4 xl:grid-cols-2">
           {filtered.map((beneficiary) => {
             const form = forms[beneficiary.id] ?? toForm(beneficiary);
@@ -331,6 +476,8 @@ export default function EligibilityPage() {
             );
           })}
         </section>
+          )}
+        </>
       )}
     </>
   );
