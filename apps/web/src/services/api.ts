@@ -1,5 +1,6 @@
 import type {
   Appointment,
+  AvailableTime,
   BusinessReport,
   CareSpecialty,
   ClinicalRecord,
@@ -11,6 +12,7 @@ import type {
   CompanyPortal,
   ConsultationRoom,
   Doctor,
+  DoctorAvailabilitySlot,
   FinancialExport,
   FinanceInvoice,
   LoginResponse,
@@ -24,6 +26,7 @@ import type {
   StaffUser,
   AuditEvent,
   User,
+  WeekDay,
 } from "@/lib/types";
 
 const API_URL = process.env.NEXT_PUBLIC_API_BASE_PATH ?? "/api";
@@ -148,6 +151,10 @@ export const api = {
       method: "PUT",
       body: JSON.stringify(input),
     }),
+  resetStaffUserPassword: (id: string) =>
+    request<{ userId: string; temporaryPassword: string }>(`/staff-users/${id}/reset-password`, {
+      method: "POST",
+    }),
   getAuditEvents: () => request<AuditEvent[]>("/audit-events"),
   createCompanyOnboarding: (input: {
     legalName: string;
@@ -165,13 +172,21 @@ export const api = {
       body: JSON.stringify(input),
     }),
   getCompanyActivations: () => request<CompanyActivation[]>("/companies/activation"),
-  updateCompanyActivation: (id: string, input: { isActive: boolean; reason?: string }) =>
+  updateCompanyActivation: (
+    id: string,
+    input: { isActive: boolean; reason?: string; monthlyFee?: number },
+  ) =>
     request<CompanyActivation>(`/companies/${id}/activation`, {
       method: "PUT",
       body: JSON.stringify(input),
     }),
   getCompanyPortal: () => request<CompanyPortal>("/company-portal"),
   getCompanyBeneficiaries: () => request<CompanyBeneficiary[]>("/company-beneficiaries"),
+  createCompanyBeneficiary: (input: { name: string; email: string; employeeCode?: string }) =>
+    request<CompanyBeneficiary>("/company-beneficiaries", {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
   updateCompanyBeneficiaryEligibility: (
     id: string,
     input: { isEligible: boolean; eligibleUntil?: string; reason?: string },
@@ -214,6 +229,7 @@ export const api = {
     birthDate: string;
     phone?: string;
     temporaryPassword: string;
+    continuousMedications?: string;
   }) =>
     request<Patient>("/patients", {
       method: "POST",
@@ -224,6 +240,7 @@ export const api = {
     email: string;
     birthDate: string;
     phone?: string;
+    continuousMedications?: string;
   }) =>
     request<Patient>(`/patients/${id}`, {
       method: "PUT",
@@ -231,6 +248,16 @@ export const api = {
     }),
 
   getDoctors: () => request<Doctor[]>("/doctors"),
+  getMyAvailability: () => request<DoctorAvailabilitySlot[]>("/doctors/me/availability"),
+  createMyAvailabilitySlot: (slot: { dayOfWeek: WeekDay; startTime: string; endTime: string }) =>
+    request<DoctorAvailabilitySlot>("/doctors/me/availability", {
+      method: "POST",
+      body: JSON.stringify(slot),
+    }),
+  deleteMyAvailabilitySlot: (id: string) =>
+    request<void>(`/doctors/me/availability/${id}`, { method: "DELETE" }),
+  getAvailableTimes: (doctorId: string, date: string) =>
+    request<AvailableTime[]>(`/doctors/${doctorId}/available-times?date=${date}`),
   getCareSpecialties: () => request<CareSpecialty[]>("/care/specialties"),
   createDoctor: (doctor: {
     name: string;
@@ -310,7 +337,7 @@ export const api = {
       body: JSON.stringify(appointment),
     }),
 
-  acceptConsent: (appointmentId: string, termVersion = "telemedicina-2026-01") =>
+  acceptConsent: (appointmentId: string, termVersion = "telemedicina-2026-02") =>
     request<{ accepted: boolean; termVersion: string; term: string }>(
       `/appointments/${appointmentId}/consent`,
       {
@@ -320,6 +347,11 @@ export const api = {
     ),
   getConsentTerm: () =>
     request<{ termVersion: string; term: string }>("/consent/term"),
+  cancelAppointment: (appointmentId: string, reason?: string) =>
+    request<Appointment>(`/appointments/${appointmentId}/cancel`, {
+      method: "POST",
+      body: JSON.stringify({ reason }),
+    }),
 
   startConsultation: (appointmentId: string) =>
     request<ConsultationRoom>(`/consultations/${appointmentId}/start`, {
