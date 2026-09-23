@@ -5,6 +5,9 @@
   "workspaces": [
     "apps/web"
   ],
+  "overrides": {
+    "postcss": "^8.5.28"
+  },
   "scripts": {
     "dev:web": "npm run dev --workspace=@medsync/web",
     "build:web": "npm run build --workspace=@medsync/web",
