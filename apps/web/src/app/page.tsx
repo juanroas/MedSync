@@ -49,10 +49,10 @@ const demoProfiles = [
 ];
 
 const b2bFlow = [
-  "Suporte cadastra empresa e conta administradora inicial.",
-  "Admin MedSync habilita o CNPJ para uso.",
-  "Empresa gerencia equipe, elegibilidade e uso agregado.",
-  "Paciente solicita atendimento por especialidade disponivel.",
+  "Clinica se cadastra em poucos minutos e ja acessa o painel.",
+  "Equipe MedSync ativa o CNPJ para liberar o uso completo.",
+  "Clinica cadastra medicos, monta a agenda e atende pacientes.",
+  "Se quiser, ativa o modulo de empresa parceira para patrocinar o beneficio do time, sem acesso a dado clinico.",
 ];
 
 export default function HomePage() {

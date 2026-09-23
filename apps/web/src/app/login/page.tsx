@@ -172,12 +172,7 @@ export default function LoginPage() {
               />
             </label>
             <label className="block">
-              <span className="mb-2 flex items-center justify-between text-sm font-bold text-slate-700">
-                Senha
-                <span className="text-xs font-semibold text-slate-400">
-                  Esqueceu a senha? Peca uma redefinicao ao administrador da sua clinica.
-                </span>
-              </span>
+              <span className="mb-2 block text-sm font-bold text-slate-700">Senha</span>
               <span className="relative block">
                 <input
                   className={`${inputClass} pr-11`}
@@ -195,6 +190,9 @@ export default function LoginPage() {
                 >
                   {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
+              </span>
+              <span className="mt-2 block text-xs font-semibold text-slate-400">
+                Esqueceu a senha? Peca uma redefinicao ao administrador da sua clinica.
               </span>
             </label>
             <button className={`${buttonClass} w-full`} disabled={loading}>

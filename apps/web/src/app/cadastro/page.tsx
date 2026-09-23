@@ -83,6 +83,13 @@ export default function RegisterCompanyPage() {
               onChange={(taxId) => setForm({ ...form, taxId: maskCnpj(taxId) })}
               placeholder="00.000.000/0000-00"
             />
+            <div className="border-t border-slate-100 pt-5">
+              <p className="text-sm font-bold text-ink">Plano interno da clinica no MedSync</p>
+              <p className="mt-1 text-xs leading-5 text-slate-400">
+                Configura o limite e o valor de uso da clinica dentro da plataforma. Pode ser ajustado depois
+                com a equipe MedSync — nao e uma cobrança que acontece automaticamente no cadastro.
+              </p>
+            </div>
             <div className="grid gap-5 md:grid-cols-2">
               <Field
                 label="Plano contratado"
@@ -110,6 +117,9 @@ export default function RegisterCompanyPage() {
               value={form.monthlyFee}
               onChange={(monthlyFee) => setForm({ ...form, monthlyFee: limitNumber(monthlyFee, 10) })}
             />
+            <div className="border-t border-slate-100 pt-5">
+              <p className="text-sm font-bold text-ink">Seu acesso de administrador</p>
+            </div>
             <Field
               label="Seu nome"
               value={form.name}
