@@ -12,7 +12,7 @@ test.describe("privacidade e direitos do titular", () => {
     const description = `Solicito acesso aos meus dados cadastrais em homologacao ${Date.now()}.`;
 
     await loginByUi(page, users.patient);
-    await page.getByRole("link", { name: /privacidade/i }).click();
+    await page.getByRole("navigation").getByRole("link", { name: /privacidade/i }).click();
 
     await expect(page.getByRole("heading", { name: /solicitacoes de privacidade/i })).toBeVisible();
     await expect(page.getByText(/nao registre cpf completo/i)).toBeVisible();
@@ -23,7 +23,7 @@ test.describe("privacidade e direitos do titular", () => {
     await expect(page.getByText(description)).toBeVisible();
 
     await loginByUi(page, users.dpo);
-    await page.getByRole("link", { name: /privacidade/i }).click();
+    await page.getByRole("navigation").getByRole("link", { name: /privacidade/i }).click();
 
     await expect(page.getByRole("heading", { name: /direitos do titular/i })).toBeVisible();
     await expect(page.getByText(description)).toBeVisible();

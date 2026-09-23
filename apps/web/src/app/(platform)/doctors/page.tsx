@@ -269,36 +269,42 @@ export default function DoctorsPage() {
                 required
               />
             </label>
-            <label className="block">
-              <span className="mb-2 block text-xs font-bold text-slate-600">CRM</span>
-              <input
-                className={`${inputClass} cursor-not-allowed bg-slate-50 text-slate-400`}
-                value={editForm.crm}
-                disabled
-                aria-readonly="true"
-              />
+            <div className="block">
+              <label className="block">
+                <span className="mb-2 block text-xs font-bold text-slate-600">CRM</span>
+                <input
+                  className={`${inputClass} cursor-not-allowed bg-slate-50 text-slate-400`}
+                  value={editForm.crm}
+                  disabled
+                  aria-readonly="true"
+                />
+              </label>
               <span className="mt-1 block text-[11px] text-slate-400">Somente administracao pode alterar.</span>
-            </label>
-            <label className="block">
-              <span className="mb-2 block text-xs font-bold text-slate-600">UF do CRM</span>
-              <input
-                className={`${inputClass} cursor-not-allowed bg-slate-50 text-slate-400`}
-                value={editForm.crmUf}
-                disabled
-                aria-readonly="true"
-              />
+            </div>
+            <div className="block">
+              <label className="block">
+                <span className="mb-2 block text-xs font-bold text-slate-600">UF do CRM</span>
+                <input
+                  className={`${inputClass} cursor-not-allowed bg-slate-50 text-slate-400`}
+                  value={editForm.crmUf}
+                  disabled
+                  aria-readonly="true"
+                />
+              </label>
               <span className="mt-1 block text-[11px] text-slate-400">Somente administracao pode alterar.</span>
-            </label>
-            <label className="block">
-              <span className="mb-2 block text-xs font-bold text-slate-600">Especialidade</span>
-              <input
-                className={`${inputClass} cursor-not-allowed bg-slate-50 text-slate-400`}
-                value={editForm.specialty}
-                disabled
-                aria-readonly="true"
-              />
+            </div>
+            <div className="block">
+              <label className="block">
+                <span className="mb-2 block text-xs font-bold text-slate-600">Especialidade</span>
+                <input
+                  className={`${inputClass} cursor-not-allowed bg-slate-50 text-slate-400`}
+                  value={editForm.specialty}
+                  disabled
+                  aria-readonly="true"
+                />
+              </label>
               <span className="mt-1 block text-[11px] text-slate-400">Somente administracao pode alterar.</span>
-            </label>
+            </div>
             <label className="block">
               <span className="mb-2 block text-xs font-bold text-slate-600">Telefone</span>
               <input

@@ -27,10 +27,10 @@ test.describe("onboarding assistido de empresa", () => {
     await page.getByRole("button", { name: /sair da conta/i }).click();
     await loginByUi(page, users.platformAdmin);
     await page.getByRole("navigation").getByRole("link", { name: /elegibilidade/i }).click();
-    await expect(page.getByText(companyName)).toBeVisible();
+    await expect(page.getByText(companyName).first()).toBeVisible();
     const row = page.locator("article").filter({ hasText: companyName });
-    await expect(row.getByText(/aguardando habilitacao/i)).toBeVisible();
-    await row.getByRole("button", { name: /habilitar cnpj/i }).click();
+    await expect(row.getByText(/pendente/i)).toBeVisible();
+    await row.getByRole("button", { name: /^habilitar$/i }).click();
     await expect(row.getByText(/habilitada/i)).toBeVisible();
   });
 

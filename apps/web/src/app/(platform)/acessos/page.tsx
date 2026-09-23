@@ -268,7 +268,12 @@ export default function AccessPage() {
             </label>
             <label>
               <span className="mb-2 block text-xs font-bold text-slate-600">Perfil</span>
-              <select className={inputClass} value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value as ClinicRole })}>
+              <select
+                aria-label="Perfil"
+                className={inputClass}
+                value={form.role}
+                onChange={(e) => setForm({ ...form, role: e.target.value as ClinicRole })}
+              >
                 {availableRoleOptions.map((option) => (
                   <option key={option.value} value={option.value}>{option.label}</option>
                 ))}

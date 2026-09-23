@@ -3422,6 +3422,7 @@ public static class ApiEndpoints
         actor.HasAny(
             ClinicRole.CompanyAdmin,
             ClinicRole.CompanyFinance,
+            ClinicRole.CompanyAuditor,
             ClinicRole.PlatformAdmin,
             ClinicRole.PlatformFinance);
 

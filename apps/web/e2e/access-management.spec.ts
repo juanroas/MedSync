@@ -14,10 +14,10 @@ test.describe("gestao de equipe e acessos", () => {
     await expect(page.getByText(/nao recebem acesso a prontuario/i)).toBeVisible();
     await expect(page.getByText(/diagnostico, observacao clinica ou conteudo de chamada/i)).toBeVisible();
     await page.getByRole("button", { name: /novo acesso/i }).click();
-    await expect(page.getByLabel(/perfil/i)).toContainText(/suporte medsync/i);
-    await expect(page.getByLabel(/perfil/i)).toContainText(/financeiro medsync/i);
-    await expect(page.getByLabel(/perfil/i)).not.toContainText(/financeiro empresa/i);
-    await expect(page.getByLabel(/perfil/i)).not.toContainText(/auditor empresa/i);
+    await expect(page.getByLabel("Perfil", { exact: true })).toContainText(/suporte medsync/i);
+    await expect(page.getByLabel("Perfil", { exact: true })).toContainText(/financeiro medsync/i);
+    await expect(page.getByLabel("Perfil", { exact: true })).not.toContainText(/financeiro empresa/i);
+    await expect(page.getByLabel("Perfil", { exact: true })).not.toContainText(/auditor empresa/i);
   });
 
   test("auditor empresa nao cria acesso operacional", async ({ page }) => {
@@ -40,14 +40,14 @@ test.describe("gestao de equipe e acessos", () => {
     await expect(page.locator("main")).not.toContainText(/empresa alfa/i);
     await expect(page.locator("main")).not.toContainText(/empresa beta/i);
     await page.getByRole("button", { name: /novo acesso/i }).click();
-    await expect(page.getByLabel(/perfil/i)).toContainText(/empresa\/parceiro admin/i);
-    await expect(page.getByLabel(/perfil/i)).toContainText(/financeiro empresa/i);
-    await expect(page.getByLabel(/perfil/i)).toContainText(/auditor empresa/i);
-    await expect(page.getByLabel(/perfil/i)).not.toContainText(/financeiro medsync/i);
-    await expect(page.getByLabel(/perfil/i)).not.toContainText(/suporte medsync/i);
-    await expect(page.getByLabel(/perfil/i)).not.toContainText(/auditor medsync/i);
-    await expect(page.getByLabel(/perfil/i)).not.toContainText(/dpo/i);
-    await expect(page.getByLabel(/perfil/i)).not.toContainText(/medico do trabalho/i);
-    await expect(page.getByLabel(/perfil/i)).not.toContainText(/admin plataforma/i);
+    await expect(page.getByLabel("Perfil", { exact: true })).toContainText(/empresa\/parceiro admin/i);
+    await expect(page.getByLabel("Perfil", { exact: true })).toContainText(/financeiro empresa/i);
+    await expect(page.getByLabel("Perfil", { exact: true })).toContainText(/auditor empresa/i);
+    await expect(page.getByLabel("Perfil", { exact: true })).not.toContainText(/financeiro medsync/i);
+    await expect(page.getByLabel("Perfil", { exact: true })).not.toContainText(/suporte medsync/i);
+    await expect(page.getByLabel("Perfil", { exact: true })).not.toContainText(/auditor medsync/i);
+    await expect(page.getByLabel("Perfil", { exact: true })).not.toContainText(/dpo/i);
+    await expect(page.getByLabel("Perfil", { exact: true })).not.toContainText(/medico do trabalho/i);
+    await expect(page.getByLabel("Perfil", { exact: true })).not.toContainText(/admin plataforma/i);
   });
 });

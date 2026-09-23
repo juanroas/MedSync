@@ -30,6 +30,17 @@ test.describe("fluxo completo de consulta", () => {
     expect(patientResponse.status()).toBe(201);
     const patient = (await patientResponse.json()) as { id: string; email: string };
 
+    // CONHECIDO: este horario (+10min) colide, por design, com o proprio agendamento
+    // demo que o DatabaseSeeder cria para este mesmo medico (DatabaseSeeder.cs,
+    // NextDemoAppointmentUtc: tambem +10min, 60min de duracao). Nao ha horario que
+    // evite essa colisao E fique dentro da janela de entrada imediata da consulta
+    // (InJoinWindow em ApiEndpoints.cs exige o "agora" entre scheduledAt-15min e
+    // scheduledAt+duracao+15min) — matematicamente as duas exigencias se cancelam
+    // com duracao minima de 10min. Este teste so roda com MEDSYNC_E2E_MUTATING=1,
+    // nao faz parte do CI padrao; falha de forma esperada em bancos onde o seed
+    // completo do DatabaseSeeder rodou ha menos de ~70 minutos. Resolver de vez
+    // exige mudar o seed (nao reservar esse medico/horario) ou dar ao teste um
+    // caminho para reagendar antes de iniciar — nenhum dos dois foi feito aqui.
     const scheduledAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
     const appointmentResponse = await reception.post("/appointments", {
       data: {

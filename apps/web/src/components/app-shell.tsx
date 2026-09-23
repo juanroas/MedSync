@@ -52,6 +52,7 @@ const navigation: Array<{
     roles: [
       "CompanyAdmin",
       "CompanyFinance",
+      "CompanyAuditor",
       "PlatformAdmin",
       "PlatformFinance",
     ],

@@ -36,8 +36,12 @@ test.describe("seed multiempresa para homologacao", () => {
       const portal = await response.json();
       expect(portal.company.tradeName).toBe(scenario.companyName);
       expect(portal.contract.planName).toBe(scenario.planName);
-      expect(portal.eligibility.beneficiaryCount).toBe(5);
-      expect(portal.eligibility.eligibleCount).toBe(5);
+      // Nao trava em um numero magico: o seed de homologacao ganha novas contas demo
+      // (pacientes nomeados vinculados automaticamente por e-mail) sem aviso previo.
+      // O que importa aqui e que a empresa tem beneficiarios elegiveis o suficiente
+      // para os relatorios agregados nao ficarem ocultos por grupo minimo.
+      expect(portal.eligibility.beneficiaryCount).toBeGreaterThanOrEqual(5);
+      expect(portal.eligibility.eligibleCount).toBeGreaterThanOrEqual(5);
     }
   });
 
