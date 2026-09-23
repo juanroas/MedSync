@@ -38,7 +38,7 @@ Paciente aparece para o medico somente quando ha consulta vinculada.
 
 Ve sua propria jornada, consultas e cadastro.
 
-Edicao do proprio cadastro permanece como TODO ate existir endpoint de update, matriz de campos permitidos e auditoria.
+Edicao do proprio cadastro ja esta implementada (`PUT /patients/{id}` com `canUpdateOwn` para o papel `Patient`, tela em `apps/web/src/app/(platform)/patients/page.tsx`), com matriz de campos permitidos (nome, e-mail, nascimento, telefone, medicacoes de uso continuo) e trilha de auditoria. Este item estava desatualizado e foi corrigido em 09/2026 (ver `ADR-0002`).
 
 ### Admin plataforma
 

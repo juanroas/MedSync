@@ -129,7 +129,7 @@ Objetivo: liberar uma empresa piloto somente em ambiente de homologacao, com rot
 
 Escopo:
 
-- Corrigir linguagem remanescente de clinica/admin clinica na experiencia B2B principal.
+- ~~Corrigir linguagem remanescente de clinica/admin clinica na experiencia B2B principal.~~ **Revertido em 23/09/2026**: ADR-0002 aceito (clinica e o cliente principal). `EXECUTION_GUARDRAILS.md` atualizado, `company-registration-copy.spec.ts` reescrito para validar linguagem de clinica (antes validava a ausencia dela), landing page (`apps/web/src/app/page.tsx`) ganhou CTA "Cadastrar minha clinica" ligando a `/cadastro` (antes inexistente). Evidencia: `npx playwright test company-registration-copy.spec.ts` passou contra build de producao local; `npm run build:web` limpo.
 - Executar QA por perfil: empresa admin, paciente, medico, financeiro, auditoria, plataforma, DPO e suporte.
 - Validar jornada cruzada empresa -> paciente -> medico -> financeiro -> auditoria.
 - Registrar evidencias, falhas P0/P1/P2/P3 e decisao go/no-go.
@@ -205,6 +205,24 @@ Evidencia registrada:
 - Seed inclui pacientes do CNPJ tecnico `paciente@medsync.dev`, `paciente2@medsync.dev`, `paciente3@medsync.dev` e pacientes demo `paciente.demo@medsync.dev`, `paciente.demo2@medsync.dev`.
 - `personal-profile.spec.ts`: 23 cenarios Chromium validados para perfis plataforma, empresa, DPO, suporte, medico do trabalho e pacientes.
 
+## Trilha P0 - Seguranca de sessao (23/09/2026)
+
+### P0.6 MFA (verificacao em duas etapas) e autocadastro de clinica
+
+Objetivo: fechar dois itens do `ANALISE_COMPLETA_PROJETO_2026-08-26.md` (P0: MFA) e do dossê juridico desta sessao (reabertura do `/cadastro`), ambos sem dependencia de aprovacao externa.
+
+Status: `Implementado`.
+
+Evidencia registrada:
+
+- MFA por TOTP (RFC 6238), sem dependencia externa nova: `TotpService.cs` (HMAC-SHA1, Base32, 6 digitos, tolerancia de 1 passo). Algoritmo validado byte a byte contra os vetores oficiais da RFC 6238 Apendice B (script standalone, removido apos validar).
+- Endpoints: `POST /mfa/enroll`, `POST /mfa/confirm`, `POST /mfa/disable`, `POST /auth/login/mfa`. Login existente (`POST /auth/login`) retorna desafio MFA (`mfaRequired` + `pendingToken` via cache distribuido, TTL 5 min) quando o usuario tem MFA ativo, em vez de sessao direta.
+- Frontend: tela de login com segunda etapa (codigo de 6 digitos), card de ativacao/desativacao em `/perfil` (mostra chave + URI otpauth para o autenticador).
+- Migration `20260923161027_AddMfaAndPendingFields` gerada e inclui tambem os dois campos que estavam pendentes de sessoes anteriores (`DoctorAvailabilitySlot`, `Patient.ContinuousMedications`) — nenhuma migration ainda foi aplicada a um banco real (sem Postgres disponivel neste ambiente); `dotnet ef database update` fica pendente do usuario.
+- `POST /auth/register-clinic` reaberto (estava retornando 403 incondicional). Autocadastro agora cria `Company.IsActive = false` e `CompanyContractStatus.Draft`, mesma trava de seguranca do onboarding assistido — nao ativa CNPJ automaticamente, so a equipe MedSync ativa depois. Motivo do reabertura: CTA "Cadastrar minha clinica" adicionado a landing (ver P0.5) levava a um formulario que sempre retornava 403.
+- `dotnet build apps/api/MedSync.sln`, `npm run typecheck:web`, `npm run build:web` — todos limpos.
+- **Nao validado**: nenhum teste de integracao rodou contra banco real (Postgres indisponivel neste ambiente). MFA e autocadastro precisam de smoke test manual assim que o usuario tiver o ambiente local de pe.
+
 ## Trilha P1 - Profundidade assistencial
 
 ### P1.1 Perfil medico confiavel
@@ -224,6 +242,20 @@ Status: `Bloqueado` por decisao de produto/diretor tecnico.
 Objetivo: avaliar prescricao, atestado e encaminhamento.
 
 Status: `Bloqueado` por validacao juridica, CFM, DPO e diretor tecnico.
+
+Achado novo (pesquisa 22-23/09/2026, ver matriz de rastreabilidade): a RDC ANVISA 1.000/2025 + RDC 1.028/2026 tornam integracao ao SNCR/RNDS obrigatoria para receita eletronica de substancia controlada, com prazo prorrogado para 30/09/2026. Isso nao muda o bloqueio (ainda depende de aprovacao juridica/CFM/DPO/diretor tecnico), mas muda o escopo tecnico quando for liberado: a prescricao precisa nascer integrada a RNDS/SNCR via Memed (padrao de mercado) ou equivalente, nao como texto livre evoluindo depois. Fonte secundaria — validar texto normativo primario com juridico antes de decidir.
+
+### P1.6 Encaminhamento entre especialidades
+
+Objetivo: medico encaminha paciente para outra especialidade com justificativa clinica; especialista registra contrarreferencia ao final, adaptando o modelo publico do SISREG (referencia/contrarreferencia).
+
+Status: `Mapeado`. Nao depende de aprovacao juridica externa (ao contrario de P1.3) — pode evoluir para `Especificado`/`Implementado` quando priorizado.
+
+### P1.7 Identidade de paciente entre clinicas (CNS/CADSUS)
+
+Objetivo: usar o Cartao Nacional de Saude como chave de paciente entre tenants, em vez de casar somente por e-mail.
+
+Status: `Bloqueado` por credenciamento DATASUS (`governanca.soa@saude.gov.br`) — processo burocratico, nao so desenvolvimento.
 
 ## Trilha P1 - Skills e execucao de agentes
 

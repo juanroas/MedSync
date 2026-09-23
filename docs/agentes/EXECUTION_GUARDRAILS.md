@@ -97,8 +97,8 @@ Quando algum item nao existir, escrever `nenhum` ou `nao executado`.
 - Dizer que a Sprint acabou se apenas os documentos foram criados e o usuario esperava tela/API.
 - Registrar referencias de mercado sem gerar matriz de rastreabilidade e backlog.
 - Continuar implementando tela com cara de sistema de RH quando o produto definido e saude digital B2B2C.
-- Usar nomes legados como clinica/recepcao/admin clinica como experiencia principal do MVP B2B.
 - Tratar B2B como painel de RH.
+- Vender o modulo de empresas/beneficio como unico caminho de entrada, escondendo o cadastro de clinica (ver [ADR-0002](../10-decisions/ADR-0002-reposicionamento-b2b-clinica-simplificacao-perfis.md), aceito em 23/09/2026: a clinica e o cliente vendido primeiro; o modulo empresa/beneficio e algo que ela ativa depois).
 - Dizer que algo esta pronto sem teste ou evidencia.
 - Apagar `TODO` sem decisao ou validacao.
 - Omitir bloqueios juridicos, LGPD, CFM, DPO ou diretor tecnico.
@@ -115,3 +115,8 @@ Se existir duvida entre documentar mais ou implementar a proxima fatia rastreada
 - [Reference Aligned Implementation Plan](../14-roadmap/REFERENCE_ALIGNED_IMPLEMENTATION_PLAN.md)
 - [Development Readiness](../DEVELOPMENT_READINESS.md)
 - [AI Agent Rules](AI_AGENT_RULES.md)
+- [ADR-0002 — Reposicionamento B2B-clinica](../10-decisions/ADR-0002-reposicionamento-b2b-clinica-simplificacao-perfis.md)
+
+## Changelog
+
+- 23/09/2026: usuario confirmou o reposicionamento do ADR-0002 (clinica como cliente principal). Removida a proibicao de linguagem "clinica" na experiencia B2B principal, que contradizia essa decisao. `company-registration-copy.spec.ts` e a landing page (`apps/web/src/app/page.tsx`) precisam refletir a mudanca.
