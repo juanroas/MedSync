@@ -87,6 +87,8 @@ public sealed class User
     public required string PasswordHash { get; set; }
     public bool IsActive { get; set; } = true;
     public bool MustChangePassword { get; set; }
+    public bool MfaEnabled { get; set; }
+    public string? MfaSecret { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public ICollection<ClinicMembership> Memberships { get; set; } = [];
 }

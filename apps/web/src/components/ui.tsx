@@ -1,4 +1,4 @@
-import { LoaderCircle } from "lucide-react";
+import { LoaderCircle, Search } from "lucide-react";
 import type { ComponentPropsWithoutRef, ElementType, ReactNode } from "react";
 
 type Tone = "neutral" | "info" | "success" | "warning" | "error";
@@ -89,6 +89,30 @@ export function TextArea({ className, ...props }: ComponentPropsWithoutRef<"text
       )}
       {...props}
     />
+  );
+}
+
+export function SearchField({
+  label,
+  className,
+  wrapperClassName,
+  ...props
+}: ComponentPropsWithoutRef<"input"> & { label: string; wrapperClassName?: string }) {
+  return (
+    <label
+      className={cn(
+        "flex h-12 items-center gap-3 rounded-lg border border-slate-200 bg-white px-4 transition focus-within:border-teal-600 focus-within:ring-4 focus-within:ring-teal-100",
+        wrapperClassName,
+      )}
+    >
+      <Search size={18} className="shrink-0 text-slate-400" aria-hidden="true" />
+      <span className="sr-only">{label}</span>
+      <input
+        type="search"
+        className={cn("h-full w-full bg-transparent text-sm outline-none placeholder:text-slate-400", className)}
+        {...props}
+      />
+    </label>
   );
 }
 

@@ -42,6 +42,7 @@ else
 
 builder.Services.AddScoped<IPasswordService, PasswordService>();
 builder.Services.AddScoped<ITokenService, TokenService>();
+builder.Services.AddScoped<ITotpService, TotpService>();
 builder.Services.AddScoped<AuditWriter>();
 builder.Services.AddSingleton<ClinicalAttachmentStorage>();
 builder.Services.AddHttpContextAccessor();

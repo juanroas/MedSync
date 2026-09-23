@@ -1,9 +1,9 @@
 "use client";
 
-import { Badge, Card, EmptyState, ErrorBanner, LoadingState, PageHeader, buttonClass, inputClass } from "@/components/ui";
+import { Badge, Card, EmptyState, ErrorBanner, LoadingState, PageHeader, SearchField, buttonClass, inputClass } from "@/components/ui";
 import type { CompanyActivation, CompanyBeneficiary } from "@/lib/types";
 import { api, getSession } from "@/services/api";
-import { CheckCircle2, ClipboardCheck, Search, ShieldCheck, UserPlus, XCircle } from "lucide-react";
+import { CheckCircle2, ClipboardCheck, ShieldCheck, UserPlus, XCircle } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
 type EligibilityForm = {
@@ -116,6 +116,11 @@ export default function EligibilityPage() {
   }
 
   async function toggleCompany(company: CompanyActivation) {
+    if (
+      company.isActive &&
+      !window.confirm(`Desabilitar o CNPJ de ${company.companyName}? A empresa perde acesso ate ser reabilitada.`)
+    )
+      return;
     setSavingId(company.companyId);
     setError("");
     setSuccess("");
@@ -212,15 +217,12 @@ export default function EligibilityPage() {
       </div>
 
       <div className="mb-5 grid gap-3 md:grid-cols-[minmax(260px,1fr)_220px]">
-        <div className="flex items-center gap-3 rounded-lg border border-slate-200 bg-white px-4">
-          <Search size={18} className="text-slate-400" />
-          <input
-            className="h-12 w-full bg-transparent text-sm outline-none placeholder:text-slate-400"
-            placeholder={isPlatformAdmin ? "Buscar por empresa, CNPJ, tenant ou plano" : "Buscar por nome, e-mail, matricula ou plano"}
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-          />
-        </div>
+        <SearchField
+          label={isPlatformAdmin ? "Buscar por empresa, CNPJ, tenant ou plano" : "Buscar por nome, e-mail, matricula ou plano"}
+          placeholder={isPlatformAdmin ? "Buscar por empresa, CNPJ, tenant ou plano" : "Buscar por nome, e-mail, matricula ou plano"}
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+        />
         {isPlatformAdmin && (
           <select
             className={inputClass}

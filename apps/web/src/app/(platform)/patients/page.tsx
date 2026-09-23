@@ -1,11 +1,11 @@
 "use client";
 
-import { ErrorBanner, EmptyState, LoadingState, PageHeader, buttonClass, inputClass } from "@/components/ui";
+import { ErrorBanner, EmptyState, LoadingState, PageHeader, SearchField, buttonClass, inputClass } from "@/components/ui";
 import { formatDate, formatDateTime, statusClass, statusLabel } from "@/lib/format";
 import type { Appointment, AppointmentStatus, Patient } from "@/lib/types";
 import { isValidCpf, isValidOptionalPhone, maskCpf } from "@/lib/validation";
 import { api, getSession, saveSession } from "@/services/api";
-import { Mail, Phone, Pill, Plus, Search, UserRound } from "lucide-react";
+import { Mail, Phone, Pill, Plus, UserRound } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
 const initialForm = {
@@ -340,15 +340,13 @@ export default function PatientsPage() {
       {!isPatient && (
         <section className="mb-5 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
           <div className="grid gap-3 lg:grid-cols-[minmax(220px,1fr)_220px_220px_auto]">
-            <label className="flex items-center gap-3 rounded-lg border border-slate-200 px-4">
-              <Search size={18} className="text-slate-400" />
-              <input
-                className="h-12 w-full bg-transparent text-sm outline-none placeholder:text-slate-400"
-                placeholder="Buscar por nome, e-mail ou CPF"
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-              />
-            </label>
+            <SearchField
+              label="Buscar por nome, e-mail ou CPF"
+              wrapperClassName="border-slate-200"
+              placeholder="Buscar por nome, e-mail ou CPF"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+            />
             {isDoctor && (
               <>
                 <select

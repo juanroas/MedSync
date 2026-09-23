@@ -1,11 +1,11 @@
 "use client";
 
-import { Card, EmptyState, ErrorBanner, LoadingState, PageHeader, buttonClass, inputClass } from "@/components/ui";
+import { Card, EmptyState, ErrorBanner, LoadingState, PageHeader, SearchField, buttonClass, inputClass } from "@/components/ui";
 import type { Doctor, DoctorAvailabilitySlot, WeekDay } from "@/lib/types";
 import { WEEKDAY_LABELS, WEEKDAY_ORDER } from "@/lib/types";
 import { isValidOptionalPhone } from "@/lib/validation";
 import { api, getSession, saveSession } from "@/services/api";
-import { BadgeCheck, Clock, Mail, Plus, Search, Stethoscope, Trash2 } from "lucide-react";
+import { BadgeCheck, Clock, Mail, Plus, Stethoscope, Trash2 } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
 const initialForm = {
@@ -272,30 +272,32 @@ export default function DoctorsPage() {
             <label className="block">
               <span className="mb-2 block text-xs font-bold text-slate-600">CRM</span>
               <input
-                className={inputClass}
+                className={`${inputClass} cursor-not-allowed bg-slate-50 text-slate-400`}
                 value={editForm.crm}
-                onChange={(event) => setEditForm({ ...editForm, crm: event.target.value })}
-                required
+                disabled
+                aria-readonly="true"
               />
+              <span className="mt-1 block text-[11px] text-slate-400">Somente administracao pode alterar.</span>
             </label>
             <label className="block">
               <span className="mb-2 block text-xs font-bold text-slate-600">UF do CRM</span>
               <input
-                className={inputClass}
+                className={`${inputClass} cursor-not-allowed bg-slate-50 text-slate-400`}
                 value={editForm.crmUf}
-                onChange={(event) => setEditForm({ ...editForm, crmUf: event.target.value.toUpperCase().slice(0, 2) })}
-                maxLength={2}
-                required
+                disabled
+                aria-readonly="true"
               />
+              <span className="mt-1 block text-[11px] text-slate-400">Somente administracao pode alterar.</span>
             </label>
             <label className="block">
               <span className="mb-2 block text-xs font-bold text-slate-600">Especialidade</span>
               <input
-                className={inputClass}
+                className={`${inputClass} cursor-not-allowed bg-slate-50 text-slate-400`}
                 value={editForm.specialty}
-                onChange={(event) => setEditForm({ ...editForm, specialty: event.target.value })}
-                required
+                disabled
+                aria-readonly="true"
               />
+              <span className="mt-1 block text-[11px] text-slate-400">Somente administracao pode alterar.</span>
             </label>
             <label className="block">
               <span className="mb-2 block text-xs font-bold text-slate-600">Telefone</span>
@@ -308,7 +310,9 @@ export default function DoctorsPage() {
             </label>
           </div>
           <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-xs text-slate-400">Atualizacoes geram trilha de auditoria e ficam restritas ao perfil autorizado.</p>
+            <p className="text-xs text-slate-400">
+              CRM, UF e especialidade sao dados de credenciamento e so mudam com a administracao. Atualizacoes geram trilha de auditoria.
+            </p>
             <button className={buttonClass} disabled={updating}>
               {updating ? "Atualizando..." : "Atualizar perfil medico"}
             </button>
@@ -442,15 +446,13 @@ export default function DoctorsPage() {
       )}
 
       {!isDoctorProfile && (
-        <div className="mb-5 flex max-w-md items-center gap-3 rounded-lg border border-slate-200 bg-white px-4">
-          <Search size={18} className="text-slate-400" />
-          <input
-            className="h-12 w-full bg-transparent text-sm outline-none placeholder:text-slate-400"
-            placeholder="Buscar por nome, CRM ou especialidade"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-          />
-        </div>
+        <SearchField
+          label="Buscar por nome, CRM ou especialidade"
+          wrapperClassName="mb-5 max-w-md"
+          placeholder="Buscar por nome, CRM ou especialidade"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+        />
       )}
 
       {loading ? (

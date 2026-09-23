@@ -15,6 +15,11 @@ public sealed record RegisterClinicRequest(
     int? MonthlyConsultationLimit);
 public sealed record ChangePasswordRequest(string CurrentPassword, string NewPassword);
 public sealed record LoginResponse(UserSummary User);
+public sealed record MfaRequiredResponse(bool MfaRequired, string PendingToken);
+public sealed record MfaLoginRequest(string PendingToken, string Code);
+public sealed record MfaEnrollResponse(string Secret, string OtpAuthUri);
+public sealed record MfaConfirmRequest(string Code);
+public sealed record MfaDisableRequest(string Password);
 public sealed record UserSummary(
     Guid Id,
     string Name,
@@ -33,7 +38,8 @@ public sealed record PersonalProfileResponse(
     IReadOnlyCollection<ClinicRole> Roles,
     string? Phone,
     string ProfileType,
-    IReadOnlyCollection<string> LockedFields);
+    IReadOnlyCollection<string> LockedFields,
+    bool MfaEnabled);
 
 public sealed record UpdatePersonalProfileRequest(
     string Name,
@@ -426,6 +432,13 @@ public interface IPasswordService
 {
     string Hash(string password);
     bool Verify(string password, string passwordHash);
+}
+
+public interface ITotpService
+{
+    string GenerateSecret();
+    string BuildOtpAuthUri(string secret, string accountEmail, string issuer = "MedSync");
+    bool Verify(string secret, string code);
 }
 
 public interface ITokenService

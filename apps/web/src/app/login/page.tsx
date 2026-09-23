@@ -13,6 +13,7 @@ import {
   ShieldCheck,
   Video,
 } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
 
@@ -42,20 +43,88 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [mfaPendingToken, setMfaPendingToken] = useState("");
+  const [mfaCode, setMfaCode] = useState("");
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     setLoading(true);
     setError("");
     try {
-      const session = await api.login(email, password);
-      saveSession(session);
-      router.push(session.user.mustChangePassword ? "/alterar-senha" : "/dashboard");
+      const result = await api.login(email, password);
+      if ("mfaRequired" in result) {
+        setMfaPendingToken(result.pendingToken);
+        return;
+      }
+      saveSession(result);
+      router.push(result.user.mustChangePassword ? "/alterar-senha" : "/dashboard");
     } catch (err) {
       setError(err instanceof Error ? err.message : "E-mail ou senha invalidos.");
     } finally {
       setLoading(false);
     }
+  }
+
+  async function handleMfaSubmit(event: FormEvent) {
+    event.preventDefault();
+    setLoading(true);
+    setError("");
+    try {
+      const session = await api.loginMfa(mfaPendingToken, mfaCode);
+      saveSession(session);
+      router.push(session.user.mustChangePassword ? "/alterar-senha" : "/dashboard");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Codigo invalido ou expirado.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  if (mfaPendingToken) {
+    return (
+      <main className="grid min-h-screen place-items-center bg-[#f5f8f6] px-6">
+        <div className="w-full max-w-sm rounded-3xl bg-paper/90 p-8 shadow-2xl shadow-teal-950/5">
+          <Logo />
+          <span className="mt-6 grid size-12 place-items-center rounded-xl bg-teal-50 text-teal-700 ring-1 ring-teal-100">
+            <ShieldCheck size={22} />
+          </span>
+          <h1 className="mt-6 text-2xl font-bold tracking-tight text-ink">Verificacao em duas etapas</h1>
+          <p className="mt-2 text-sm leading-6 text-slate-500">
+            Digite o codigo de 6 digitos do seu aplicativo autenticador.
+          </p>
+          <form className="mt-6 space-y-5" onSubmit={handleMfaSubmit}>
+            {error && <ErrorBanner message={error} />}
+            <label className="block">
+              <span className="mb-2 block text-sm font-bold text-slate-700">Codigo</span>
+              <input
+                className={`${inputClass} text-center text-lg tracking-[0.4em]`}
+                inputMode="numeric"
+                maxLength={6}
+                autoComplete="one-time-code"
+                autoFocus
+                value={mfaCode}
+                onChange={(event) => setMfaCode(event.target.value.replace(/\D/g, "").slice(0, 6))}
+                required
+              />
+            </label>
+            <button className={`${buttonClass} w-full`} disabled={loading || mfaCode.length !== 6}>
+              {loading ? "Verificando..." : "Confirmar"} <ArrowRight size={16} />
+            </button>
+            <button
+              type="button"
+              className="w-full text-center text-xs font-bold text-slate-500 hover:text-teal-700"
+              onClick={() => {
+                setMfaPendingToken("");
+                setMfaCode("");
+                setError("");
+              }}
+            >
+              Voltar ao login
+            </button>
+          </form>
+        </div>
+      </main>
+    );
   }
 
   return (
@@ -134,7 +203,11 @@ export default function LoginPage() {
           </form>
 
           <p className="mt-6 text-center text-sm text-slate-500">
-            Nova clinica parceira? O primeiro cadastro e assistido pelo suporte MedSync.
+            Nova clinica?{" "}
+            <Link href="/cadastro" className="font-bold text-teal-700 hover:underline">
+              Cadastre-se aqui
+            </Link>
+            . O CNPJ fica pendente de ativacao pela equipe MedSync.
           </p>
 
           {demoAccountsEnabled && (

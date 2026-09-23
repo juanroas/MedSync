@@ -4,7 +4,7 @@ import { AlertBanner, Card, ErrorBanner, LoadingState, PageHeader, buttonClass, 
 import type { ClinicRole, PersonalProfile } from "@/lib/types";
 import { isValidOptionalPhone } from "@/lib/validation";
 import { api, saveSession } from "@/services/api";
-import { CheckCircle2, LockKeyhole, Mail, Phone, ShieldCheck, UserRoundCog } from "lucide-react";
+import { CheckCircle2, KeyRound, LockKeyhole, Mail, Phone, ShieldCheck, UserRoundCog } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
 const roleLabel: Partial<Record<ClinicRole, string>> = {
@@ -203,9 +203,167 @@ export default function PersonalProfilePage() {
                 ))}
               </div>
             </Card>
+
+            <MfaCard mfaEnabled={profile.mfaEnabled} onChange={(mfaEnabled) => setProfile({ ...profile, mfaEnabled })} />
           </aside>
         </div>
       ) : null}
     </>
+  );
+}
+
+function MfaCard({ mfaEnabled, onChange }: { mfaEnabled: boolean; onChange: (enabled: boolean) => void }) {
+  const [enrolling, setEnrolling] = useState(false);
+  const [disabling, setDisabling] = useState(false);
+  const [secret, setSecret] = useState("");
+  const [otpAuthUri, setOtpAuthUri] = useState("");
+  const [code, setCode] = useState("");
+  const [password, setPassword] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+
+  async function startEnroll() {
+    setError("");
+    setSuccess("");
+    setSaving(true);
+    try {
+      const result = await api.enrollMfa();
+      setSecret(result.secret);
+      setOtpAuthUri(result.otpAuthUri);
+      setEnrolling(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro ao iniciar verificacao em duas etapas.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function confirmEnroll(event: FormEvent) {
+    event.preventDefault();
+    setError("");
+    setSaving(true);
+    try {
+      await api.confirmMfa(code);
+      setEnrolling(false);
+      setCode("");
+      setSuccess("Verificacao em duas etapas ativada.");
+      onChange(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Codigo invalido.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function confirmDisable(event: FormEvent) {
+    event.preventDefault();
+    setError("");
+    setSaving(true);
+    try {
+      await api.disableMfa(password);
+      setDisabling(false);
+      setPassword("");
+      setSuccess("Verificacao em duas etapas desativada.");
+      onChange(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Senha incorreta.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Card className="p-6">
+      <div className="flex items-start gap-4">
+        <span className="grid size-11 shrink-0 place-items-center rounded-lg bg-teal-50 text-teal-700">
+          <KeyRound size={20} />
+        </span>
+        <div className="min-w-0 flex-1">
+          <h2 className="font-bold text-ink">Verificacao em duas etapas</h2>
+          <p className="mt-1 text-sm leading-6 text-slate-500">
+            {mfaEnabled
+              ? "Ativada. Um codigo do seu aplicativo autenticador e exigido a cada login."
+              : "Adicione uma camada extra de seguranca com um aplicativo autenticador (Google Authenticator, Authy)."}
+          </p>
+        </div>
+      </div>
+
+      {error && <div className="mt-4"><ErrorBanner message={error} /></div>}
+      {success && <div className="mt-4"><AlertBanner tone="success" message={success} /></div>}
+
+      {!mfaEnabled && !enrolling && (
+        <button className={`${buttonClass} mt-5 w-full`} onClick={startEnroll} disabled={saving}>
+          {saving ? "Gerando..." : "Ativar verificacao em duas etapas"}
+        </button>
+      )}
+
+      {enrolling && (
+        <form onSubmit={confirmEnroll} className="mt-5 space-y-4">
+          <p className="text-xs leading-5 text-slate-500">
+            Adicione esta chave no seu aplicativo autenticador (ou cole o link OTP diretamente):
+          </p>
+          <p className="break-all rounded-lg bg-slate-50 p-3 font-mono text-xs text-ink">{secret}</p>
+          <a
+            href={otpAuthUri}
+            className="block break-all text-xs font-semibold text-teal-700 hover:underline"
+          >
+            {otpAuthUri}
+          </a>
+          <label className="block">
+            <span className="mb-2 block text-xs font-bold text-slate-600">Codigo de confirmacao</span>
+            <input
+              className={`${inputClass} text-center tracking-[0.3em]`}
+              inputMode="numeric"
+              maxLength={6}
+              value={code}
+              onChange={(event) => setCode(event.target.value.replace(/\D/g, "").slice(0, 6))}
+              required
+            />
+          </label>
+          <div className="flex gap-3">
+            <button type="button" className="flex-1 h-11 text-sm font-bold text-slate-500" onClick={() => setEnrolling(false)}>
+              Cancelar
+            </button>
+            <button className={`${buttonClass} flex-1`} disabled={saving || code.length !== 6}>
+              {saving ? "Confirmando..." : "Confirmar"}
+            </button>
+          </div>
+        </form>
+      )}
+
+      {mfaEnabled && !disabling && (
+        <button
+          className="mt-5 w-full h-11 rounded-lg border border-red-200 text-sm font-bold text-red-600 hover:bg-red-50"
+          onClick={() => setDisabling(true)}
+        >
+          Desativar
+        </button>
+      )}
+
+      {disabling && (
+        <form onSubmit={confirmDisable} className="mt-5 space-y-4">
+          <label className="block">
+            <span className="mb-2 block text-xs font-bold text-slate-600">Confirme sua senha</span>
+            <input
+              className={inputClass}
+              type="password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              autoComplete="current-password"
+              required
+            />
+          </label>
+          <div className="flex gap-3">
+            <button type="button" className="flex-1 h-11 text-sm font-bold text-slate-500" onClick={() => setDisabling(false)}>
+              Cancelar
+            </button>
+            <button className="flex-1 h-11 rounded-lg bg-red-600 text-sm font-bold text-white hover:bg-red-700" disabled={saving}>
+              {saving ? "Desativando..." : "Confirmar desativacao"}
+            </button>
+          </div>
+        </form>
+      )}
+    </Card>
   );
 }

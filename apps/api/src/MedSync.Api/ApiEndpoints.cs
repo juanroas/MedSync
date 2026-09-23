@@ -1,5 +1,6 @@
 using System.Net;
 using System.Security.Claims;
+using System.Security.Cryptography;
 using System.Net.Mail;
 using MedSync.Application;
 using MedSync.Domain;
@@ -16,6 +17,7 @@ public static class ApiEndpoints
     public static IEndpointRouteBuilder MapMedSyncEndpoints(this IEndpointRouteBuilder app)
     {
         app.MapPost("/auth/login", Login).AllowAnonymous().RequireRateLimiting("auth");
+        app.MapPost("/auth/login/mfa", LoginMfa).AllowAnonymous().RequireRateLimiting("auth");
         app.MapPost("/auth/register-clinic", RegisterClinic).AllowAnonymous().RequireRateLimiting("auth");
         app.MapPost("/payments/mercadopago/webhook", MercadoPagoWebhook).AllowAnonymous();
 
@@ -23,6 +25,9 @@ public static class ApiEndpoints
         protectedApi.MapGet("/auth/me", Me);
         protectedApi.MapPost("/auth/logout", Logout);
         protectedApi.MapPost("/auth/change-password", ChangePassword);
+        protectedApi.MapPost("/mfa/enroll", EnrollMfa);
+        protectedApi.MapPost("/mfa/confirm", ConfirmMfa);
+        protectedApi.MapPost("/mfa/disable", DisableMfa);
         protectedApi.MapGet("/profile", GetPersonalProfile);
         protectedApi.MapPut("/profile", UpdatePersonalProfile);
         protectedApi.MapPost("/staff-users", CreateStaffUser);
@@ -1395,6 +1400,8 @@ public static class ApiEndpoints
             ]));
     }
 
+    private static readonly TimeSpan MfaPendingTtl = TimeSpan.FromMinutes(5);
+
     private static async Task<IResult> Login(
         LoginRequest request,
         HttpContext http,
@@ -1403,6 +1410,7 @@ public static class ApiEndpoints
         ITokenService tokens,
         AuditWriter audit,
         IConfiguration configuration,
+        IDistributedCache cache,
         CancellationToken cancellationToken)
     {
         var email = request.Email.Trim().ToLowerInvariant();
@@ -1417,6 +1425,64 @@ public static class ApiEndpoints
             return Results.Unauthorized();
         }
 
+        if (user.MfaEnabled)
+        {
+            var pendingToken = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32))
+                .Replace('+', '-').Replace('/', '_').TrimEnd('=');
+            await cache.SetStringAsync(
+                $"mfa-pending:{pendingToken}",
+                user.Id.ToString(),
+                new DistributedCacheEntryOptions { AbsoluteExpirationRelativeToNow = MfaPendingTtl },
+                cancellationToken);
+            audit.Add(null, "Auth.Login.MfaChallenge", "User", user.Id);
+            await db.SaveChangesAsync(cancellationToken);
+            return Results.Ok(new MfaRequiredResponse(true, pendingToken));
+        }
+
+        return await CompleteLoginAsync(user, http, db, tokens, audit, configuration, cancellationToken);
+    }
+
+    private static async Task<IResult> LoginMfa(
+        MfaLoginRequest request,
+        HttpContext http,
+        MedSyncDbContext db,
+        ITokenService tokens,
+        ITotpService totp,
+        AuditWriter audit,
+        IConfiguration configuration,
+        IDistributedCache cache,
+        CancellationToken cancellationToken)
+    {
+        var cacheKey = $"mfa-pending:{request.PendingToken}";
+        var userIdRaw = await cache.GetStringAsync(cacheKey, cancellationToken);
+        if (userIdRaw is null || !Guid.TryParse(userIdRaw, out var userId))
+            return Results.Unauthorized();
+
+        var user = await db.Users
+            .Include(x => x.Memberships)
+            .ThenInclude(x => x.Clinic)
+            .SingleOrDefaultAsync(x => x.Id == userId, cancellationToken);
+        if (user is null || !user.IsActive || !user.MfaEnabled || user.MfaSecret is null ||
+            !totp.Verify(user.MfaSecret, request.Code))
+        {
+            audit.Add(null, "Auth.Login.MfaDenied", "User", userId, "Denied", "Codigo MFA invalido.");
+            await db.SaveChangesAsync(cancellationToken);
+            return Results.Unauthorized();
+        }
+
+        await cache.RemoveAsync(cacheKey, cancellationToken);
+        return await CompleteLoginAsync(user, http, db, tokens, audit, configuration, cancellationToken);
+    }
+
+    private static async Task<IResult> CompleteLoginAsync(
+        User user,
+        HttpContext http,
+        MedSyncDbContext db,
+        ITokenService tokens,
+        AuditWriter audit,
+        IConfiguration configuration,
+        CancellationToken cancellationToken)
+    {
         var memberships = user.Memberships
             .Where(x => x.Clinic.IsActive)
             .OrderBy(x => x.CreatedAt)
@@ -1437,6 +1503,74 @@ public static class ApiEndpoints
         return Results.Ok(new LoginResponse(ToUserSummary(user, clinic, roles)));
     }
 
+    private static async Task<IResult> EnrollMfa(
+        ClaimsPrincipal principal,
+        MedSyncDbContext db,
+        ITotpService totp,
+        IDistributedCache cache,
+        CancellationToken cancellationToken)
+    {
+        var actor = RequestContext.From(principal);
+        var user = await db.Users.SingleAsync(x => x.Id == actor.UserId, cancellationToken);
+        if (user.MfaEnabled)
+            return Results.Conflict(new { message = "MFA ja esta ativado para esta conta." });
+
+        var secret = totp.GenerateSecret();
+        await cache.SetStringAsync(
+            $"mfa-enroll:{actor.UserId}",
+            secret,
+            new DistributedCacheEntryOptions { AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10) },
+            cancellationToken);
+
+        return Results.Ok(new MfaEnrollResponse(secret, totp.BuildOtpAuthUri(secret, user.Email)));
+    }
+
+    private static async Task<IResult> ConfirmMfa(
+        MfaConfirmRequest request,
+        ClaimsPrincipal principal,
+        MedSyncDbContext db,
+        ITotpService totp,
+        IDistributedCache cache,
+        AuditWriter audit,
+        CancellationToken cancellationToken)
+    {
+        var actor = RequestContext.From(principal);
+        var cacheKey = $"mfa-enroll:{actor.UserId}";
+        var secret = await cache.GetStringAsync(cacheKey, cancellationToken);
+        if (secret is null)
+            return Validation("code", "Nenhum cadastro de MFA pendente. Inicie o processo novamente.");
+        if (!totp.Verify(secret, request.Code))
+            return Validation("code", "Codigo invalido.");
+
+        var user = await db.Users.SingleAsync(x => x.Id == actor.UserId, cancellationToken);
+        user.MfaEnabled = true;
+        user.MfaSecret = secret;
+        await cache.RemoveAsync(cacheKey, cancellationToken);
+        audit.Add(actor, "Auth.Mfa.Enabled", "User", user.Id);
+        await db.SaveChangesAsync(cancellationToken);
+        return Results.Ok(new { mfaEnabled = true });
+    }
+
+    private static async Task<IResult> DisableMfa(
+        MfaDisableRequest request,
+        ClaimsPrincipal principal,
+        MedSyncDbContext db,
+        IPasswordService passwords,
+        AuditWriter audit,
+        CancellationToken cancellationToken)
+    {
+        var actor = RequestContext.From(principal);
+        var user = await db.Users.SingleAsync(x => x.Id == actor.UserId, cancellationToken);
+        if (!passwords.Verify(request.Password, user.PasswordHash))
+            return Validation("password", "Senha incorreta.");
+
+        user.MfaEnabled = false;
+        user.MfaSecret = null;
+        audit.Add(actor, "Auth.Mfa.Disabled", "User", user.Id);
+        await db.SaveChangesAsync(cancellationToken);
+        return Results.Ok(new { mfaEnabled = false });
+    }
+
     private static async Task<IResult> RegisterClinic(
         RegisterClinicRequest request,
         HttpContext http,
@@ -1447,11 +1581,6 @@ public static class ApiEndpoints
         IConfiguration configuration,
         CancellationToken cancellationToken)
     {
-        return Results.Problem(
-            "Cadastro empresarial direto foi desabilitado. O primeiro cadastro deve ser realizado pelo suporte MedSync.",
-            statusCode: StatusCodes.Status403Forbidden);
-
-#pragma warning disable CS0162
         if (string.IsNullOrWhiteSpace(request.ClinicName) ||
             string.IsNullOrWhiteSpace(request.Name) ||
             string.IsNullOrWhiteSpace(request.Email))
@@ -1477,6 +1606,8 @@ public static class ApiEndpoints
         var email = request.Email.Trim().ToLowerInvariant();
         if (await db.Users.AnyAsync(x => x.Email == email, cancellationToken))
             return Results.Conflict(new { message = "Já existe uma conta com este e-mail." });
+        if (await db.Companies.AnyAsync(x => x.TaxId == taxId, cancellationToken))
+            return Results.Conflict(new { message = "Já existe uma clínica cadastrada com este CNPJ." });
 
         var clinic = new Clinic
         {
@@ -1500,13 +1631,14 @@ public static class ApiEndpoints
             Clinic = clinic,
             LegalName = request.ClinicName.Trim(),
             TradeName = string.IsNullOrWhiteSpace(request.TradeName) ? request.ClinicName.Trim() : request.TradeName.Trim(),
-            TaxId = taxId
+            TaxId = taxId,
+            IsActive = false
         };
         var plan = new BenefitPlan
         {
             Clinic = clinic,
             Name = planName,
-            Description = "Plano empresarial criado no cadastro de homologacao.",
+            Description = "Plano criado no autocadastro de clinica.",
             MonthlyFee = monthlyFee,
             MonthlyConsultationLimit = monthlyConsultationLimit
         };
@@ -1515,12 +1647,17 @@ public static class ApiEndpoints
             ClinicId = clinic.Id,
             Company = company,
             BenefitPlan = plan,
-            Status = CompanyContractStatus.Active,
+            Status = CompanyContractStatus.Draft,
             StartsAt = DateOnly.FromDateTime(DateTime.UtcNow.Date)
         };
         db.AddRange(clinic, user, membership, company, plan, contract);
         var roles = new[] { ClinicRole.CompanyAdmin };
         var actor = new RequestContext(user.Id, clinic.Id, roles.ToHashSet());
+        // Autocadastro nao ativa o CNPJ automaticamente: fica pendente ate a
+        // equipe MedSync habilitar, mesma trava que ja existe no onboarding
+        // assistido (CreateCompanyOnboarding). Evita ativacao instantanea sem
+        // verificacao, que foi o motivo original de este endpoint ter sido
+        // desabilitado.
         audit.Add(actor, "Company.Register", "Company", company.Id);
         await db.SaveChangesAsync(cancellationToken);
 
@@ -1528,7 +1665,6 @@ public static class ApiEndpoints
         return Results.Created(
             $"/companies/{company.Id}",
             new LoginResponse(ToUserSummary(user, clinic, roles)));
-#pragma warning restore CS0162
     }
 
     private static async Task<IResult> Me(
@@ -1961,8 +2097,15 @@ public static class ApiEndpoints
             return Results.NotFound();
 
         var canUpdateOwn = actor.HasAny(ClinicRole.Doctor) && doctor.UserId == actor.UserId;
-        if (!canUpdateOwn && !actor.HasAny(AccessRules.ManageDoctors))
+        var canManage = actor.HasAny(AccessRules.ManageDoctors);
+        if (!canUpdateOwn && !canManage)
             return Results.Forbid();
+
+        // Matriz de campos permitidos: autoatendimento do medico altera apenas
+        // nome/e-mail/telefone. CRM, UF do CRM e especialidade sao dados de
+        // credenciamento e só podem mudar por quem tem ManageDoctors.
+        if (canUpdateOwn && !canManage)
+            request = request with { Crm = doctor.Crm, CrmUf = doctor.CrmUf, Specialty = doctor.Specialty };
 
         var name = request.Name.Trim();
         if (name.Length < 3)
@@ -2002,7 +2145,7 @@ public static class ApiEndpoints
             doctor.User.Email = email;
         }
 
-        audit.Add(actor, "Doctor.Update", "Doctor", doctor.Id);
+        audit.Add(actor, canUpdateOwn && !canManage ? "Doctor.UpdateSelf" : "Doctor.Update", "Doctor", doctor.Id);
         await db.SaveChangesAsync(cancellationToken);
         return Results.Ok(ToResponse(doctor));
     }
@@ -3425,7 +3568,8 @@ public static class ApiEndpoints
             roles,
             patient?.Phone ?? doctor?.Phone,
             profileType,
-            lockedFields);
+            lockedFields,
+            user.MfaEnabled);
     }
 
     private static PatientResponse ToResponse(Patient patient, bool includeContinuousMedications = true) =>

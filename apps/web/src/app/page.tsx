@@ -73,6 +73,12 @@ export default function HomePage() {
                 Entrar
               </Link>
               <Link
+                href="/cadastro"
+                className="hidden h-11 items-center gap-2 rounded-lg border border-teal-700 px-5 text-sm font-bold text-teal-800 transition hover:bg-teal-50 sm:inline-flex"
+              >
+                Cadastrar minha clinica
+              </Link>
+              <Link
                 href="/login"
                 className="inline-flex h-11 items-center gap-2 rounded-lg bg-teal-800 px-5 text-sm font-bold text-white shadow-sm transition hover:bg-teal-700"
               >
@@ -98,17 +104,17 @@ export default function HomePage() {
             </p>
             <div className="mt-9 flex flex-col gap-3 sm:flex-row">
               <Link
-                href="/login"
+                href="/cadastro"
                 className="inline-flex h-12 items-center justify-center gap-2 rounded-lg bg-coral px-7 text-sm font-bold text-white shadow-lg shadow-black/20 transition hover:bg-[#e46852]"
               >
-                Acessar ambiente demo <ArrowRight size={17} />
+                Cadastrar minha clinica <ArrowRight size={17} />
               </Link>
-              <a
-                href="#produto"
+              <Link
+                href="/login"
                 className="inline-flex h-12 items-center justify-center rounded-lg border border-white/20 bg-white/10 px-7 text-sm font-bold text-white transition hover:bg-white/15"
               >
-                Ver como funciona
-              </a>
+                Acessar ambiente demo
+              </Link>
             </div>
           </div>
 

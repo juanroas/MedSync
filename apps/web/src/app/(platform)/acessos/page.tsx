@@ -1,9 +1,9 @@
 "use client";
 
-import { Badge, Card, EmptyState, ErrorBanner, LoadingState, PageHeader, buttonClass, inputClass } from "@/components/ui";
+import { Badge, Card, EmptyState, ErrorBanner, LoadingState, PageHeader, SearchField, buttonClass, inputClass } from "@/components/ui";
 import type { ClinicRole, StaffUser } from "@/lib/types";
 import { api, getSession } from "@/services/api";
-import { KeyRound, Plus, Power, Search, ShieldCheck, UserCog } from "lucide-react";
+import { KeyRound, Plus, Power, ShieldCheck, UserCog } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
 const staffRoleOptions: Array<{ value: ClinicRole; label: string }> = [
@@ -151,6 +151,8 @@ export default function AccessPage() {
   }
 
   async function toggleAccess(user: StaffUser) {
+    if (user.isActive && !window.confirm(`Desabilitar o acesso de ${user.name}? A pessoa nao vai conseguir entrar ate ser reabilitada.`))
+      return;
     setSavingId(user.id);
     setError("");
     setSuccess("");
@@ -225,16 +227,12 @@ export default function AccessPage() {
       </div>
 
       <div className="mb-5 grid gap-3 lg:grid-cols-[minmax(280px,1fr)_220px_180px]">
-        <div className="flex items-center gap-3 rounded-lg border border-slate-200 bg-white px-4">
-          <Search size={18} className="text-slate-400" />
-          <input
-            className="h-12 w-full bg-transparent text-sm outline-none placeholder:text-slate-400"
-            placeholder="Buscar por nome, e-mail ou perfil"
-            aria-label="Buscar por nome, e-mail ou perfil"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-          />
-        </div>
+        <SearchField
+          label="Buscar por nome, e-mail ou perfil"
+          placeholder="Buscar por nome, e-mail ou perfil"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+        />
         <select
           className={inputClass}
           value={roleFilter}

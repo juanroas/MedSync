@@ -30,6 +30,16 @@ export type LoginResponse = {
   user: User;
 };
 
+export type MfaRequiredResponse = {
+  mfaRequired: true;
+  pendingToken: string;
+};
+
+export type MfaEnrollResponse = {
+  secret: string;
+  otpAuthUri: string;
+};
+
 export type PersonalProfile = {
   id: string;
   name: string;
@@ -40,6 +50,7 @@ export type PersonalProfile = {
   phone?: string;
   profileType: string;
   lockedFields: string[];
+  mfaEnabled: boolean;
 };
 
 export type StaffUser = {

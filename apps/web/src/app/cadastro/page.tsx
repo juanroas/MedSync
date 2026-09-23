@@ -57,9 +57,10 @@ export default function RegisterCompanyPage() {
           </span>
           <h1 className="mt-6 text-3xl font-bold text-ink">Cadastrar clínica</h1>
           <p className="mt-2 text-sm text-slate-500">
-            Esta conta será criada como administradora de uma clínica no MedSync. Se você representa uma
-            empresa parceira que já tem clínica contratante, peça ao suporte MedSync para incluir seu CNPJ
-            como beneficiário — não é necessário criar uma nova clínica.
+            Esta conta será criada como administradora de uma clínica no MedSync. O CNPJ fica pendente de
+            ativação pela equipe MedSync antes de liberar o uso completo — você pode configurar o cadastro
+            enquanto isso. Se você representa uma empresa parceira que já tem clínica contratante, peça ao
+            suporte MedSync para incluir seu CNPJ como beneficiário — não é necessário criar uma nova clínica.
           </p>
           <div className="mt-8 space-y-5">
             {error && <ErrorBanner message={error} />}

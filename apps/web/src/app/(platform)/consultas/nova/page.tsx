@@ -144,7 +144,7 @@ export default function NewAppointmentPage() {
             : "Escolha o medico, o paciente e o melhor horario. A sala sera preparada no momento do acesso."
         }
       />
-      {error && <ErrorBanner message={error} />}
+      {error && !(isPatient && isNoDoctorAvailableError(error)) && <ErrorBanner message={error} />}
       {!canUsePage ? (
         <div className="rounded-3xl border border-amber-100 bg-amber-50 p-6 text-sm text-amber-800">
           Este perfil nao cria agenda. No modelo B2B, o atendimento deve nascer da elegibilidade, suporte ou fluxo autorizado por especialidade.
@@ -156,6 +156,7 @@ export default function NewAppointmentPage() {
           form={form}
           specialties={specialties}
           saving={saving}
+          error={error}
           onChange={setForm}
           onSubmit={submit}
           attachments={attachments}
@@ -179,6 +180,10 @@ export default function NewAppointmentPage() {
   );
 }
 
+function isNoDoctorAvailableError(message: string) {
+  return /n[aã]o h[aá] medico dispon[ií]vel|nao esta disponivel neste horario/i.test(message);
+}
+
 type AppointmentForm = {
   doctorId: string;
   patientId: string;
@@ -194,6 +199,7 @@ function PatientRequestForm({
   form,
   specialties,
   saving,
+  error,
   onChange,
   onSubmit,
   attachments,
@@ -202,6 +208,7 @@ function PatientRequestForm({
   form: AppointmentForm;
   specialties: CareSpecialty[];
   saving: boolean;
+  error: string;
   onChange: (form: AppointmentForm) => void;
   onSubmit: (event: FormEvent) => void;
   attachments: File[];
@@ -214,6 +221,8 @@ function PatientRequestForm({
   const availableDoctors = selectedSpecialty?.doctors ?? [];
   const selectedDoctor = availableDoctors.find((doctor) => doctor.id === form.doctorId);
   const doctorHasAvailability = selectedDoctor?.hasAvailability ?? false;
+  const otherDoctorsInSpecialty = availableDoctors.filter((doctor) => doctor.id !== form.doctorId);
+  const otherSpecialties = specialties.filter((item) => item.specialty !== form.specialty);
 
   const [slotDate, setSlotDate] = useState(formatBrazilDateInput());
   const [availableTimes, setAvailableTimes] = useState<AvailableTime[]>([]);
@@ -255,6 +264,41 @@ function PatientRequestForm({
   return (
     <form onSubmit={onSubmit} className="grid gap-6 xl:grid-cols-[1.2fr_.7fr]">
       <section className="rounded-3xl border border-slate-100 bg-white p-6 shadow-sm sm:p-8">
+        {isNoDoctorAvailableError(error) && (
+          <div className="mb-6 rounded-2xl border border-amber-100 bg-amber-50 p-5 text-sm text-amber-800">
+            <p className="font-bold">Nenhum medico disponivel neste horario.</p>
+            <p className="mt-1 text-xs leading-5">
+              Tente outro horario{otherDoctorsInSpecialty.length > 0 ? ", escolha outro profissional" : ""}
+              {otherSpecialties.length > 0 ? " ou veja outra especialidade" : ""} abaixo. Se nada funcionar, entre em contato com o suporte MedSync.
+            </p>
+            {(otherDoctorsInSpecialty.length > 0 || otherSpecialties.length > 0) && (
+              <div className="mt-3 flex flex-wrap gap-2">
+                {otherDoctorsInSpecialty.map((doctor) => (
+                  <button
+                    key={doctor.id}
+                    type="button"
+                    className="rounded-full border border-amber-200 bg-white px-3 py-1.5 text-xs font-bold text-amber-800 hover:border-amber-400"
+                    onClick={() => onChange({ ...form, doctorId: doctor.id, scheduledAt: "" })}
+                  >
+                    {doctor.name}
+                  </button>
+                ))}
+                {otherSpecialties.map((item) => (
+                  <button
+                    key={item.specialty}
+                    type="button"
+                    className="rounded-full border border-amber-200 bg-white px-3 py-1.5 text-xs font-bold text-amber-800 hover:border-amber-400"
+                    onClick={() =>
+                      onChange({ ...form, specialty: item.specialty, doctorId: item.doctors[0]?.id ?? "", scheduledAt: "" })
+                    }
+                  >
+                    {item.specialty}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
         <div className="grid gap-6 sm:grid-cols-2">
           <label className="block sm:col-span-2">
             <span className="mb-2 block text-sm font-bold text-slate-700">Especialidade ou area</span>
@@ -319,9 +363,23 @@ function PatientRequestForm({
               {slotsLoading ? (
                 <p className="text-sm text-slate-400">Carregando horarios...</p>
               ) : availableTimes.length === 0 ? (
-                <p className="rounded-xl border border-amber-100 bg-amber-50 px-4 py-3 text-xs font-semibold text-amber-800">
-                  Nenhum horario disponivel nesta data. Tente outra data.
-                </p>
+                <div className="rounded-xl border border-amber-100 bg-amber-50 px-4 py-3 text-xs font-semibold text-amber-800">
+                  <p>Nenhum horario disponivel com {selectedDoctor?.name ?? "este medico"} nesta data. Tente outra data{otherDoctorsInSpecialty.length > 0 ? " ou escolha outro profissional abaixo." : "."}</p>
+                  {otherDoctorsInSpecialty.length > 0 && (
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {otherDoctorsInSpecialty.map((doctor) => (
+                        <button
+                          key={doctor.id}
+                          type="button"
+                          className="rounded-full border border-amber-200 bg-white px-3 py-1.5 font-bold text-amber-800 hover:border-amber-400"
+                          onClick={() => onChange({ ...form, doctorId: doctor.id, scheduledAt: "" })}
+                        >
+                          {doctor.name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               ) : (
                 <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
                   {availableTimes.map((time) => {

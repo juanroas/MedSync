@@ -16,6 +16,8 @@ import type {
   FinancialExport,
   FinanceInvoice,
   LoginResponse,
+  MfaEnrollResponse,
+  MfaRequiredResponse,
   Patient,
   PatientClinicalRecord,
   Payment,
@@ -100,9 +102,25 @@ export function getSession(): { user: User } | null {
 
 export const api = {
   login: (email: string, password: string) =>
-    request<LoginResponse>("/auth/login", {
+    request<LoginResponse | MfaRequiredResponse>("/auth/login", {
       method: "POST",
       body: JSON.stringify({ email, password }),
+    }),
+  loginMfa: (pendingToken: string, code: string) =>
+    request<LoginResponse>("/auth/login/mfa", {
+      method: "POST",
+      body: JSON.stringify({ pendingToken, code }),
+    }),
+  enrollMfa: () => request<MfaEnrollResponse>("/mfa/enroll", { method: "POST" }),
+  confirmMfa: (code: string) =>
+    request<{ mfaEnabled: boolean }>("/mfa/confirm", {
+      method: "POST",
+      body: JSON.stringify({ code }),
+    }),
+  disableMfa: (password: string) =>
+    request<{ mfaEnabled: boolean }>("/mfa/disable", {
+      method: "POST",
+      body: JSON.stringify({ password }),
     }),
 
   registerClinic: (input: {

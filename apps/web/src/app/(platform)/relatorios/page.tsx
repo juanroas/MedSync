@@ -9,11 +9,13 @@ import {
   LoadingState,
   MetricCard,
   PageHeader,
+  SearchField,
   TextInput,
+  buttonClass,
 } from "@/components/ui";
 import type { BusinessReportCompany } from "@/lib/types";
 import { api, getSession } from "@/services/api";
-import { Building2, ChartNoAxesColumn, Download, EyeOff, FileBarChart, Search, ShieldCheck, WalletCards } from "lucide-react";
+import { Building2, ChartNoAxesColumn, Download, EyeOff, FileBarChart, ShieldCheck, WalletCards } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 const currency = new Intl.NumberFormat("pt-BR", {
@@ -160,9 +162,7 @@ export default function ReportsPage() {
                 className="w-40"
               />
             </label>
-            <button className="h-11 rounded-lg bg-teal-700 px-4 text-sm font-bold text-white hover:bg-teal-800">
-              Aplicar
-            </button>
+            <button className={buttonClass}>Aplicar</button>
             <button
               type="button"
               className="inline-flex h-11 items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 hover:border-teal-200 hover:text-teal-700"
@@ -196,16 +196,14 @@ export default function ReportsPage() {
           />
 
           <div className="mb-5 grid gap-3 md:grid-cols-[minmax(280px,1fr)_220px]">
-            <div className="flex items-center gap-3 rounded-lg border border-slate-200 bg-white px-4">
-              <Search size={18} className="text-slate-400" />
-              <input
-                className="h-12 w-full bg-transparent text-sm outline-none placeholder:text-slate-400"
-                placeholder="Buscar por empresa, CNPJ, tenant ou plano"
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-              />
-            </div>
+            <SearchField
+              label="Buscar por empresa, CNPJ, tenant ou plano"
+              placeholder="Buscar por empresa, CNPJ, tenant ou plano"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+            />
             <select
+              aria-label="Filtrar por status financeiro"
               className="h-12 rounded-lg border border-slate-200 bg-white px-3.5 text-sm text-ink outline-none transition focus:border-teal-600 focus:ring-4 focus:ring-teal-100"
               value={billingFilter}
               onChange={(event) => setBillingFilter(event.target.value)}
