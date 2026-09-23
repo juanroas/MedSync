@@ -48,15 +48,18 @@ export default function RegisterCompanyPage() {
     <main className="min-h-[100dvh] bg-mist px-6 py-8">
       <div className="mx-auto max-w-2xl">
         <Logo />
-        <Link href="/login" className="mt-8 inline-flex items-center gap-2 text-sm font-bold text-slate-500">
+        <Link
+          href="/login"
+          className="mt-8 inline-flex items-center gap-2 text-label font-semibold text-slate-500 hover:text-teal-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-700"
+        >
           <ArrowLeft size={16} /> Voltar ao login
         </Link>
-        <form onSubmit={submit} className="mt-6 rounded-3xl bg-white p-8 shadow-soft">
+        <form onSubmit={submit} className="mt-6 rounded-2xl border border-slate-200 bg-white p-8 shadow-card">
           <span className="grid size-12 place-items-center rounded-2xl bg-teal-50 text-teal-600">
             <Building2 size={22} />
           </span>
-          <h1 className="mt-6 text-3xl font-bold text-ink">Cadastrar clínica</h1>
-          <p className="mt-2 text-sm text-slate-500">
+          <h1 className="mt-6 text-h1 font-bold text-ink">Cadastrar clínica</h1>
+          <p className="mt-2 text-caption text-slate-500">
             Esta conta será criada como administradora de uma clínica no MedSync. O CNPJ fica pendente de
             ativação pela equipe MedSync antes de liberar o uso completo — você pode configurar o cadastro
             enquanto isso. Se você representa uma empresa parceira que já tem clínica contratante, peça ao
@@ -84,8 +87,8 @@ export default function RegisterCompanyPage() {
               placeholder="00.000.000/0000-00"
             />
             <div className="border-t border-slate-100 pt-5">
-              <p className="text-sm font-bold text-ink">Plano interno da clinica no MedSync</p>
-              <p className="mt-1 text-xs leading-5 text-slate-400">
+              <p className="text-label font-semibold text-ink">Plano interno da clinica no MedSync</p>
+              <p className="mt-1 text-caption text-slate-400">
                 Configura o limite e o valor de uso da clinica dentro da plataforma. Pode ser ajustado depois
                 com a equipe MedSync — nao e uma cobrança que acontece automaticamente no cadastro.
               </p>
@@ -118,7 +121,7 @@ export default function RegisterCompanyPage() {
               onChange={(monthlyFee) => setForm({ ...form, monthlyFee: limitNumber(monthlyFee, 10) })}
             />
             <div className="border-t border-slate-100 pt-5">
-              <p className="text-sm font-bold text-ink">Seu acesso de administrador</p>
+              <p className="text-label font-semibold text-ink">Seu acesso de administrador</p>
             </div>
             <Field
               label="Seu nome"
@@ -141,7 +144,7 @@ export default function RegisterCompanyPage() {
               maxLength={128}
               onChange={(password) => setForm({ ...form, password })}
             />
-            <p className="text-xs leading-5 text-slate-400">
+            <p className="text-caption text-slate-400">
               Use ao menos 12 caracteres, com maiúscula, minúscula, número e símbolo.
             </p>
             <button className={`${buttonClass} w-full`} disabled={loading}>
@@ -179,7 +182,7 @@ function Field({
 }) {
   return (
     <label className="block">
-      <span className="mb-2 block text-sm font-bold text-slate-700">{label}</span>
+      <span className="mb-2 block text-label font-semibold text-slate-700">{label}</span>
       <input
         className={inputClass}
         type={type}

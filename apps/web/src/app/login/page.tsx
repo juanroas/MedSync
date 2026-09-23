@@ -88,14 +88,14 @@ export default function LoginPage() {
           <span className="mt-6 grid size-12 place-items-center rounded-xl bg-teal-50 text-teal-700 ring-1 ring-teal-100">
             <ShieldCheck size={22} />
           </span>
-          <h1 className="mt-6 text-2xl font-bold tracking-tight text-ink">Verificacao em duas etapas</h1>
-          <p className="mt-2 text-sm leading-6 text-slate-500">
+          <h1 className="mt-6 text-h2 font-bold text-ink">Verificacao em duas etapas</h1>
+          <p className="mt-2 text-caption text-slate-500">
             Digite o codigo de 6 digitos do seu aplicativo autenticador.
           </p>
           <form className="mt-6 space-y-5" onSubmit={handleMfaSubmit}>
             {error && <ErrorBanner message={error} />}
             <label className="block">
-              <span className="mb-2 block text-sm font-bold text-slate-700">Codigo</span>
+              <span className="mb-2 block text-label font-semibold text-slate-700">Codigo</span>
               <input
                 className={`${inputClass} text-center text-lg tracking-[0.4em]`}
                 inputMode="numeric"
@@ -112,7 +112,7 @@ export default function LoginPage() {
             </button>
             <button
               type="button"
-              className="w-full text-center text-xs font-bold text-slate-500 hover:text-teal-700"
+              className="w-full text-center text-caption font-semibold text-slate-500 hover:text-teal-700"
               onClick={() => {
                 setMfaPendingToken("");
                 setMfaCode("");
@@ -135,11 +135,11 @@ export default function LoginPage() {
           <span className="mb-6 grid size-12 place-items-center rounded-xl bg-teal-50 text-teal-700 ring-1 ring-teal-100">
             <LockKeyhole size={22} />
           </span>
-          <p className="mb-3 text-xs font-bold uppercase tracking-[0.08em] text-teal-700">
+          <p className="mb-3 text-micro font-semibold text-teal-700">
             Acesso MedSync
           </p>
-          <h1 className="text-4xl font-bold tracking-tight text-ink">Acesse sua experiencia MedSync.</h1>
-          <p className="mt-3 text-sm leading-6 text-slate-500">
+          <h1 className="text-h1 font-bold text-ink">Acesse sua experiencia MedSync.</h1>
+          <p className="mt-3 text-caption text-slate-500">
             Pacientes, medicos, empresas e operacao entram pelo mesmo acesso, mas cada perfil enxerga apenas o escopo permitido.
           </p>
 
@@ -149,7 +149,7 @@ export default function LoginPage() {
                 <button
                   key={account.email}
                   type="button"
-                  className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-left text-xs font-bold text-slate-600 transition hover:border-teal-200 hover:bg-teal-50 hover:text-teal-800 focus:outline-none focus:ring-4 focus:ring-teal-100"
+                  className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-left text-caption font-semibold text-slate-600 transition hover:border-teal-200 hover:bg-teal-50 hover:text-teal-800 focus:outline-none focus:ring-4 focus:ring-teal-100"
                   onClick={() => setEmail(account.email)}
                 >
                   {account.label}
@@ -161,7 +161,7 @@ export default function LoginPage() {
           <form className="mt-9 space-y-5" onSubmit={handleSubmit}>
             {error && <ErrorBanner message={error} />}
             <label className="block">
-              <span className="mb-2 block text-sm font-bold text-slate-700">E-mail</span>
+              <span className="mb-2 block text-label font-semibold text-slate-700">E-mail</span>
               <input
                 className={inputClass}
                 type="email"
@@ -172,7 +172,7 @@ export default function LoginPage() {
               />
             </label>
             <label className="block">
-              <span className="mb-2 block text-sm font-bold text-slate-700">Senha</span>
+              <span className="mb-2 block text-label font-semibold text-slate-700">Senha</span>
               <span className="relative block">
                 <input
                   className={`${inputClass} pr-11`}
@@ -191,7 +191,7 @@ export default function LoginPage() {
                   {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
               </span>
-              <span className="mt-2 block text-xs font-semibold text-slate-400">
+              <span className="mt-2 block text-caption font-medium text-slate-400">
                 Esqueceu a senha? Peca uma redefinicao ao administrador da sua clinica.
               </span>
             </label>
@@ -200,16 +200,16 @@ export default function LoginPage() {
             </button>
           </form>
 
-          <p className="mt-6 text-center text-sm text-slate-500">
+          <p className="mt-6 text-center text-caption text-slate-500">
             Nova clinica?{" "}
-            <Link href="/cadastro" className="font-bold text-teal-700 hover:underline">
+            <Link href="/cadastro" className="font-semibold text-teal-700 hover:underline">
               Cadastre-se aqui
             </Link>
             . O CNPJ fica pendente de ativacao pela equipe MedSync.
           </p>
 
           {demoAccountsEnabled && (
-            <div className="mt-7 rounded-lg border border-teal-100 bg-teal-50/70 p-4 text-xs leading-5 text-slate-600">
+            <div className="mt-7 rounded-lg border border-teal-100 bg-teal-50/70 p-4 text-caption text-slate-600">
               <strong className="text-teal-900">Acesso de demonstracao:</strong>
               <br />
               selecione um perfil acima e use a senha de demonstracao fornecida pela equipe MedSync.
@@ -220,15 +220,15 @@ export default function LoginPage() {
       </section>
 
       <section className="subtle-grid brand-panel hidden overflow-hidden p-12 text-white lg:flex lg:flex-col lg:justify-between">
-        <span className="inline-flex w-fit items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs text-teal-100">
+        <span className="inline-flex w-fit items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-micro font-semibold text-teal-100">
           <span className="size-2 rounded-full bg-coral-400" /> Identidade MedSync
         </span>
 
         <div className="max-w-xl">
-          <h2 className="text-5xl font-bold leading-tight">
+          <h2 className="text-headline font-bold leading-tight">
             Saude digital com a calma que o paciente espera e a clareza que a empresa precisa.
           </h2>
-          <p className="mt-6 max-w-lg text-sm leading-6 text-white/70">
+          <p className="mt-6 max-w-lg text-base leading-6 text-white/70">
             O MedSync separa cuidado assistencial, gestao empresarial e auditoria em experiencias diferentes, sem misturar dado clinico com painel administrativo.
           </p>
         </div>
@@ -236,9 +236,9 @@ export default function LoginPage() {
         <div className="grid grid-cols-2 gap-3">
           {loginModules.map(({ label, value, icon: Icon }) => (
             <div key={label} className="rounded-lg border border-white/10 bg-white/10 p-4">
-              <Icon className="text-coral-200" size={19} />
-              <p className="mt-4 text-xs font-bold uppercase tracking-[0.08em] text-teal-100">{label}</p>
-              <p className="mt-1 text-sm font-semibold text-white">{value}</p>
+              <Icon className="text-coral-100" size={19} />
+              <p className="mt-4 text-micro font-semibold text-teal-100">{label}</p>
+              <p className="mt-1 text-label font-semibold text-white">{value}</p>
             </div>
           ))}
         </div>
