@@ -1,6 +1,6 @@
 "use client";
 
-import { Badge, Card, EmptyState, ErrorBanner, LoadingState, PageHeader, SearchField, buttonClass, inputClass } from "@/components/ui";
+import { Badge, Card, EmptyState, ErrorBanner, LoadingState, PageHeader, SearchField, buttonClass, inputClass, secondaryButtonClass } from "@/components/ui";
 import type { CompanyActivation, CompanyBeneficiary } from "@/lib/types";
 import { api, getSession } from "@/services/api";
 import { CheckCircle2, ClipboardCheck, ShieldCheck, UserPlus, XCircle } from "lucide-react";
@@ -308,7 +308,7 @@ export default function EligibilityPage() {
                       </Badge>
                       <div className="text-right">
                         <button
-                          className={company.isActive ? `${buttonClass} bg-slate-700 hover:bg-slate-800` : buttonClass}
+                          className={secondaryButtonClass}
                           onClick={() => toggleCompany(company)}
                           disabled={savingId === company.companyId}
                         >
@@ -469,7 +469,7 @@ export default function EligibilityPage() {
                     <p className="text-xs text-slate-400">
                       Alteracoes de elegibilidade geram evento de auditoria.
                     </p>
-                    <button className={buttonClass} disabled={savingId === beneficiary.id}>
+                    <button className={secondaryButtonClass} disabled={savingId === beneficiary.id}>
                       {savingId === beneficiary.id ? "Salvando..." : "Salvar elegibilidade"}
                     </button>
                   </div>

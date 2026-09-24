@@ -16,6 +16,25 @@ export type ClinicRole =
   | "PlatformAdmin"
   | "OccupationalHealthAdmin";
 
+export const ROLE_LABELS: Record<ClinicRole, string> = {
+  Patient: "Paciente",
+  Doctor: "Medico",
+  Receptionist: "Recepcao",
+  Finance: "Financeiro (legado)",
+  ClinicAdmin: "Admin da clinica",
+  MedicalDirector: "Diretor medico",
+  PrivacyAuditor: "Auditor de privacidade (legado)",
+  CompanyAdmin: "Empresa admin",
+  CompanyFinance: "Financeiro empresa",
+  PlatformFinance: "Financeiro MedSync",
+  Support: "Suporte MedSync",
+  CompanyAuditor: "Auditor empresa",
+  PlatformAuditor: "Auditor MedSync",
+  DataProtectionOfficer: "DPO/Privacidade",
+  PlatformAdmin: "Admin MedSync",
+  OccupationalHealthAdmin: "Medico do trabalho",
+};
+
 export type User = {
   id: string;
   name: string;

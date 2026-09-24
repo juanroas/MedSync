@@ -1,30 +1,11 @@
 "use client";
 
 import { AlertBanner, Card, ErrorBanner, LoadingState, PageHeader, buttonClass, inputClass } from "@/components/ui";
-import type { ClinicRole, PersonalProfile } from "@/lib/types";
+import { ROLE_LABELS, type PersonalProfile } from "@/lib/types";
 import { isValidOptionalPhone } from "@/lib/validation";
 import { api, saveSession } from "@/services/api";
 import { CheckCircle2, KeyRound, LockKeyhole, Mail, Phone, ShieldCheck, UserRoundCog } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useState } from "react";
-
-const roleLabel: Partial<Record<ClinicRole, string>> = {
-  Patient: "Paciente/beneficiario",
-  Doctor: "Medico",
-  CompanyAdmin: "Empresa admin",
-  CompanyFinance: "Financeiro empresa",
-  CompanyAuditor: "Auditor empresa",
-  PlatformFinance: "Financeiro MedSync",
-  Support: "Suporte MedSync",
-  PlatformAuditor: "Auditor MedSync",
-  DataProtectionOfficer: "DPO/Privacidade",
-  PlatformAdmin: "Admin plataforma",
-  OccupationalHealthAdmin: "Medico do trabalho",
-  ClinicAdmin: "Admin legado",
-  MedicalDirector: "Diretor medico",
-  Receptionist: "Recepcao",
-  Finance: "Financeiro legado",
-  PrivacyAuditor: "Auditoria privacidade legado",
-};
 
 export default function PersonalProfilePage() {
   const [profile, setProfile] = useState<PersonalProfile | null>(null);
@@ -49,7 +30,7 @@ export default function PersonalProfilePage() {
   }, []);
 
   const roleText = useMemo(
-    () => profile?.roles.map((role) => roleLabel[role] ?? role).join(" / ") ?? "",
+    () => profile?.roles.map((role) => ROLE_LABELS[role] ?? role).join(" / ") ?? "",
     [profile?.roles],
   );
 

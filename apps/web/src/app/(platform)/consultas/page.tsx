@@ -310,7 +310,7 @@ export default function AppointmentsPage() {
     <>
       <PageHeader
         eyebrow="Agenda assistencial"
-        title={isDoctor ? "Minha agenda medica" : isPatient ? "Minhas consultas" : "Consultas"}
+        title={isDoctor ? "Agenda" : isPatient ? "Minhas consultas" : "Consultas"}
         description={
           isDoctor
             ? "Consultas vinculadas ao seu atendimento. O medico nao cria a propria agenda neste modelo B2B."
@@ -419,13 +419,8 @@ export default function AppointmentsPage() {
               ? "Quando uma consulta for vinculada ao seu atendimento, ela aparece aqui."
               : isPatient
                 ? "Quando sua elegibilidade gerar um atendimento, ele aparece aqui."
-                : "Agende a primeira consulta para preparar uma sala virtual."
+                : "Use \"Agendar consulta\" no topo da pagina para criar o primeiro atendimento."
           }
-          action={canRequestOrSchedule ? (
-            <Link href="/consultas/nova" className="text-sm font-bold text-teal-600">
-              {isPatient ? "Solicitar atendimento" : "Agendar agora"}
-            </Link>
-          ) : undefined}
         />
       ) : (
         <>
@@ -434,13 +429,13 @@ export default function AppointmentsPage() {
               type="button"
               onClick={() => setTab("active")}
               className={`inline-flex h-9 items-center gap-2 rounded-md px-4 text-xs font-bold transition ${
-                tab === "active" ? "bg-teal-600 text-white" : "text-slate-500 hover:text-ink"
+                tab === "active" ? "bg-teal-50 text-teal-800 ring-1 ring-teal-100" : "text-slate-500 hover:text-ink"
               }`}
             >
               Ativas
               <span
                 className={`rounded-full px-1.5 py-0.5 text-[10px] ${
-                  tab === "active" ? "bg-white/20 text-white" : "bg-slate-100 text-slate-500"
+                  tab === "active" ? "bg-teal-100 text-teal-800" : "bg-slate-100 text-slate-500"
                 }`}
               >
                 {activeAppointments.length}
@@ -450,13 +445,13 @@ export default function AppointmentsPage() {
               type="button"
               onClick={() => setTab("history")}
               className={`inline-flex h-9 items-center gap-2 rounded-md px-4 text-xs font-bold transition ${
-                tab === "history" ? "bg-teal-600 text-white" : "text-slate-500 hover:text-ink"
+                tab === "history" ? "bg-teal-50 text-teal-800 ring-1 ring-teal-100" : "text-slate-500 hover:text-ink"
               }`}
             >
               Historico
               <span
                 className={`rounded-full px-1.5 py-0.5 text-[10px] ${
-                  tab === "history" ? "bg-white/20 text-white" : "bg-slate-100 text-slate-500"
+                  tab === "history" ? "bg-teal-100 text-teal-800" : "bg-slate-100 text-slate-500"
                 }`}
               >
                 {historyAppointments.length}

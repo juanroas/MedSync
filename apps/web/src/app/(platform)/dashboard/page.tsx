@@ -68,6 +68,9 @@ export default function DashboardPage() {
   const isDpoHome = roles.includes("DataProtectionOfficer") && !roles.includes("PlatformAdmin");
   const canSchedule = roles.some((role) => schedulingRoles.includes(role));
   const canJoin = roles.some((role) => joinRoles.includes(role));
+  const canViewAudit = roles.some((role) =>
+    ["ClinicAdmin", "PrivacyAuditor", "CompanyAuditor", "PlatformAuditor", "DataProtectionOfficer"].includes(role),
+  );
   const canLoadAppointments = roles.some((role) => appointmentLoadRoles.includes(role));
   const canLoadPatients = roles.some((role) => patientLoadRoles.includes(role));
   const canLoadDoctors = roles.some((role) => schedulingRoles.includes(role));
@@ -230,12 +233,14 @@ export default function DashboardPage() {
               <p className="mt-3 text-sm leading-6 text-white/55">
                 Dados clinicos permanecem restritos aos perfis autorizados.
               </p>
-              <Link
-                href="/auditoria"
-                className="mt-8 inline-flex items-center gap-2 text-sm font-bold text-teal-200"
-              >
-                Ver auditoria <ArrowRight size={15} />
-              </Link>
+              {canViewAudit && (
+                <Link
+                  href="/auditoria"
+                  className="mt-8 inline-flex items-center gap-2 text-sm font-bold text-teal-200"
+                >
+                  Ver auditoria <ArrowRight size={15} />
+                </Link>
+              )}
             </aside>
           </section>
         </>
@@ -906,11 +911,6 @@ function PlatformFinanceHome({
         eyebrow="MedSync Finance"
         title="Financeiro MedSync"
         description="Visao financeira global por CNPJ, incluindo empresas de teste e CNPJ tecnico quando aprovado, sem dados clinicos."
-        action={
-          <Link href="/relatorios" className={buttonClass}>
-            <BarChart3 size={17} /> Abrir relatorios
-          </Link>
-        }
       />
       {error && <ErrorBanner message={error} />}
       {loading ? (

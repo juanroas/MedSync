@@ -1,24 +1,34 @@
 "use client";
 
 import { Badge, Card, EmptyState, ErrorBanner, LoadingState, PageHeader, SearchField, buttonClass, inputClass } from "@/components/ui";
-import type { ClinicRole, StaffUser } from "@/lib/types";
+import { ROLE_LABELS, type ClinicRole, type StaffUser } from "@/lib/types";
 import { api, getSession } from "@/services/api";
 import { KeyRound, Plus, Power, ShieldCheck, UserCog } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
-const staffRoleOptions: Array<{ value: ClinicRole; label: string }> = [
-  { value: "CompanyAdmin", label: "Empresa/parceiro admin" },
-  { value: "CompanyFinance", label: "Financeiro empresa" },
-  { value: "PlatformFinance", label: "Financeiro MedSync" },
-  { value: "Support", label: "Suporte MedSync" },
-  { value: "CompanyAuditor", label: "Auditor empresa" },
-  { value: "PlatformAuditor", label: "Auditor MedSync" },
-  { value: "DataProtectionOfficer", label: "DPO/Privacidade" },
-  { value: "OccupationalHealthAdmin", label: "ADM Medico do Trabalho" },
-  { value: "PlatformAdmin", label: "Admin plataforma" },
-  { value: "Receptionist", label: "Recepcao (cadastra pacientes/beneficiarios)" },
-  { value: "MedicalDirector", label: "Diretor medico (cadastra medicos)" },
-];
+const roleHints: Partial<Record<ClinicRole, string>> = {
+  Receptionist: "cadastra pacientes/beneficiarios",
+  MedicalDirector: "cadastra medicos",
+};
+
+const staffRoleOptions: Array<{ value: ClinicRole; label: string }> = (
+  [
+    "CompanyAdmin",
+    "CompanyFinance",
+    "PlatformFinance",
+    "Support",
+    "CompanyAuditor",
+    "PlatformAuditor",
+    "DataProtectionOfficer",
+    "OccupationalHealthAdmin",
+    "PlatformAdmin",
+    "Receptionist",
+    "MedicalDirector",
+  ] as ClinicRole[]
+).map((value) => ({
+  value,
+  label: roleHints[value] ? `${ROLE_LABELS[value]} (${roleHints[value]})` : ROLE_LABELS[value],
+}));
 
 const platformStaffRoleValues: ClinicRole[] = [
   "PlatformFinance",
@@ -44,24 +54,6 @@ const initialForm = {
   temporaryPassword: "",
 };
 
-const roleLabel: Partial<Record<ClinicRole, string>> = {
-  Patient: "Paciente/beneficiario",
-  Doctor: "Medico independente",
-  CompanyAdmin: "Empresa/parceiro admin",
-  CompanyFinance: "Financeiro empresa",
-  PlatformFinance: "Financeiro MedSync",
-  Support: "Suporte MedSync",
-  CompanyAuditor: "Auditor empresa",
-  PlatformAuditor: "Auditor MedSync",
-  DataProtectionOfficer: "DPO/Privacidade",
-  OccupationalHealthAdmin: "ADM Medico do Trabalho",
-  PlatformAdmin: "Admin plataforma",
-  Receptionist: "Recepcao",
-  Finance: "Financeiro legado",
-  ClinicAdmin: "Admin legado",
-  MedicalDirector: "Diretor medico",
-  PrivacyAuditor: "Auditor privacidade legado",
-};
 
 export default function AccessPage() {
   const [roles, setRoles] = useState<ClinicRole[]>(() => getSession()?.user.roles ?? []);
@@ -103,7 +95,7 @@ export default function AccessPage() {
       users
         .filter((user) => allowedRoleValues.includes(user.role))
         .filter((user) => {
-          const matchesSearch = `${user.name} ${user.email} ${roleLabel[user.role] ?? user.role}`
+          const matchesSearch = `${user.name} ${user.email} ${ROLE_LABELS[user.role] ?? user.role}`
             .toLowerCase()
             .includes(query.toLowerCase());
           const matchesRole = roleFilter === "all" || user.role === roleFilter;
@@ -323,8 +315,8 @@ export default function AccessPage() {
                       <span className="truncate font-bold text-ink" title={user.name}>{user.name}</span>
                     </div>
                     <span className="truncate text-slate-500" title={user.email}>{user.email}</span>
-                    <span className="truncate text-xs font-bold uppercase tracking-wide text-teal-700" title={roleLabel[user.role] ?? user.role}>
-                      {roleLabel[user.role] ?? user.role}
+                    <span className="truncate text-xs font-bold uppercase tracking-wide text-teal-700" title={ROLE_LABELS[user.role] ?? user.role}>
+                      {ROLE_LABELS[user.role] ?? user.role}
                     </span>
                     <Badge tone={user.isActive ? "success" : "warning"}>{user.isActive ? "Ativo" : "Inativo"}</Badge>
                     <div className="flex flex-wrap justify-end gap-2 text-right">

@@ -160,7 +160,7 @@ export default function DoctorsPage() {
     <>
       <PageHeader
         eyebrow={isDoctorProfile ? "MedSync Medical" : "Rede assistencial"}
-        title={isDoctorProfile ? "Meu perfil medico" : "Medicos"}
+        title={isDoctorProfile ? "Meu perfil" : "Medicos"}
         description={
           isDoctorProfile
             ? "Consulte seus dados profissionais usados na agenda e nos atendimentos vinculados."

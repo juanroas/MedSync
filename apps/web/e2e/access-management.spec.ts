@@ -40,7 +40,7 @@ test.describe("gestao de equipe e acessos", () => {
     await expect(page.locator("main")).not.toContainText(/empresa alfa/i);
     await expect(page.locator("main")).not.toContainText(/empresa beta/i);
     await page.getByRole("button", { name: /novo acesso/i }).click();
-    await expect(page.getByLabel("Perfil", { exact: true })).toContainText(/empresa\/parceiro admin/i);
+    await expect(page.getByLabel("Perfil", { exact: true })).toContainText(/empresa admin/i);
     await expect(page.getByLabel("Perfil", { exact: true })).toContainText(/financeiro empresa/i);
     await expect(page.getByLabel("Perfil", { exact: true })).toContainText(/auditor empresa/i);
     await expect(page.getByLabel("Perfil", { exact: true })).not.toContainText(/financeiro medsync/i);

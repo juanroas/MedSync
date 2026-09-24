@@ -1,7 +1,7 @@
 "use client";
 
 import { Logo } from "@/components/logo";
-import type { ClinicRole, User } from "@/lib/types";
+import { ROLE_LABELS, type ClinicRole, type User } from "@/lib/types";
 import { api, clearSession, getSession, saveSession } from "@/services/api";
 import {
   Building2,
@@ -19,7 +19,6 @@ import {
   UserRoundCog,
   Users,
   UserCog,
-  Video,
   X,
 } from "lucide-react";
 import Link from "next/link";
@@ -129,14 +128,6 @@ const navigation: Array<{
   },
 ];
 
-const schedulingRoles: ClinicRole[] = [
-  "Receptionist",
-  "ClinicAdmin",
-  "MedicalDirector",
-  "Support",
-  "OccupationalHealthAdmin",
-];
-
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -189,8 +180,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     }
     return !item.roles || item.roles.some((role) => user.roles.includes(role));
   });
-  const canSchedule =
-    !isPlatformAdminProfile && (isPatientOnly || schedulingRoles.some((role) => user.roles.includes(role)));
 
   return (
     <div className="min-h-screen bg-mist">
@@ -242,20 +231,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </nav>
 
         <div className="mt-auto">
-          {canSchedule && pathname !== "/dashboard" && (
-            <Link
-              href="/consultas/nova"
-              className="mb-5 flex items-center gap-3 rounded-lg border border-coral-100 bg-coral-50 p-4 text-sm text-coral-800"
-            >
-              <span className="grid size-9 place-items-center rounded-lg bg-coral-100 text-coral-600">
-                <Video size={18} />
-              </span>
-              <span>
-                <strong className="block">{isPatientOnly ? "Solicitar consulta" : "Nova consulta"}</strong>
-                <small className="text-coral-700/75">{isPatientOnly ? "Por especialidade" : "Agendar atendimento"}</small>
-              </span>
-            </Link>
-          )}
           <button
             onClick={logout}
             className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-slate-500 hover:bg-slate-50 hover:text-ink"
@@ -283,7 +258,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           >
             <div className="hidden text-right sm:block">
               <p className="text-sm font-bold text-ink group-hover:text-teal-800">{user.name}</p>
-              <p className="text-xs text-slate-400 group-hover:text-teal-600">{user.roles.join(" / ")}</p>
+              <p className="text-xs text-slate-400 group-hover:text-teal-600">{user.roles.map((role) => ROLE_LABELS[role] ?? role).join(" / ")}</p>
             </div>
             <span className="grid size-10 place-items-center rounded-lg bg-coral-50 text-sm font-bold text-coral-600 ring-1 ring-coral-100 transition group-hover:bg-teal-600 group-hover:text-white group-hover:ring-teal-600">
               {user.name
