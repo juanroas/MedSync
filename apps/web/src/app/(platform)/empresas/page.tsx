@@ -66,7 +66,11 @@ export default function CompaniesPage() {
         <div className="flex gap-3">
           <ShieldCheck className="mt-0.5 shrink-0 text-teal-700" size={18} />
           <p>
-            Suporte cadastra empresa e conta ADM inicial. A habilitacao do CNPJ fica restrita ao ADM MedSync na aba Elegibilidade.
+            Este e o canal de <strong>onboarding assistido</strong> — use quando a clinica for cadastrada pelo
+            suporte (ex: venda fechada por telefone). Suporte cadastra a empresa e a conta ADM inicial; a
+            habilitacao do CNPJ fica restrita ao ADM MedSync na aba Elegibilidade. Se a propria clinica preferir
+            se cadastrar sozinha, ela usa o autocadastro em <code>/cadastro</code> — os dois canais coexistem
+            de proposito, nao e necessario escolher so um.
           </p>
         </div>
       </section>

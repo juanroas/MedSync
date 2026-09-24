@@ -213,34 +213,10 @@ export default function DashboardPage() {
       ) : (
         <>
           <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <MetricCard
-              label="Consultas"
-              value={appointments.length}
-              detail="total agendado"
-              icon={<CalendarCheck2 size={20} />}
-              tone="success"
-            />
-            <MetricCard
-              label="Pacientes"
-              value={patients.length}
-              detail="cadastros permitidos"
-              icon={<Users size={20} />}
-              tone="info"
-            />
-            <MetricCard
-              label="Medicos"
-              value={doctors.length}
-              detail="credenciados"
-              icon={<Stethoscope size={20} />}
-              tone="neutral"
-            />
-            <MetricCard
-              label="Proximas"
-              value={upcoming.length}
-              detail="aguardando atendimento"
-              icon={<Clock3 size={20} />}
-              tone="warning"
-            />
+            <MetricCard label="Consultas" value={appointments.length} detail="total agendado" icon={<CalendarCheck2 size={20} />} tone="success" />
+            <MetricCard label="Pacientes" value={patients.length} detail="cadastros permitidos" icon={<Users size={20} />} tone="info" />
+            <MetricCard label="Medicos" value={doctors.length} detail="credenciados" icon={<Stethoscope size={20} />} tone="neutral" />
+            <MetricCard label="Proximas" value={upcoming.length} detail="aguardando atendimento" icon={<Clock3 size={20} />} tone="warning" />
           </section>
 
           <section className="mt-7 grid gap-6 xl:grid-cols-[1.55fr_.75fr]">
@@ -387,6 +363,29 @@ function CompanyPortalHome({
         <LoadingState label="Carregando dados empresariais permitidos..." />
       ) : portal ? (
         <>
+          {!portal.company.isActive && (
+            <section className="mb-7 flex flex-col gap-4 rounded-lg border border-amber-200 bg-amber-50 p-6 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-start gap-3">
+                <span className="grid size-11 shrink-0 place-items-center rounded-lg bg-amber-100 text-amber-700">
+                  <ShieldCheck size={20} />
+                </span>
+                <div>
+                  <p className="font-bold text-amber-900">Cadastro recebido — voce ja pode explorar o painel.</p>
+                  <p className="mt-1 text-sm leading-6 text-amber-800">
+                    Nossa equipe esta validando o CNPJ para liberar atendimentos reais e cobranca. Configure a conta
+                    enquanto isso, ou fale com o suporte para acelerar a ativacao.
+                  </p>
+                </div>
+              </div>
+              <Link
+                href={`/ajuda?subject=${encodeURIComponent("Finalizar ativacao do CNPJ")}`}
+                className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-lg bg-amber-600 px-5 text-sm font-bold text-white hover:bg-amber-700"
+              >
+                Falar com o suporte
+              </Link>
+            </section>
+          )}
+
           <section className="brand-surface mb-7 rounded-lg border border-teal-100 p-6 shadow-sm">
             <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
               <div>
@@ -845,33 +844,24 @@ function DoctorHome({
         eyebrow="MedSync Medical"
         title="Painel medico"
         description="Acompanhe sua agenda vinculada, pacientes atendidos e indicadores do periodo. Agendamentos sao criados pelo fluxo de elegibilidade/suporte, nao pelo medico."
+        action={
+          <span className="w-fit rounded-full bg-coral-50 px-3 py-1.5 text-xs font-bold text-coral-600">
+            Sem criacao de agenda
+          </span>
+        }
       />
       {error && <ErrorBanner message={error} />}
       {loading ? (
         <LoadingState label="Carregando sua agenda medica..." />
       ) : (
         <>
-          <section className="mb-7 rounded-lg border border-teal-100 bg-white p-6 shadow-sm">
-            <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-              <div>
-                <p className="text-xs font-bold uppercase tracking-[0.08em] text-teal-700">Medical Desk</p>
-                <h2 className="mt-2 text-2xl font-bold text-ink">O dia do medico com foco no atendimento.</h2>
-                <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-                  Agenda vinculada, indicadores do periodo e entrada em sala ficam separados da gestao empresarial e do financeiro.
-                </p>
-              </div>
-              <span className="w-fit rounded-full bg-coral-50 px-3 py-1.5 text-xs font-bold text-coral-600">
-                Sem criacao de agenda
-              </span>
-            </div>
-          </section>
-
           <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <MetricCard label="Hoje" value={day} detail="consultas vinculadas" icon={<CalendarCheck2 size={20} />} tone="success" />
             <MetricCard label="Semana" value={week} detail="periodo atual" icon={<Clock3 size={20} />} tone="info" />
             <MetricCard label="Mes" value={month} detail="volume assistencial" icon={<BarChart3 size={20} />} tone="neutral" />
             <MetricCard label="Ano" value={year} detail="historico agregado" icon={<FileText size={20} />} tone="warning" />
           </section>
+
           <section className="mt-7 grid gap-6 xl:grid-cols-[1.2fr_.8fr]">
             <AppointmentsPanel appointments={upcoming} canJoin />
             <Card className="p-6">
@@ -1099,6 +1089,11 @@ function PatientCareHome({
   const joinAvailable = nextAppointment ? isAppointmentRoomJoinable(nextAppointment) : false;
   const roomBlockedReason = nextAppointment ? careBlockReason(nextAppointment) : null;
   const nextStep = nextAppointment ? patientCareStep(nextAppointment) : null;
+  const inProgressCount = appointments.filter((item) => item.status === "InProgress").length;
+  const scheduledCount = appointments.filter(
+    (item) => item.status === "Scheduled" && !isAppointmentMissed(item),
+  ).length;
+  const completedCount = appointments.filter((item) => item.status === "Completed").length;
 
   return (
     <>
@@ -1106,33 +1101,34 @@ function PatientCareHome({
         eyebrow="MedSync Care"
         title="Acesse seu cuidado digital"
         description="Consulte seus atendimentos, termos e entrada na sala em um ambiente privado."
-        action={(
-          <Link href="/consultas/nova" className={buttonClass}>
-            <HeartPulse size={17} /> Solicitar consulta
-          </Link>
-        )}
       />
       {error && <ErrorBanner message={error} />}
       {loading ? (
         <LoadingState label="Carregando sua jornada de cuidado..." />
       ) : (
         <>
-          <section className="grid gap-5 xl:grid-cols-[1.35fr_.85fr]">
-            <div className="care-panel rounded-lg p-6 text-white shadow-brand sm:p-7">
+          <section className="grid gap-4 sm:grid-cols-3">
+            <MetricCard label="Em andamento" value={inProgressCount} icon={<Video size={20} />} tone="warning" />
+            <MetricCard label="Agendadas" value={scheduledCount} icon={<CalendarCheck2 size={20} />} tone="info" />
+            <MetricCard label="Concluidas" value={completedCount} icon={<CheckCircle2 size={20} />} tone="success" />
+          </section>
+
+          <section className="mt-5 grid gap-5 xl:grid-cols-[1.35fr_.85fr]">
+            <Card className="p-6 sm:p-7">
               <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
                 <div>
-                  <p className="text-xs font-bold uppercase tracking-[0.08em] text-teal-100">Proximo atendimento</p>
+                  <p className="text-xs font-bold uppercase tracking-[0.08em] text-teal-700">Proximo atendimento</p>
                   {nextAppointment ? (
                     <>
-                      <h2 className="mt-3 text-3xl font-bold">{nextAppointment.specialty}</h2>
-                      <p className="mt-2 text-sm text-white/60">
+                      <h2 className="mt-3 text-3xl font-bold text-ink">{nextAppointment.specialty}</h2>
+                      <p className="mt-2 text-sm text-slate-500">
                         {nextAppointment.doctorName} - {formatDateTime(nextAppointment.scheduledAt)}
                       </p>
                     </>
                   ) : (
                     <>
-                      <h2 className="mt-3 text-3xl font-bold">Nenhuma consulta agendada</h2>
-                      <p className="mt-2 text-sm text-white/60">
+                      <h2 className="mt-3 text-3xl font-bold text-ink">Nenhuma consulta agendada</h2>
+                      <p className="mt-2 text-sm text-slate-500">
                         Quando um atendimento for autorizado, ele aparece aqui.
                       </p>
                     </>
@@ -1143,14 +1139,14 @@ function PatientCareHome({
                     <Link
                       href={nextStep.href}
                       className={nextStep.primary
-                        ? "inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-white px-5 text-sm font-bold text-teal-800 hover:bg-teal-50"
-                        : "inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-white/10 px-5 text-sm font-bold text-white ring-1 ring-white/15 hover:bg-white/15"}
+                        ? "inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-teal-600 px-5 text-sm font-bold text-white hover:bg-teal-700"
+                        : "inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-slate-100 px-5 text-sm font-bold text-slate-700 hover:bg-slate-200"}
                     >
                       {nextStep.icon} {nextStep.cta}
                     </Link>
                   ) : (
                     <span
-                      className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-white/10 px-5 text-sm font-bold text-white ring-1 ring-white/15 hover:bg-white/15"
+                      className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-slate-100 px-5 text-sm font-bold text-slate-700"
                     >
                       {nextStep?.icon ?? <Clock3 size={17} />} {nextStep?.cta ?? "Acompanhar status"}
                     </span>
@@ -1158,18 +1154,18 @@ function PatientCareHome({
                 ) : (
                   <Link
                     href="/consultas/nova"
-                    className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-white px-5 text-sm font-bold text-teal-800 hover:bg-teal-50"
+                    className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-teal-600 px-5 text-sm font-bold text-white hover:bg-teal-700"
                   >
                     <CalendarCheck2 size={17} /> Solicitar consulta
                   </Link>
                 )}
               </div>
               {roomBlockedReason && (
-                <div className="mt-6 rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/70">
+                <div className="mt-6 rounded-lg border border-slate-100 bg-slate-50 px-4 py-3 text-sm text-slate-600">
                   {roomBlockedReason}
                 </div>
               )}
-            </div>
+            </Card>
 
             <Card className="p-6">
               <div className="flex items-start gap-4">
@@ -1225,12 +1221,7 @@ function PatientCareHome({
                   <EmptyState
                     icon={<CalendarCheck2 size={22} />}
                     title="Voce ainda nao tem consultas"
-                    description="Se houver elegibilidade ou cadastro direto aprovado, seus atendimentos aparecem aqui."
-                    action={(
-                      <Link href="/consultas/nova" className="text-sm font-bold text-teal-600">
-                        Solicitar consulta
-                      </Link>
-                    )}
+                    description="Se houver elegibilidade ou cadastro direto aprovado, seus atendimentos aparecem aqui. Use o botao acima para solicitar."
                   />
                 </div>
               ) : (
@@ -1371,6 +1362,7 @@ function AppointmentRow({
     </div>
   );
 }
+
 
 function CareStatus({
   icon,

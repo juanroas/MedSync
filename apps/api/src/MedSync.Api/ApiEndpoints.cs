@@ -47,6 +47,9 @@ public static class ApiEndpoints
         protectedApi.MapGet("/privacy/requests", GetPrivacyRequests);
         protectedApi.MapPost("/privacy/requests", CreatePrivacyRequest);
         protectedApi.MapPut("/privacy/requests/{id:guid}/status", UpdatePrivacyRequestStatus);
+        protectedApi.MapGet("/support/requests", GetSupportRequests);
+        protectedApi.MapPost("/support/requests", CreateSupportRequest);
+        protectedApi.MapPut("/support/requests/{id:guid}/status", UpdateSupportRequestStatus);
         protectedApi.MapGet("/reports/business-summary", GetBusinessReport);
 
         protectedApi.MapPost("/patients", CreatePatient);
@@ -1269,6 +1272,119 @@ public static class ApiEndpoints
         return Results.Ok(ToResponse(privacyRequest));
     }
 
+    private static async Task<IResult> GetSupportRequests(
+        ClaimsPrincipal principal,
+        MedSyncDbContext db,
+        AuditWriter audit,
+        CancellationToken cancellationToken)
+    {
+        var actor = RequestContext.From(principal);
+        var canOperateSupport = CanOperateSupport(actor);
+
+        var query = db.SupportRequests.AsNoTracking()
+            .Where(x => x.ClinicId == actor.ClinicId);
+
+        if (!canOperateSupport)
+        {
+            query = query.Where(x => x.CreatedByUserId == actor.UserId);
+        }
+
+        var requests = await query
+            .OrderByDescending(x => x.CreatedAt)
+            .Take(100)
+            .Select(x => new SupportRequestResponse(
+                x.Id,
+                x.RequesterName,
+                x.RequesterEmail,
+                x.Subject,
+                x.Status,
+                x.Description,
+                x.ResolutionNote,
+                x.CreatedAt,
+                x.UpdatedAt))
+            .ToListAsync(cancellationToken);
+
+        audit.Add(actor, "SupportRequest.List", "SupportRequest", null);
+        await db.SaveChangesAsync(cancellationToken);
+        return Results.Ok(requests);
+    }
+
+    private static async Task<IResult> CreateSupportRequest(
+        CreateSupportRequestRequest request,
+        ClaimsPrincipal principal,
+        MedSyncDbContext db,
+        AuditWriter audit,
+        CancellationToken cancellationToken)
+    {
+        var actor = RequestContext.From(principal);
+
+        var subject = request.Subject.Trim();
+        var description = request.Description.Trim();
+
+        var validation = ValidateSupportRequest(subject, description);
+        if (validation is not null)
+            return validation;
+
+        var user = await db.Users.AsNoTracking()
+            .Where(x => x.Id == actor.UserId)
+            .Select(x => new { x.Name, x.Email })
+            .SingleAsync(cancellationToken);
+
+        var supportRequest = new SupportRequest
+        {
+            ClinicId = actor.ClinicId,
+            CreatedByUserId = actor.UserId,
+            RequesterName = user.Name,
+            RequesterEmail = user.Email,
+            Subject = subject,
+            Description = description
+        };
+
+        db.SupportRequests.Add(supportRequest);
+        audit.Add(actor, "SupportRequest.Create", "SupportRequest", supportRequest.Id);
+        await db.SaveChangesAsync(cancellationToken);
+        return Results.Created($"/support/requests/{supportRequest.Id}", ToResponse(supportRequest));
+    }
+
+    private static async Task<IResult> UpdateSupportRequestStatus(
+        Guid id,
+        UpdateSupportRequestStatusRequest request,
+        ClaimsPrincipal principal,
+        MedSyncDbContext db,
+        AuditWriter audit,
+        CancellationToken cancellationToken)
+    {
+        var actor = RequestContext.From(principal);
+        if (!CanOperateSupport(actor))
+        {
+            audit.Add(actor, "SupportRequest.UpdateStatus", "SupportRequest", id, "Denied", "Perfil sem permissao para atualizar solicitacao de ajuda.");
+            await db.SaveChangesAsync(cancellationToken);
+            return Results.Forbid();
+        }
+
+        var supportRequest = await db.SupportRequests
+            .SingleOrDefaultAsync(x => x.Id == id && x.ClinicId == actor.ClinicId, cancellationToken);
+        if (supportRequest is null)
+            return Results.NotFound();
+
+        var note = string.IsNullOrWhiteSpace(request.ResolutionNote)
+            ? null
+            : request.ResolutionNote.Trim();
+        if (note?.Length > 1000)
+            return Validation("resolutionNote", "Nota de suporte deve ter ate 1000 caracteres.");
+        if (note is not null && LooksLikeFullCpf(note))
+            return Validation("resolutionNote", "Nao registre CPF completo ou dado sensivel na nota de suporte.");
+
+        supportRequest.Status = request.Status;
+        supportRequest.ResolutionNote = note;
+        supportRequest.UpdatedByUserId = actor.UserId;
+        supportRequest.UpdatedAt = DateTime.UtcNow;
+
+        audit.Add(actor, "SupportRequest.UpdateStatus", "SupportRequest", supportRequest.Id);
+        await db.SaveChangesAsync(cancellationToken);
+        return Results.Ok(ToResponse(supportRequest));
+    }
+
     private static async Task<IResult> GetBusinessReport(
         string? period,
         ClaimsPrincipal principal,
@@ -1912,9 +2028,31 @@ public static class ApiEndpoints
             ClinicRole.Patient);
 
         var patients = await query.OrderBy(x => x.Name).ToListAsync(cancellationToken);
+
+        var today = DateOnly.FromDateTime(DateTime.UtcNow.Date);
+        var patientIds = patients.Select(x => x.Id).ToList();
+        var activeBenefitPatientIds = await db.CompanyEmployees.AsNoTracking()
+            .Where(x =>
+                x.ClinicId == actor.ClinicId &&
+                x.PatientId != null &&
+                patientIds.Contains(x.PatientId!.Value) &&
+                x.IsActive &&
+                x.Company.IsActive &&
+                x.EligibilityRecords.Any(e =>
+                    e.IsEligible &&
+                    e.EligibleFrom <= today &&
+                    (e.EligibleUntil == null || e.EligibleUntil >= today)) &&
+                db.CompanyContracts.Any(c =>
+                    c.ClinicId == actor.ClinicId &&
+                    c.CompanyId == x.CompanyId &&
+                    c.Status == CompanyContractStatus.Active))
+            .Select(x => x.PatientId!.Value)
+            .ToListAsync(cancellationToken);
+        var activeBenefitSet = activeBenefitPatientIds.ToHashSet();
+
         audit.Add(actor, "Patient.List", "Patient", null);
         await db.SaveChangesAsync(cancellationToken);
-        return Results.Ok(patients.Select(x => ToResponse(x, canSeeMedications)));
+        return Results.Ok(patients.Select(x => ToResponse(x, canSeeMedications, activeBenefitSet.Contains(x.Id))));
     }
 
     private static async Task<IResult> UpdatePatient(
@@ -3418,6 +3556,9 @@ public static class ApiEndpoints
             ClinicRole.DataProtectionOfficer,
             ClinicRole.PlatformAdmin);
 
+    private static bool CanOperateSupport(RequestContext actor) =>
+        actor.HasAny(ClinicRole.Support, ClinicRole.PlatformAdmin);
+
     private static bool CanViewBusinessReports(RequestContext actor) =>
         actor.HasAny(
             ClinicRole.CompanyAdmin,
@@ -3477,6 +3618,21 @@ public static class ApiEndpoints
             return Validation("description", "Descricao deve ter ate 1000 caracteres.");
         if (LooksLikeFullCpf(description))
             return Validation("description", "Nao registre CPF completo ou dado clinico na descricao.");
+        return null;
+    }
+
+    private static IResult? ValidateSupportRequest(string subject, string description)
+    {
+        if (subject.Length < 3)
+            return Validation("subject", "Informe um assunto para a solicitacao.");
+        if (subject.Length > 160)
+            return Validation("subject", "Assunto deve ter ate 160 caracteres.");
+        if (description.Length < 10)
+            return Validation("description", "Descreva o que voce precisa com pelo menos 10 caracteres.");
+        if (description.Length > 1000)
+            return Validation("description", "Descricao deve ter ate 1000 caracteres.");
+        if (LooksLikeFullCpf(description))
+            return Validation("description", "Nao registre CPF completo ou dado sensivel na descricao.");
         return null;
     }
 
@@ -3573,7 +3729,10 @@ public static class ApiEndpoints
             user.MfaEnabled);
     }
 
-    private static PatientResponse ToResponse(Patient patient, bool includeContinuousMedications = true) =>
+    private static PatientResponse ToResponse(
+        Patient patient,
+        bool includeContinuousMedications = true,
+        bool hasActiveBenefit = false) =>
         new(
             patient.Id,
             patient.Name,
@@ -3581,7 +3740,8 @@ public static class ApiEndpoints
             SecurityText.MaskCpf(patient.Cpf),
             patient.BirthDate,
             patient.Phone,
-            includeContinuousMedications ? patient.ContinuousMedications : null);
+            includeContinuousMedications ? patient.ContinuousMedications : null,
+            hasActiveBenefit);
 
     private static DoctorResponse ToResponse(Doctor doctor) =>
         new(doctor.Id, doctor.Name, doctor.Email, doctor.Crm, doctor.CrmUf, doctor.Specialty, doctor.Phone);
@@ -3635,6 +3795,18 @@ public static class ApiEndpoints
             request.RequesterEmail,
             request.SubjectReference,
             request.Type,
+            request.Status,
+            request.Description,
+            request.ResolutionNote,
+            request.CreatedAt,
+            request.UpdatedAt);
+
+    private static SupportRequestResponse ToResponse(SupportRequest request) =>
+        new(
+            request.Id,
+            request.RequesterName,
+            request.RequesterEmail,
+            request.Subject,
             request.Status,
             request.Description,
             request.ResolutionNote,

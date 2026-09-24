@@ -104,6 +104,7 @@ export type Patient = {
   birthDate: string;
   phone?: string;
   continuousMedications?: string;
+  hasActiveBenefit?: boolean;
 };
 
 export type Doctor = {
@@ -352,6 +353,20 @@ export type PrivacyRequest = {
   subjectReference: string;
   type: PrivacyRequestType;
   status: PrivacyRequestStatus;
+  description: string;
+  resolutionNote?: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type SupportRequestStatus = "New" | "InProgress" | "Resolved";
+
+export type SupportRequest = {
+  id: string;
+  requesterName: string;
+  requesterEmail: string;
+  subject: string;
+  status: SupportRequestStatus;
   description: string;
   resolutionNote?: string;
   createdAt: string;

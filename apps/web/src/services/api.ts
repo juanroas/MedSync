@@ -26,6 +26,8 @@ import type {
   PrivacyRequestStatus,
   PrivacyRequestType,
   StaffUser,
+  SupportRequest,
+  SupportRequestStatus,
   AuditEvent,
   User,
   WeekDay,
@@ -235,6 +237,21 @@ export const api = {
     input: { status: PrivacyRequestStatus; resolutionNote?: string },
   ) =>
     request<PrivacyRequest>(`/privacy/requests/${id}/status`, {
+      method: "PUT",
+      body: JSON.stringify(input),
+    }),
+
+  getSupportRequests: () => request<SupportRequest[]>("/support/requests"),
+  createSupportRequest: (input: { subject: string; description: string }) =>
+    request<SupportRequest>("/support/requests", {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
+  updateSupportRequestStatus: (
+    id: string,
+    input: { status: SupportRequestStatus; resolutionNote?: string },
+  ) =>
+    request<SupportRequest>(`/support/requests/${id}/status`, {
       method: "PUT",
       body: JSON.stringify(input),
     }),

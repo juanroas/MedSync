@@ -133,7 +133,8 @@ public sealed record PatientResponse(
     string CpfMasked,
     DateOnly BirthDate,
     string? Phone,
-    string? ContinuousMedications);
+    string? ContinuousMedications,
+    bool HasActiveBenefit = false);
 
 public sealed record UpdatePatientRequest(
     string Name,
@@ -375,6 +376,25 @@ public sealed record CreatePrivacyRequestRequest(
 
 public sealed record UpdatePrivacyRequestStatusRequest(
     PrivacyRequestStatus Status,
+    string? ResolutionNote);
+
+public sealed record SupportRequestResponse(
+    Guid Id,
+    string RequesterName,
+    string RequesterEmail,
+    string Subject,
+    SupportRequestStatus Status,
+    string Description,
+    string? ResolutionNote,
+    DateTime CreatedAt,
+    DateTime UpdatedAt);
+
+public sealed record CreateSupportRequestRequest(
+    string Subject,
+    string Description);
+
+public sealed record UpdateSupportRequestStatusRequest(
+    SupportRequestStatus Status,
     string? ResolutionNote);
 
 public sealed record BusinessReportResponse(

@@ -5,7 +5,7 @@ import { formatBrazilDateInput, formatBrazilDateTimeInput } from "@/lib/format";
 import type { AvailableTime, CareSpecialty, Doctor, Patient } from "@/lib/types";
 import { brazilLocalDateTimeToUtcIso, isFutureBrazilLocalDateTime } from "@/lib/validation";
 import { api, getSession } from "@/services/api";
-import { ArrowLeft, CalendarPlus, CheckCircle2, Clock, Paperclip, X } from "lucide-react";
+import { ArrowLeft, CalendarPlus, CheckCircle2, Clock, Paperclip, ShieldCheck, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useState } from "react";
@@ -112,14 +112,16 @@ export default function NewAppointmentPage() {
           );
         }
       } else {
+        const selectedPatient = patients.find((patient) => patient.id === form.patientId);
+        const hasActiveBenefit = selectedPatient?.hasActiveBenefit ?? false;
         await api.createAppointment({
           doctorId: form.doctorId,
           patientId: form.patientId,
           scheduledAt: brazilLocalDateTimeToUtcIso(form.scheduledAt),
           durationMinutes: form.durationMinutes,
           notes: form.notes,
-          price: form.price ? Number(form.price) : undefined,
-          paymentRequired: form.paymentRequired,
+          price: hasActiveBenefit || !form.price ? undefined : Number(form.price),
+          paymentRequired: hasActiveBenefit ? false : form.paymentRequired,
         });
       }
       router.push("/consultas");
@@ -499,6 +501,9 @@ function OperationalScheduleForm({
   onChange: (form: AppointmentForm) => void;
   onSubmit: (event: FormEvent) => void;
 }) {
+  const selectedPatient = patients.find((patient) => patient.id === form.patientId);
+  const hasActiveBenefit = selectedPatient?.hasActiveBenefit ?? false;
+
   return (
     <form onSubmit={onSubmit} className="grid gap-6 xl:grid-cols-[1.2fr_.7fr]">
       <section className="rounded-3xl border border-slate-100 bg-white p-6 shadow-sm sm:p-8">
@@ -508,7 +513,15 @@ function OperationalScheduleForm({
             <select
               className={inputClass}
               value={form.patientId}
-              onChange={(event) => onChange({ ...form, patientId: event.target.value })}
+              onChange={(event) => {
+                const patient = patients.find((item) => item.id === event.target.value);
+                onChange({
+                  ...form,
+                  patientId: event.target.value,
+                  price: patient?.hasActiveBenefit ? "" : form.price,
+                  paymentRequired: patient?.hasActiveBenefit ? false : form.paymentRequired,
+                });
+              }}
               required
             >
               {patients.map((patient) => (
@@ -554,27 +567,36 @@ function OperationalScheduleForm({
               ))}
             </select>
           </label>
-          <label className="block">
-            <span className="mb-2 block text-sm font-bold text-slate-700">Valor (R$)</span>
-            <input
-              className={inputClass}
-              type="number"
-              min="0"
-              step="0.01"
-              value={form.price}
-              onChange={(event) => onChange({ ...form, price: event.target.value })}
-            />
-          </label>
-          <label className="flex items-center gap-3 sm:col-span-2">
-            <input
-              type="checkbox"
-              checked={form.paymentRequired}
-              onChange={(event) => onChange({ ...form, paymentRequired: event.target.checked })}
-            />
-            <span className="text-sm font-bold text-slate-700">
-              Exigir pagamento antes da videochamada
-            </span>
-          </label>
+          {hasActiveBenefit ? (
+            <div className="flex items-center gap-3 rounded-2xl border border-teal-100 bg-teal-50 px-4 py-3 text-sm font-semibold text-teal-800 sm:col-span-2">
+              <ShieldCheck size={18} className="shrink-0" />
+              Coberto pelo plano da empresa — sem cobranca avulsa para este paciente.
+            </div>
+          ) : (
+            <>
+              <label className="block">
+                <span className="mb-2 block text-sm font-bold text-slate-700">Valor (R$)</span>
+                <input
+                  className={inputClass}
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={form.price}
+                  onChange={(event) => onChange({ ...form, price: event.target.value })}
+                />
+              </label>
+              <label className="flex items-center gap-3 sm:col-span-2">
+                <input
+                  type="checkbox"
+                  checked={form.paymentRequired}
+                  onChange={(event) => onChange({ ...form, paymentRequired: event.target.checked })}
+                />
+                <span className="text-sm font-bold text-slate-700">
+                  Exigir pagamento antes da videochamada
+                </span>
+              </label>
+            </>
+          )}
           <label className="block sm:col-span-2">
             <span className="mb-2 block text-sm font-bold text-slate-700">Observacoes</span>
             <textarea

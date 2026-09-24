@@ -5,24 +5,13 @@ import { ErrorBanner, buttonClass, inputClass } from "@/components/ui";
 import { api, saveSession } from "@/services/api";
 import {
   ArrowRight,
-  Building2,
   Eye,
   EyeOff,
-  HeartPulse,
-  LockKeyhole,
   ShieldCheck,
-  Video,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
-
-const loginModules = [
-  { label: "Care", value: "Paciente acolhido", icon: HeartPulse },
-  { label: "Medical", value: "Agenda e sala", icon: Video },
-  { label: "Business", value: "Uso agregado", icon: Building2 },
-  { label: "Privacy", value: "Acesso minimo", icon: ShieldCheck },
-];
 
 const demoAccounts = [
   { label: "Admin MedSync", email: "admin@medsync.dev" },
@@ -82,8 +71,8 @@ export default function LoginPage() {
 
   if (mfaPendingToken) {
     return (
-      <main className="grid min-h-screen place-items-center bg-[#f5f8f6] px-6">
-        <div className="w-full max-w-sm rounded-3xl bg-paper/90 p-8 shadow-2xl shadow-teal-950/5">
+      <main className="grid min-h-screen place-items-center bg-mist px-6">
+        <div className="w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-8 shadow-card">
           <Logo />
           <span className="mt-6 grid size-12 place-items-center rounded-xl bg-teal-50 text-teal-700 ring-1 ring-teal-100">
             <ShieldCheck size={22} />
@@ -128,23 +117,37 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="grid min-h-screen bg-[#f5f8f6] lg:grid-cols-[.9fr_1.1fr]">
-      <section className="flex flex-col bg-paper/90 px-6 py-7 shadow-2xl shadow-teal-950/5 sm:px-12 lg:px-16">
-        <Logo />
-        <div className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center py-12">
-          <span className="mb-6 grid size-12 place-items-center rounded-xl bg-teal-50 text-teal-700 ring-1 ring-teal-100">
-            <LockKeyhole size={22} />
-          </span>
-          <p className="mb-3 text-micro font-semibold text-teal-700">
-            Acesso MedSync
-          </p>
-          <h1 className="text-h1 font-bold text-ink">Acesse sua experiencia MedSync.</h1>
-          <p className="mt-3 text-caption text-slate-500">
+    <main className="grid min-h-screen place-items-center bg-mist px-6 py-10">
+      <div className="w-full max-w-md">
+        <div className="flex justify-center">
+          <Logo />
+        </div>
+
+        <div className="mt-7 rounded-2xl border border-slate-200 bg-white p-8 shadow-card">
+          <p className="text-xs font-bold uppercase tracking-[0.08em] text-teal-700">Acesso MedSync</p>
+          <h1 className="mt-2 text-h1 font-bold uppercase tracking-tight text-ink">Bem-vindo de volta</h1>
+          <p className="mt-2 text-caption text-slate-500">
             Pacientes, medicos, empresas e operacao entram pelo mesmo acesso, mas cada perfil enxerga apenas o escopo permitido.
           </p>
 
+          <button
+            type="button"
+            disabled
+            title="Login com Google em breve"
+            className="mt-7 flex h-11 w-full items-center justify-center gap-2 rounded-lg border border-slate-200 bg-slate-50 text-sm font-semibold text-slate-400"
+          >
+            <GoogleGlyph /> Continuar com Google
+            <span className="ml-1 rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-slate-500">
+              Em breve
+            </span>
+          </button>
+
+          <div className="my-6 flex items-center gap-3 text-xs font-semibold text-slate-400">
+            <span className="h-px flex-1 bg-slate-200" /> ou <span className="h-px flex-1 bg-slate-200" />
+          </div>
+
           {demoAccountsEnabled && (
-            <div className="mt-7 grid gap-2 sm:grid-cols-2">
+            <div className="mb-6 grid gap-2 sm:grid-cols-2">
               {demoAccounts.map((account) => (
                 <button
                   key={account.email}
@@ -158,7 +161,7 @@ export default function LoginPage() {
             </div>
           )}
 
-          <form className="mt-9 space-y-5" onSubmit={handleSubmit}>
+          <form className="space-y-5" onSubmit={handleSubmit}>
             {error && <ErrorBanner message={error} />}
             <label className="block">
               <span className="mb-2 block text-label font-semibold text-slate-700">E-mail</span>
@@ -196,16 +199,16 @@ export default function LoginPage() {
               </span>
             </label>
             <button className={`${buttonClass} w-full`} disabled={loading}>
-              {loading ? "Entrando..." : "Entrar na plataforma"} <ArrowRight size={16} />
+              {loading ? "Entrando..." : "Entrar"} <ArrowRight size={16} />
             </button>
           </form>
 
           <p className="mt-6 text-center text-caption text-slate-500">
             Nova clinica?{" "}
             <Link href="/cadastro" className="font-semibold text-teal-700 hover:underline">
-              Cadastre-se aqui
+              Criar conta
             </Link>
-            . O CNPJ fica pendente de ativacao pela equipe MedSync.
+            . Voce ja entra e configura enquanto validamos o CNPJ.
           </p>
 
           {demoAccountsEnabled && (
@@ -216,33 +219,32 @@ export default function LoginPage() {
             </div>
           )}
         </div>
-        <p className="text-xs text-slate-400">© 2026 MedSync. Cuidado que aproxima.</p>
-      </section>
 
-      <section className="subtle-grid brand-panel hidden overflow-hidden p-12 text-white lg:flex lg:flex-col lg:justify-between">
-        <span className="inline-flex w-fit items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-micro font-semibold text-teal-100">
-          <span className="size-2 rounded-full bg-coral-400" /> Identidade MedSync
-        </span>
-
-        <div className="max-w-xl">
-          <h2 className="text-headline font-bold leading-tight">
-            Saude digital com a calma que o paciente espera e a clareza que a empresa precisa.
-          </h2>
-          <p className="mt-6 max-w-lg text-base leading-6 text-white/70">
-            O MedSync separa cuidado assistencial, gestao empresarial e auditoria em experiencias diferentes, sem misturar dado clinico com painel administrativo.
-          </p>
-        </div>
-
-        <div className="grid grid-cols-2 gap-3">
-          {loginModules.map(({ label, value, icon: Icon }) => (
-            <div key={label} className="rounded-lg border border-white/10 bg-white/10 p-4">
-              <Icon className="text-coral-100" size={19} />
-              <p className="mt-4 text-micro font-semibold text-teal-100">{label}</p>
-              <p className="mt-1 text-label font-semibold text-white">{value}</p>
-            </div>
-          ))}
-        </div>
-      </section>
+        <p className="mt-6 text-center text-xs text-slate-400">© 2026 MedSync. Cuidado que aproxima.</p>
+      </div>
     </main>
+  );
+}
+
+function GoogleGlyph() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 48 48" aria-hidden>
+      <path
+        fill="#FFC107"
+        d="M43.6 20.5H42V20H24v8h11.3c-1.6 4.6-6 8-11.3 8-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.1 8 3l6-6C34 5.1 29.3 3 24 3 12.4 3 3 12.4 3 24s9.4 21 21 21 21-9.4 21-21c0-1.4-.1-2.4-.4-3.5z"
+      />
+      <path
+        fill="#FF3D00"
+        d="M6.3 14.7l6.6 4.8C14.6 15.9 18.9 13 24 13c3.1 0 5.8 1.1 8 3l6-6C34 5.1 29.3 3 24 3 16.1 3 9.2 7.4 6.3 14.7z"
+      />
+      <path
+        fill="#4CAF50"
+        d="M24 45c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 36.1 26.7 37 24 37c-5.3 0-9.7-3.4-11.3-8l-6.5 5C9.1 40.6 16 45 24 45z"
+      />
+      <path
+        fill="#1976D2"
+        d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.1-4.1 5.6l6.2 5.2C40.9 36 44 30.6 44 24c0-1.4-.1-2.4-.4-3.5z"
+      />
+    </svg>
   );
 }

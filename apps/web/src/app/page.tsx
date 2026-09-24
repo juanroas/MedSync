@@ -70,6 +70,12 @@ export default function HomePage() {
             <Logo />
             <div className="flex items-center gap-3">
               <Link
+                href="#sobre"
+                className="hidden text-label font-semibold text-slate-600 hover:text-teal-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-700 sm:block"
+              >
+                Sobre
+              </Link>
+              <Link
                 href="/login"
                 className="hidden text-label font-semibold text-slate-600 hover:text-teal-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-700 sm:block"
               >
@@ -237,6 +243,32 @@ export default function HomePage() {
               </article>
             );
           })}
+        </div>
+      </section>
+
+      <section id="sobre" className="border-t border-slate-200 bg-[#fbfdfc] py-20">
+        <div className="mx-auto max-w-3xl px-5 text-center sm:px-8">
+          <p className="text-micro font-semibold text-teal-700">Sobre a MedSync</p>
+          <h2 className="mt-3 text-h2 font-bold text-ink">
+            Uma clinica digital pensada para separar cuidado, gestao e privacidade.
+          </h2>
+          <p className="mt-5 text-caption leading-6 text-slate-500">
+            A MedSync nasceu para resolver um problema comum em telemedicina B2B: empresas que patrocinam
+            beneficios de saude acabam tendo acesso indevido a dado clinico, ou a clinica vira uma extensao
+            do RH do cliente. Separamos essas camadas desde o desenho do produto — cada perfil (paciente,
+            medico, empresa parceira, operacao MedSync) enxerga só o que precisa, com trilha de auditoria em
+            cada acesso.
+          </p>
+          <p className="mt-4 text-caption leading-6 text-slate-500">
+            Cadastre sua clinica em poucos minutos e comece a configurar agenda e equipe na hora — nossa
+            equipe valida o CNPJ em paralelo para liberar atendimentos reais.
+          </p>
+          <Link
+            href="/cadastro"
+            className="mt-7 inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-teal-700 px-6 text-label font-semibold text-white transition hover:bg-teal-800"
+          >
+            Cadastrar minha clinica <ArrowRight size={16} />
+          </Link>
         </div>
       </section>
     </main>

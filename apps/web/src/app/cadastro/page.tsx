@@ -50,7 +50,7 @@ export default function RegisterCompanyPage() {
         <Logo />
         <Link
           href="/login"
-          className="mt-8 inline-flex items-center gap-2 text-label font-semibold text-slate-500 hover:text-teal-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-700"
+          className="mt-8 inline-flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-label font-semibold text-slate-600 transition hover:border-teal-200 hover:bg-teal-50 hover:text-teal-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-700"
         >
           <ArrowLeft size={16} /> Voltar ao login
         </Link>
@@ -60,10 +60,10 @@ export default function RegisterCompanyPage() {
           </span>
           <h1 className="mt-6 text-h1 font-bold text-ink">Cadastrar clínica</h1>
           <p className="mt-2 text-caption text-slate-500">
-            Esta conta será criada como administradora de uma clínica no MedSync. O CNPJ fica pendente de
-            ativação pela equipe MedSync antes de liberar o uso completo — você pode configurar o cadastro
-            enquanto isso. Se você representa uma empresa parceira que já tem clínica contratante, peça ao
-            suporte MedSync para incluir seu CNPJ como beneficiário — não é necessário criar uma nova clínica.
+            Esta conta será criada como administradora de uma clínica no MedSync. Você já entra e pode configurar
+            equipe, plano e agenda na hora — nossa equipe valida o CNPJ em paralelo para liberar atendimentos
+            reais. Se você representa uma empresa parceira que já tem clínica contratante, peça ao suporte
+            MedSync para incluir seu CNPJ como beneficiário — não é necessário criar uma nova clínica.
           </p>
           <div className="mt-8 space-y-5">
             {error && <ErrorBanner message={error} />}

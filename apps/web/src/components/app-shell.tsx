@@ -10,6 +10,7 @@ import {
   ChevronRight,
   ClipboardCheck,
   LayoutDashboard,
+  LifeBuoy,
   ListChecks,
   LogOut,
   Menu,
@@ -109,6 +110,11 @@ const navigation: Array<{
     ],
   },
   {
+    href: "/ajuda",
+    label: "Ajuda",
+    icon: LifeBuoy,
+  },
+  {
     href: "/privacidade",
     label: "Privacidade",
     icon: ShieldCheck,
@@ -176,6 +182,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       item.href === "/acessos" ||
       item.href === "/elegibilidade" ||
       item.href === "/privacidade" ||
+      item.href === "/ajuda" ||
       item.href === "/relatorios";
     if (isPlatformAdminProfile && !platformAdminAllowed) {
       return false;
@@ -195,20 +202,20 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         />
       )}
       <aside
-        className={`brand-panel fixed inset-y-0 left-0 z-40 flex w-72 flex-col px-5 py-6 text-white shadow-2xl shadow-teal-950/20 transition-transform lg:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-40 flex w-72 flex-col border-r border-slate-200 bg-paper px-5 py-6 shadow-sm transition-transform lg:translate-x-0 ${
           menuOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
         <div className="flex items-center justify-between px-2">
-          <Logo inverse />
-          <button className="text-white/60 lg:hidden" onClick={() => setMenuOpen(false)}>
+          <Logo />
+          <button className="text-slate-400 lg:hidden" onClick={() => setMenuOpen(false)}>
             <X size={20} />
           </button>
         </div>
 
-        <div className="mx-2 mt-8 rounded-lg border border-white/10 bg-white/5 px-4 py-3">
-          <p className="text-xs font-bold uppercase tracking-[0.08em] text-teal-100">MedSync</p>
-          <p className="mt-1 text-sm text-white/70">Cuidado digital B2B</p>
+        <div className="mx-2 mt-8 rounded-lg border border-teal-100 bg-teal-50 px-4 py-3">
+          <p className="text-xs font-bold uppercase tracking-[0.08em] text-teal-700">MedSync</p>
+          <p className="mt-1 text-sm text-teal-900/70">Cuidado digital B2B</p>
         </div>
 
         <nav className="mt-6 space-y-1.5">
@@ -222,8 +229,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 onClick={() => setMenuOpen(false)}
                 className={`flex items-center gap-3 rounded-lg px-4 py-3.5 text-sm font-semibold transition ${
                   active
-                    ? "bg-white text-teal-900 shadow-lg shadow-teal-950/20"
-                    : "text-white/70 hover:bg-white/10 hover:text-white"
+                    ? "bg-teal-600 text-white shadow-sm"
+                    : "text-slate-600 hover:bg-slate-50 hover:text-ink"
                 }`}
               >
                 <Icon size={19} />
@@ -235,23 +242,23 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </nav>
 
         <div className="mt-auto">
-          {canSchedule && (
+          {canSchedule && pathname !== "/dashboard" && (
             <Link
               href="/consultas/nova"
-              className="mb-5 flex items-center gap-3 rounded-lg border border-coral-100/20 bg-coral-500/15 p-4 text-sm text-coral-50"
+              className="mb-5 flex items-center gap-3 rounded-lg border border-coral-100 bg-coral-50 p-4 text-sm text-coral-800"
             >
-              <span className="grid size-9 place-items-center rounded-lg bg-coral-500/20">
+              <span className="grid size-9 place-items-center rounded-lg bg-coral-100 text-coral-600">
                 <Video size={18} />
               </span>
               <span>
                 <strong className="block">{isPatientOnly ? "Solicitar consulta" : "Nova consulta"}</strong>
-                <small className="text-coral-50/75">{isPatientOnly ? "Por especialidade" : "Agendar atendimento"}</small>
+                <small className="text-coral-700/75">{isPatientOnly ? "Por especialidade" : "Agendar atendimento"}</small>
               </span>
             </Link>
           )}
           <button
             onClick={logout}
-            className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-white/60 hover:bg-white/5 hover:text-white"
+            className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-slate-500 hover:bg-slate-50 hover:text-ink"
           >
             <LogOut size={17} /> Sair da conta
           </button>
@@ -270,19 +277,22 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <p className="text-xs text-slate-400">{workspaceLabel(user.roles)}</p>
             <p className="mt-0.5 text-sm font-bold text-ink">{user.clinicName}</p>
           </div>
-          <div className="flex items-center gap-3">
+          <Link
+            href={isPatientOnly ? "/patients" : isDoctorOnly ? "/doctors" : "/perfil"}
+            className="group flex items-center gap-3 rounded-lg px-2 py-1.5 transition hover:bg-teal-50"
+          >
             <div className="hidden text-right sm:block">
-              <p className="text-sm font-bold text-ink">{user.name}</p>
-              <p className="text-xs text-slate-400">{user.roles.join(" / ")}</p>
+              <p className="text-sm font-bold text-ink group-hover:text-teal-800">{user.name}</p>
+              <p className="text-xs text-slate-400 group-hover:text-teal-600">{user.roles.join(" / ")}</p>
             </div>
-            <span className="grid size-10 place-items-center rounded-lg bg-coral-50 text-sm font-bold text-coral-600 ring-1 ring-coral-100">
+            <span className="grid size-10 place-items-center rounded-lg bg-coral-50 text-sm font-bold text-coral-600 ring-1 ring-coral-100 transition group-hover:bg-teal-600 group-hover:text-white group-hover:ring-teal-600">
               {user.name
                 .split(" ")
                 .slice(0, 2)
                 .map((part) => part[0])
                 .join("")}
             </span>
-          </div>
+          </Link>
         </header>
         <main className="mx-auto max-w-[1500px] px-5 py-8 sm:px-8 lg:px-10 lg:py-10">{children}</main>
       </div>
