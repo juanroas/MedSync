@@ -58,7 +58,7 @@ o bloco fixo "Nova consulta" — a ação vive no header de `/consultas` e no Pa
 | `/dashboard` Médico | Médico | **Entrar na sala** no cartão "Próxima consulta", só com a janela aberta (15 min antes) | "Ver prontuário" e "Ver agenda" são links secundários; a agenda de hoje não tem botão por linha |
 | `/dashboard` demais perfis | Médico ADM (clínicas em análise), Suporte (pedidos abertos), DPO | nenhuma (leitura) | links "Ver todas/Ver agenda" dentro de painéis são permitidos |
 | `/consultas` | Paciente / quem agenda | **Solicitar consulta** / **Agendar consulta** | vazio sem botão (o header já tem) |
-| `/consultas` | Médico | seção "Minha disponibilidade" (Adicionar horário) | lista de consultas é leitura |
+| `/consultas` (Agenda) | Médico (só médico) | **Adicionar horário** | Abre em "Dia" (hoje); "Semana" mostra a grade com horários de atendimento. Por consulta: Prontuário, Iniciar/Entrar na sala (botão escuro, não primário), Cancelar. Quem é médico e ADM ao mesmo tempo usa a lista da clínica |
 | `/consultas/nova` | Paciente / ADM da clínica | **Solicitar** / **Confirmar agendamento** | exige clínica ativa |
 | `/ajuda` | Todos menos Suporte | **Enviar para o suporte** | Suporte e Médico ADM veem a fila de todas as clínicas; o Suporte não tem o formulário (não abre pedido para si) |
 | `/privacidade` | Paciente, DPO | **Registrar solicitação** | só pedidos formais de titular (LGPD); o DPO registra pedidos recebidos por outros canais e atualiza a fila |

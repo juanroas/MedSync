@@ -1,6 +1,7 @@
 "use client";
 
-import { Card, EmptyState, ErrorBanner, LoadingState, PageHeader, buttonClass, inputClass } from "@/components/ui";
+import { DoctorAgenda } from "@/components/doctor-agenda";
+import { EmptyState, ErrorBanner, LoadingState, PageHeader } from "@/components/ui";
 import {
   canDoctorEnterExistingRoom,
   canStartRoom,
@@ -9,13 +10,12 @@ import {
   isAppointmentStaleInProgress,
 } from "@/lib/appointments";
 import { formatDateTime, statusClass, statusLabel } from "@/lib/format";
-import type { Appointment, DoctorAvailabilitySlot, WeekDay } from "@/lib/types";
-import { WEEKDAY_LABELS, WEEKDAY_ORDER } from "@/lib/types";
+import type { Appointment } from "@/lib/types";
 import { api, getSession } from "@/services/api";
-import { CalendarDays, Clock, Clock3, FileText, Plus, Stethoscope, Trash2, UserRound, Video, XCircle } from "lucide-react";
+import { CalendarDays, Clock3, FileText, Plus, Stethoscope, UserRound, Video, XCircle } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 type AppointmentTab = "active" | "history";
 
@@ -33,7 +33,14 @@ function isAppointmentHistory(appointment: Appointment) {
   );
 }
 
+// Só médico: agenda própria (semana/dia). Paciente, ADM da clínica e quem acumula médico + ADM usam a lista abaixo.
 export default function AppointmentsPage() {
+  const roles = getSession()?.user.roles ?? [];
+  const isDoctorOnly = roles.length > 0 && roles.every((role) => role === "Doctor");
+  return isDoctorOnly ? <DoctorAgenda /> : <AppointmentsList />;
+}
+
+function AppointmentsList() {
   const router = useRouter();
   const roles = getSession()?.user.roles ?? [];
   const isDoctor = roles.includes("Doctor");
@@ -65,70 +72,6 @@ export default function AppointmentsPage() {
   const [, setNowTick] = useState(() => Date.now());
   const isMountedRef = useRef(false);
   const refreshingRef = useRef(false);
-
-  const [slots, setSlots] = useState<DoctorAvailabilitySlot[]>([]);
-  const [slotsLoading, setSlotsLoading] = useState(true);
-  const [slotForm, setSlotForm] = useState<{ dayOfWeek: WeekDay; startTime: string; endTime: string }>({
-    dayOfWeek: "Monday",
-    startTime: "09:00",
-    endTime: "12:00",
-  });
-  const [slotSaving, setSlotSaving] = useState(false);
-  const [slotError, setSlotError] = useState("");
-
-  useEffect(() => {
-    if (!isDoctor) {
-      setSlotsLoading(false);
-      return;
-    }
-    api
-      .getMyAvailability()
-      .then(setSlots)
-      .catch((err) => setSlotError(err instanceof Error ? err.message : "Erro ao carregar disponibilidade."))
-      .finally(() => setSlotsLoading(false));
-  }, [isDoctor]);
-
-  const sortedSlots = useMemo(
-    () =>
-      [...slots].sort((a, b) => {
-        const dayDiff = WEEKDAY_ORDER.indexOf(a.dayOfWeek) - WEEKDAY_ORDER.indexOf(b.dayOfWeek);
-        return dayDiff !== 0 ? dayDiff : a.startTime.localeCompare(b.startTime);
-      }),
-    [slots],
-  );
-
-  async function submitSlot(event: FormEvent) {
-    event.preventDefault();
-    setSlotSaving(true);
-    setSlotError("");
-    if (slotForm.startTime >= slotForm.endTime) {
-      setSlotError("O horario inicial precisa ser antes do horario final.");
-      setSlotSaving(false);
-      return;
-    }
-    try {
-      const created = await api.createMyAvailabilitySlot({
-        dayOfWeek: slotForm.dayOfWeek,
-        startTime: `${slotForm.startTime}:00`,
-        endTime: `${slotForm.endTime}:00`,
-      });
-      setSlots((items) => [...items, created]);
-    } catch (err) {
-      setSlotError(err instanceof Error ? err.message : "Erro ao salvar disponibilidade.");
-    } finally {
-      setSlotSaving(false);
-    }
-  }
-
-  async function removeSlot(id: string) {
-    setSlotError("");
-    try {
-      await api.deleteMyAvailabilitySlot(id);
-      setSlots((items) => items.filter((slot) => slot.id !== id));
-    } catch (err) {
-      setSlotError(err instanceof Error ? err.message : "Erro ao remover disponibilidade.");
-    }
-  }
 
   const activeAppointments = useMemo(
     () => appointments.filter((appointment) => !isAppointmentHistory(appointment)),
@@ -329,85 +272,6 @@ export default function AppointmentsPage() {
         ) : undefined}
       />
       {error && <ErrorBanner message={error} />}
-
-      {isDoctor && (
-        <Card className="mb-7 p-6">
-          <div className="mb-5">
-            <h2 className="font-bold text-ink">Minha disponibilidade</h2>
-            <p className="mt-1 text-xs leading-5 text-slate-400">
-              Defina os dias e horarios em que voce atende. Pacientes so poderao agendar dentro dessas janelas.
-              Enquanto nenhuma janela for cadastrada, sua agenda permanece sem restricao de horario.
-            </p>
-          </div>
-          {slotError && <ErrorBanner message={slotError} />}
-          <form onSubmit={submitSlot} className="mb-6 grid gap-4 sm:grid-cols-[1.4fr_1fr_1fr_auto] sm:items-end">
-            <label className="block">
-              <span className="mb-2 block text-xs font-bold text-slate-600">Dia da semana</span>
-              <select
-                className={inputClass}
-                value={slotForm.dayOfWeek}
-                onChange={(event) => setSlotForm({ ...slotForm, dayOfWeek: event.target.value as WeekDay })}
-              >
-                {WEEKDAY_ORDER.map((day) => (
-                  <option key={day} value={day}>
-                    {WEEKDAY_LABELS[day]}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="block">
-              <span className="mb-2 block text-xs font-bold text-slate-600">Inicio</span>
-              <input
-                className={inputClass}
-                type="time"
-                value={slotForm.startTime}
-                onChange={(event) => setSlotForm({ ...slotForm, startTime: event.target.value })}
-                required
-              />
-            </label>
-            <label className="block">
-              <span className="mb-2 block text-xs font-bold text-slate-600">Fim</span>
-              <input
-                className={inputClass}
-                type="time"
-                value={slotForm.endTime}
-                onChange={(event) => setSlotForm({ ...slotForm, endTime: event.target.value })}
-                required
-              />
-            </label>
-            <button className={buttonClass} disabled={slotSaving}>
-              <Plus size={17} /> {slotSaving ? "Salvando..." : "Adicionar"}
-            </button>
-          </form>
-          {slotsLoading ? (
-            <LoadingState label="Carregando disponibilidade..." />
-          ) : sortedSlots.length === 0 ? (
-            <p className="text-sm text-slate-400">Nenhuma janela cadastrada ainda.</p>
-          ) : (
-            <ul className="space-y-2">
-              {sortedSlots.map((slot) => (
-                <li
-                  key={slot.id}
-                  className="flex items-center justify-between rounded-lg border border-slate-100 bg-slate-50 px-4 py-3 text-sm"
-                >
-                  <span className="flex items-center gap-2.5 font-semibold text-ink">
-                    <Clock size={15} className="text-teal-600" />
-                    {WEEKDAY_LABELS[slot.dayOfWeek]} - {slot.startTime.slice(0, 5)} as {slot.endTime.slice(0, 5)}
-                  </span>
-                  <button
-                    type="button"
-                    className="text-slate-400 hover:text-red-600"
-                    onClick={() => removeSlot(slot.id)}
-                    aria-label="Remover janela de disponibilidade"
-                  >
-                    <Trash2 size={16} />
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Card>
-      )}
 
       {loading ? (
         <LoadingState label="Carregando agenda..." />

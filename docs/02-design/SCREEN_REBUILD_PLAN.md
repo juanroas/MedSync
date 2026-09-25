@@ -33,7 +33,7 @@ Legenda: ⬜ a fazer · 🟨 em andamento · ✅ feito · ⏸ bloqueado por deci
 | Tela | Status | Ação principal | Paridade / regulação |
 |---|---|---|---|
 | Início | ✅ | Entrar na próxima consulta | KPIs do dia, cartão "Próxima consulta" (termo do paciente + Entrar na sala quando abre), agenda de hoje |
-| Agenda | 🟨 | Adicionar horário | Já tem disponibilidade; falta visão semana/dia |
+| Agenda | ✅ | Adicionar horário | Visão Dia (abre em hoje, com Iniciar/Entrar na sala, Prontuário, Cancelar e status do termo) e Semana (grade seg–dom com horários de atendimento e consultas); navegação por semana/dia; "Meus horários de atendimento" com remover |
 | Certificado digital (em Meu perfil) | ⬜ | Conectar certificado | Certificado em nuvem gratuito do CFM; **a confirmar a API do PSC (VALID)** antes de construir |
 | Atendimento / Prontuário | 🟨 | Finalizar e assinar | Registro assinado ICP-Brasil para dispensar papel (CFM 1.821 arts. 3º–5º); alerta de presencial ≤ 180 dias em crônicos (CFM 2.314 art. 6º §2) |
 | Receita | 🟨 | Salvar rascunho → Assinar com certificado digital | Feito: base Anvisa + item próprio, rascunho, renovar uso contínuo, "Medicações em uso", PDF art. 13 gerado no servidor e assinado (PAdES) pelo fluxo IntegraICP, download do PDF assinado, envio pelo WhatsApp do médico. Sessão de assinatura (aprova uma vez, um clique por receita, "Encerrar liberação") e simulador marcado "SIMULAÇÃO — SEM VALIDADE". Falta: **canal da Valid** (liga a assinatura real), e-mail (SMTP Hostinger), "Meus documentos" do paciente |
