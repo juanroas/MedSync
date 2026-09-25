@@ -8,7 +8,7 @@ import { formatDateTime } from "@/lib/format";
 import type { Appointment, ClinicalRecord, PatientClinicalRecord } from "@/lib/types";
 import { ApiError, api, getSession } from "@/services/api";
 import { LiveKitRoom, RoomAudioRenderer, VideoConference } from "@livekit/components-react";
-import { ExternalE2EEKeyProvider, type E2EEOptions, type RoomOptions } from "livekit-client";
+import { DisconnectReason, ExternalE2EEKeyProvider, type E2EEOptions, type RoomOptions } from "livekit-client";
 import {
   ArrowLeft,
   CalendarClock,
@@ -37,6 +37,8 @@ export function ConsultationRoom({ appointmentId }: { appointmentId: string }) {
   const [error, setError] = useState("");
   // In-room error: the full-screen error state would unmount the call.
   const [endError, setEndError] = useState("");
+  // Why the call ended without the user choosing to leave: the doctor ended it, or the connection dropped.
+  const [ended, setEnded] = useState<"by-doctor" | "connection" | null>(null);
   const [waiting, setWaiting] = useState(false);
   const [term, setTerm] = useState<ConsentTerm | null>(null);
   const [accepting, setAccepting] = useState(false);
@@ -301,7 +303,7 @@ export function ConsultationRoom({ appointmentId }: { appointmentId: string }) {
     router.push(`/prontuario/${appointmentId}`);
   }
 
-  async function handleRoomDisconnected() {
+  async function handleRoomDisconnected(reason?: DisconnectReason) {
     if (exitingRef.current) return;
     exitingRef.current = true;
 
@@ -310,7 +312,8 @@ export function ConsultationRoom({ appointmentId }: { appointmentId: string }) {
       return;
     }
 
-    router.push("/consultas");
+    // Ending the consultation deletes the video room, so the patient gets ROOM_DELETED.
+    setEnded(reason === DisconnectReason.ROOM_DELETED && !isDoctor ? "by-doctor" : "connection");
   }
 
   async function saveClinicalRecord() {
@@ -334,6 +337,38 @@ export function ConsultationRoom({ appointmentId }: { appointmentId: string }) {
     } finally {
       setClinicalSaving(false);
     }
+  }
+
+  if (ended) {
+    return (
+      <GateCard
+        icon={<CalendarClock size={24} />}
+        title={ended === "by-doctor" ? "Consulta encerrada pelo médico" : "Você saiu da chamada"}
+        description={
+          ended === "by-doctor"
+            ? "Obrigado. Receitas e documentos desta consulta aparecem em Minhas consultas quando o médico emitir."
+            : "A conexão com a sala caiu. Enquanto a consulta estiver no horário, você pode voltar."
+        }
+      >
+        <div className="space-y-2">
+          {ended === "connection" && (
+            <button className={`${buttonClass} w-full`} onClick={() => window.location.reload()}>
+              Voltar para a sala
+            </button>
+          )}
+          <button
+            className={cn(
+              ended === "connection"
+                ? "h-11 w-full rounded-lg border border-slate-200 bg-white text-sm font-bold text-slate-700 hover:bg-slate-50"
+                : `${buttonClass} w-full`,
+            )}
+            onClick={() => router.push("/consultas")}
+          >
+            {isDoctor ? "Voltar para a agenda" : "Ver minhas consultas"}
+          </button>
+        </div>
+      </GateCard>
+    );
   }
 
   if (error) {
@@ -425,8 +460,8 @@ export function ConsultationRoom({ appointmentId }: { appointmentId: string }) {
       onEncryptionError={() =>
         setError("A criptografia ponta a ponta da chamada foi interrompida.")
       }
-      onDisconnected={() => {
-        void handleRoomDisconnected();
+      onDisconnected={(reason) => {
+        void handleRoomDisconnected(reason);
       }}
       data-lk-theme="default"
       className="medsync-room min-h-[100dvh] bg-[#0e1716] lg:h-[100dvh] lg:min-h-0 lg:overflow-hidden"
