@@ -89,6 +89,11 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
   return <RealtimeContext.Provider value={value.current}>{children}</RealtimeContext.Provider>;
 }
 
+// True while the live connection is up (screens can then poll less).
+export function useRealtimeConnected() {
+  return useContext(RealtimeContext)?.connected ?? false;
+}
+
 // Calls `reload` when one of `types` arrives (optionally only for `id`), after a reconnect, when the tab comes back,
 // and every 30 s while there is no live connection.
 export function useRealtimeRefresh(types: RealtimeEventType[], reload: () => unknown, id?: string) {

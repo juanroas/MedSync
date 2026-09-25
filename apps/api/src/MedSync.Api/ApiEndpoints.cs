@@ -2480,13 +2480,22 @@ public static partial class ApiEndpoints
 
         appointment.ConsultationRoom.Status = VideoSessionStatus.InProgress;
         appointment.ConsultationRoom.LastActivityAt = DateTime.UtcNow;
-        if (IsAssignedDoctor(actor, appointment))
-            appointment.ConsultationRoom.DoctorJoinedAt ??= DateTime.UtcNow;
-        else if (IsPatient(actor, appointment))
-            appointment.ConsultationRoom.PatientJoinedAt ??= DateTime.UtcNow;
+        // Only the first entry of each side is news for the other screens; reconnects are not.
+        var firstJoin = false;
+        if (IsAssignedDoctor(actor, appointment) && appointment.ConsultationRoom.DoctorJoinedAt is null)
+        {
+            appointment.ConsultationRoom.DoctorJoinedAt = DateTime.UtcNow;
+            firstJoin = true;
+        }
+        else if (IsPatient(actor, appointment) && appointment.ConsultationRoom.PatientJoinedAt is null)
+        {
+            appointment.ConsultationRoom.PatientJoinedAt = DateTime.UtcNow;
+            firstJoin = true;
+        }
         audit.Add(actor, "Video.TokenIssued", "Appointment", appointmentId);
         await db.SaveChangesAsync(cancellationToken);
-        await realtime.AppointmentChangedAsync(appointmentId, cancellationToken);
+        if (firstJoin)
+            await realtime.AppointmentChangedAsync(appointmentId, cancellationToken);
         return Results.Ok(new
         {
             token = liveKitToken,

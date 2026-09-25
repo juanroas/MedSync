@@ -3,6 +3,7 @@
 import "@livekit/components-styles";
 
 import { ClinicalAttachmentsPanel } from "@/components/clinical-attachments-panel";
+import { useRealtimeConnected, useRealtimeRefresh } from "@/lib/realtime";
 import { EndConsultationDialog } from "@/components/end-consultation-dialog";
 import { ErrorBanner, LoadingState, TextArea, buttonClass, cn } from "@/components/ui";
 import { formatDateTime } from "@/lib/format";
@@ -46,6 +47,22 @@ export function ConsultationRoom({ appointmentId }: { appointmentId: string }) {
   const [accepting, setAccepting] = useState(false);
   const [paying, setPaying] = useState(false);
   const [attempt, setAttempt] = useState(0);
+  // Waiting room: the doctor opening the room pushes "appointmentChanged" and the patient goes in at once.
+  // Polling stays as a safety net, slower while the live connection is up.
+  const realtimeConnected = useRealtimeConnected();
+  const waitingRef = useRef(false);
+  waitingRef.current = waiting;
+  // An attempt already running must finish: getting the call token also emits "appointmentChanged".
+  const connectingRef = useRef(false);
+  const retryDelayRef = useRef(5000);
+  retryDelayRef.current = realtimeConnected ? 30_000 : 5000;
+  useRealtimeRefresh(
+    ["appointmentChanged"],
+    () => {
+      if (waitingRef.current && !connectingRef.current) setAttempt((value) => value + 1);
+    },
+    appointmentId,
+  );
   const [sidebarMode, setSidebarMode] = useState<"details" | "record" | "history">("details");
   const [clinicalRecord, setClinicalRecord] = useState<ClinicalRecord | null>(null);
   const [clinicalContent, setClinicalContent] = useState("");
@@ -70,6 +87,7 @@ export function ConsultationRoom({ appointmentId }: { appointmentId: string }) {
     let retry: ReturnType<typeof setTimeout> | undefined;
 
     async function connect() {
+      connectingRef.current = true;
       try {
         const currentSession = getSession();
         if (!currentSession) {
@@ -98,7 +116,7 @@ export function ConsultationRoom({ appointmentId }: { appointmentId: string }) {
             if (err instanceof ApiError && err.status === 404) {
               if (active) {
                 setWaiting(true);
-                retry = setTimeout(connect, 5000);
+                retry = setTimeout(connect, retryDelayRef.current);
               }
               return;
             }
@@ -116,6 +134,8 @@ export function ConsultationRoom({ appointmentId }: { appointmentId: string }) {
       } catch (err) {
         if (active)
           setError(err instanceof Error ? err.message : "Não foi possível entrar na sala.");
+      } finally {
+        connectingRef.current = false;
       }
     }
 

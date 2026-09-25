@@ -47,6 +47,13 @@ Eventos: `appointmentChanged`, `prescriptionChanged`, `supportRequestChanged`, `
   (contrato, suboperador LGPD, custo). Fica como evolução se o número de conexões pesar; o código do hub não muda com
   Azure SignalR.
 
+## Sala de espera
+
+O paciente em espera entra no instante em que o médico abre a sala (`appointmentChanged` da consulta). A checagem
+periódica continua como garantia: 5 s sem conexão ao vivo, 30 s com ela. Entregar o acesso à chamada só avisa na
+**primeira** entrada de cada lado (reconexões não geram evento), e a tela ignora avisos enquanto uma tentativa de
+entrar está em andamento — sem isso, o aviso de "paciente entrou" disparava uma nova tentativa em laço.
+
 ## Consequências
 
 - Variáveis novas: `NEXT_PUBLIC_REALTIME_URL` na Vercel (URL pública da API) e, na Railway, WebSocket precisa estar
