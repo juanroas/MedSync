@@ -50,6 +50,8 @@ builder.Services.AddHttpClient<IPaymentProvider, MercadoPagoPaymentProvider>();
 builder.Services.AddHttpClient(nameof(LiveKitRoomManager));
 builder.Services.AddScoped<LiveKitRoomManager>();
 builder.Services.AddHostedService<VideoSessionCleanupService>();
+builder.Services.AddHttpClient();
+builder.Services.AddHostedService<MedicationCatalogImporter>();
 builder.Services.ConfigureHttpJsonOptions(options =>
     options.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 builder.Services.AddEndpointsApiExplorer();

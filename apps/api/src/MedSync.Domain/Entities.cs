@@ -130,6 +130,8 @@ public sealed class Doctor
     public required string CrmUf { get; set; }
     public required string Specialty { get; set; }
     public string? Phone { get; set; }
+    // CFM 2.314 art. 13: professional address printed on documents issued at a distance.
+    public string? ProfessionalAddress { get; set; }
     public ICollection<Appointment> Appointments { get; set; } = [];
 }
 
@@ -276,6 +278,78 @@ public sealed class Payment
     public string? CheckoutUrl { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+}
+
+// Medication search base: Anvisa open data (registered medications) plus items a clinic adds by hand.
+public sealed class MedicationCatalogItem
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public required string Name { get; set; }
+    public string? ActiveIngredient { get; set; }
+    public string? TherapeuticClass { get; set; }
+    public MedicationSource Source { get; set; }
+    // Null for Anvisa items; set for items a clinic added (visible only inside that clinic).
+    public Guid? ClinicId { get; set; }
+    public Guid? CreatedByUserId { get; set; }
+    // Lowercase, accent-free "name active ingredient" used for search.
+    public required string SearchText { get; set; }
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+}
+
+public enum MedicationSource
+{
+    Anvisa,
+    Custom
+}
+
+public enum PrescriptionKind
+{
+    Simple,
+    Antimicrobial
+}
+
+public enum PrescriptionStatus
+{
+    Draft,
+    Signed,
+    Cancelled
+}
+
+public sealed class Prescription
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid ClinicId { get; set; }
+    public Guid AppointmentId { get; set; }
+    public Appointment Appointment { get; set; } = null!;
+    public Guid PatientId { get; set; }
+    public Guid DoctorId { get; set; }
+    public Guid CreatedByUserId { get; set; }
+    public PrescriptionKind Kind { get; set; } = PrescriptionKind.Simple;
+    public PrescriptionStatus Status { get; set; } = PrescriptionStatus.Draft;
+    // CFM 2.314 art. 13: location the patient informed during the teleconsultation.
+    public string? PatientLocation { get; set; }
+    public string? Notes { get; set; }
+    public Guid? RenewedFromId { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime? SignedAt { get; set; }
+    public string? SignedDocumentKey { get; set; }
+    public string? SignedDocumentSha256 { get; set; }
+    public ICollection<PrescriptionItem> Items { get; set; } = [];
+}
+
+public sealed class PrescriptionItem
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid PrescriptionId { get; set; }
+    public Prescription Prescription { get; set; } = null!;
+    public int Position { get; set; }
+    public Guid? CatalogItemId { get; set; }
+    public required string MedicationName { get; set; }
+    public string? Dosage { get; set; }
+    public required string Instructions { get; set; }
+    public string? Quantity { get; set; }
+    public bool ContinuousUse { get; set; }
 }
 
 public sealed class AuditEvent

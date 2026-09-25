@@ -151,7 +151,8 @@ public sealed record DoctorResponse(
     string Crm,
     string CrmUf,
     string Specialty,
-    string? Phone);
+    string? Phone,
+    string? ProfessionalAddress);
 
 public sealed record CareSpecialtyResponse(
     string Specialty,
@@ -169,7 +170,9 @@ public sealed record UpdateDoctorRequest(
     string Crm,
     string CrmUf,
     string Specialty,
-    string? Phone);
+    string? Phone,
+    // Null keeps the current value (the clinic admin's form does not send it).
+    string? ProfessionalAddress = null);
 
 public sealed record CreateAppointmentRequest(
     Guid DoctorId,
@@ -355,3 +358,76 @@ public interface IPaymentProvider
         CancellationToken cancellationToken);
     bool ValidateWebhook(string signature, string requestId, string dataId);
 }
+
+public sealed record MedicationSearchResponse(
+    Guid Id,
+    string Name,
+    string? ActiveIngredient,
+    string? TherapeuticClass,
+    MedicationSource Source);
+
+public sealed record CreateMedicationRequest(string Name, string? ActiveIngredient);
+
+public sealed record PrescriptionItemRequest(
+    Guid? CatalogItemId,
+    string MedicationName,
+    string? Dosage,
+    string Instructions,
+    string? Quantity,
+    bool ContinuousUse);
+
+public sealed record SavePrescriptionRequest(
+    PrescriptionKind Kind,
+    string? PatientLocation,
+    string? Notes,
+    Guid? RenewedFromId,
+    IReadOnlyList<PrescriptionItemRequest> Items);
+
+public sealed record PrescriptionItemResponse(
+    Guid Id,
+    Guid? CatalogItemId,
+    string MedicationName,
+    string? Dosage,
+    string Instructions,
+    string? Quantity,
+    bool ContinuousUse);
+
+public sealed record PrescriptionResponse(
+    Guid Id,
+    Guid AppointmentId,
+    PrescriptionKind Kind,
+    PrescriptionStatus Status,
+    string? PatientLocation,
+    string? Notes,
+    Guid? RenewedFromId,
+    DateTime CreatedAt,
+    DateTime UpdatedAt,
+    DateTime? SignedAt,
+    IReadOnlyList<PrescriptionItemResponse> Items);
+
+// Everything the printable document needs (CFM 2.314 art. 13), plus what is still missing before it can be signed.
+public sealed record PrescriptionDocumentResponse(
+    PrescriptionResponse Prescription,
+    string DoctorName,
+    string DoctorCrm,
+    string DoctorCrmUf,
+    string DoctorSpecialty,
+    string? DoctorProfessionalAddress,
+    string ClinicName,
+    string PatientName,
+    string PatientCpf,
+    DateTime AppointmentAt,
+    IReadOnlyList<string> MissingForSignature,
+    bool SignatureAvailable);
+
+public sealed record MedicationInUseResponse(
+    string MedicationName,
+    string? Dosage,
+    string Instructions,
+    DateTime LastPrescribedAt,
+    string PrescribedBy,
+    Guid PrescriptionId);
+
+public sealed record PatientMedicationsResponse(
+    IReadOnlyList<MedicationInUseResponse> Items,
+    string? LegacyNote);

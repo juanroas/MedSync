@@ -10,7 +10,7 @@ using Microsoft.Extensions.Caching.Distributed;
 
 namespace MedSync.Api;
 
-public static class ApiEndpoints
+public static partial class ApiEndpoints
 {
     private const string SessionCookie = "medsync_session";
 
@@ -83,6 +83,8 @@ public static class ApiEndpoints
 
         protectedApi.MapPost("/appointments/{appointmentId:guid}/payments/checkout", CreateCheckout);
         protectedApi.MapGet("/appointments/{appointmentId:guid}/payments", GetPayment);
+
+        MapPrescriptionEndpoints(protectedApi);
 
         return app;
     }
@@ -1373,7 +1375,7 @@ public static class ApiEndpoints
         var doctors = await query
             .OrderBy(x => x.Name)
             .Select(x => new DoctorResponse(
-                x.Id, x.Name, x.Email, x.Crm, x.CrmUf, x.Specialty, x.Phone))
+                x.Id, x.Name, x.Email, x.Crm, x.CrmUf, x.Specialty, x.Phone, x.ProfessionalAddress))
             .ToListAsync(cancellationToken);
         return Results.Ok(doctors);
     }
@@ -1420,6 +1422,8 @@ public static class ApiEndpoints
             return Validation("specialty", "Especialidade é obrigatória.");
         if (!IsValidOptionalPhone(request.Phone))
             return Validation("phone", "Informe um telefone válido com DDD.");
+        if (request.ProfessionalAddress?.Trim().Length > 300)
+            return Validation("professionalAddress", "O endereço profissional pode ter até 300 caracteres.");
 
         var email = request.Email.Trim().ToLowerInvariant();
         var crm = request.Crm.Trim();
@@ -1438,6 +1442,10 @@ public static class ApiEndpoints
         doctor.CrmUf = crmUf;
         doctor.Specialty = request.Specialty.Trim();
         doctor.Phone = request.Phone?.Trim();
+        if (request.ProfessionalAddress is not null)
+            doctor.ProfessionalAddress = string.IsNullOrWhiteSpace(request.ProfessionalAddress)
+                ? null
+                : request.ProfessionalAddress.Trim();
         if (doctor.User is not null)
         {
             doctor.User.Name = name;
@@ -2809,7 +2817,7 @@ public static class ApiEndpoints
             includeContinuousMedications ? patient.ContinuousMedications : null);
 
     private static DoctorResponse ToResponse(Doctor doctor) =>
-        new(doctor.Id, doctor.Name, doctor.Email, doctor.Crm, doctor.CrmUf, doctor.Specialty, doctor.Phone);
+        new(doctor.Id, doctor.Name, doctor.Email, doctor.Crm, doctor.CrmUf, doctor.Specialty, doctor.Phone, doctor.ProfessionalAddress);
 
     private static RoomResponse ToResponse(ConsultationRoom room) =>
         new(

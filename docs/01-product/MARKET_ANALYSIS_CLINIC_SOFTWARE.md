@@ -141,6 +141,56 @@ de uma pessoa, preço de um profissional) e a clínica é um agrupamento de prof
 [Demografia Médica 2025](https://amb.org.br/wp-content/uploads/2025/04/DEMOGRAFIA-MEDICA-DO-BRASIL-2025_versao-online.pdf),
 não lido) — não usar número sem ler.
 
+## 7. Receita para o paciente recorrente (investigação de 25/09/2026)
+
+Pedido do usuário: o médico precisa ver as medicações do paciente e **imprimir ou enviar** a receita para quem volta
+sempre, sem depender de apoio administrativo.
+
+| Pergunta | Resposta | Fonte |
+|---|---|---|
+| Receita em papel com assinatura à mão ainda vale? | **Sim**, para consulta presencial; o papel continua valendo ao lado do digital | [CFM — plataforma de prescrição](https://portal.cfm.org.br/noticias/cfm-atualiza-plataforma-que-permite-aos-medicos-prescreverem-receitas-digitalmente/) |
+| E na teleconsulta? | Só vale **assinada com ICP-Brasil** (art. 13 da 2.314); imprimir não resolve, o médico não assina à distância | [Res. CFM 2.314/2022](https://sistemas.cfm.org.br/normas/arquivos/resolucoes/BR/2022/2314_2022.pdf) |
+| Antimicrobiano | Receituário comum, **duas vias**, validade **10 dias** | [RDC Anvisa 471/2021](https://media.crfrs.org.br/orientacao/RDC_471_2021_.pdf) |
+| Controlados (A, B, C1, retenção) eletrônicos | Só por **serviço de prescrição integrado ao SNCR** da Anvisa via API, com assinatura qualificada; SNCR completo até 01/06/2026 | [CFF sobre a RDC de dez/2025](https://site.cff.org.br/noticia/Noticias-gerais/10/12/2025/anvisa-aprova-nova-rdc-que-regulamenta-o-receituario-eletronico-de-medicamentos-controlados) |
+| Paciente crônico só por vídeo | Consulta presencial ao menos a cada **180 dias** | [Res. CFM 2.314/2022](https://sistemas.cfm.org.br/normas/arquivos/resolucoes/BR/2022/2314_2022.pdf), art. 6º §2 |
+| O que a Memed entrega ao parceiro | Base de +60 mil itens, alerta de interação e alergia, histórico de prescrições, **envio e reenvio por SMS, e-mail ou WhatsApp**, +36 mil farmácias integradas; preço e API não aparecem na página (contato comercial) | [Memed parceiro](https://memed.com.br/parceiro-software/) |
+
+Conclusões:
+1. **Construir assinatura, SNCR ou base de medicamentos próprios não compensa**: é exatamente o que a Memed (ou o
+   prescritor do CFM) já entrega, e controlados exigem integração com a Anvisa. Mantém a regra D1.
+2. O que é nosso e diferencia: **"Medicações em uso" estruturada no cadastro do paciente** (hoje é texto livre em
+   `Patient.ContinuousMedications`), visível ao médico no atendimento, e **"Renovar receita"** que abre a prescrição já
+   com essa lista. Com a Memed, a renovação vira um clique e o envio sai por WhatsApp/SMS.
+3. Receita impressa só faz sentido se o MedSync registrar **consulta presencial**, que hoje não existe (a agenda é só
+   por vídeo). Isso também é o que permite cumprir os 180 dias do paciente crônico.
+
+Decisão do usuário (25/09): o fluxo é do MedSync — o médico monta a receita, **assina dentro da plataforma** e envia ao
+paciente por WhatsApp ou e-mail; imprimir é opcional e fica a critério do médico. O produto continua só por vídeo.
+Base de medicamentos confiável e sem depender de serviço externo a cada busca, com opção de incluir um item que não
+exista na base.
+
+O que a lei permite para "assinatura do MedSync":
+
+| Documento | Assinatura mínima | Fonte |
+|---|---|---|
+| Atestado e receita de controlado, em meio eletrônico | **Qualificada (ICP-Brasil)** | [Lei 14.063/2020](https://www.planalto.gov.br/ccivil_03/_ato2019-2022/2020/lei/l14063.htm), art. 13 |
+| Demais documentos de saúde (receita simples, pedido de exame) | Avançada ou qualificada | mesma lei, art. 14 |
+| Qualquer documento emitido em **telemedicina** | ICP-Brasil (ou padrão legalmente aceito) | Res. CFM 2.314/2022, art. 13 |
+
+Como o MedSync é só telemedicina, a assinatura precisa ser ICP-Brasil. Isso **não** exige a Memed: o certificado
+gratuito do CFM é o **VIDaaS** (Valid, PSC credenciada no ITI), que tem API de assinatura em nuvem com OAuth; basta
+registrar o MedSync como aplicação na Valid uma vez ([integração via API](https://validcertificadora.com.br/pages/psc-integracao-via-api),
+[manual VIDaaS](https://www.digiforte.com.br/storage/VIDaaS/Manual%20Integra%C3%A7%C3%A3o%20com%20VIDaaS%20-%20Certificado%20em%20Nuvem%20(Produ%C3%A7%C3%A3o)_20210319.pdf)).
+O médico aprova a assinatura no celular e o MedSync recebe o PDF assinado.
+
+Base de medicamentos: [dados abertos da Anvisa](https://dados.anvisa.gov.br/dados/DADOS_ABERTOS_MEDICAMENTOS.csv)
+(CSV de ~8 MB, atualizado diariamente) com nome do produto, princípio ativo, classe terapêutica e situação do
+registro. Importada para o banco do MedSync, a busca é local (sem intermitência); dose e posologia são digitadas.
+Não traz apresentação nem preço (isso está na lista CMED).
+
+Envio: o link enviado por WhatsApp/e-mail leva a "Meus documentos" com login; o PDF não viaja anexado, para não
+expor dado de saúde em canal de terceiros (LGPD art. 46).
+
 ## Fontes
 - [iClinic — Planos e preços](https://iclinic.com.br/precos/) · [iClinic Premium](https://iclinic.com.br/premium/)
 - [Feegow — Preços e planos](https://feegowclinic.com.br/precos-e-planos)
