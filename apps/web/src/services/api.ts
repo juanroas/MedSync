@@ -356,6 +356,7 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ lifetimeHours }),
     }),
+  getRealtimeTicket: () => request<{ ticket: string; expiresInSeconds: number }>("/realtime/ticket", { method: "POST" }),
   getSigningSession: () => request<SigningSession>("/signature/session"),
   endSigningSession: () => request<void>("/signature/session", { method: "DELETE" }),
   prescriptionPdfUrl: (id: string) => `${API_URL}/prescriptions/${id}/pdf`,

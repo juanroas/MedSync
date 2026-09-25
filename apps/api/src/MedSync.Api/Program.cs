@@ -40,6 +40,18 @@ else
     });
 }
 
+// Real time (ADR-0004): WebSocket hub; with Redis every API instance reaches every connected client.
+var signalR = builder.Services.AddSignalR();
+if (!string.IsNullOrWhiteSpace(redisUrl))
+{
+    signalR.AddStackExchangeRedis(options =>
+    {
+        options.Configuration = RedisConfiguration(redisUrl);
+        options.Configuration.ChannelPrefix = RedisChannel.Literal("medsync-realtime");
+    });
+}
+builder.Services.AddScoped<RealtimeNotifier>();
+
 builder.Services.AddScoped<IPasswordService, PasswordService>();
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<ITotpService, TotpService>();
@@ -106,21 +118,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             // alguem, gravamos "session-revoked:{userId}" no cache distribuido. Qualquer token
             // emitido ANTES desse instante passa a ser rejeitado aqui, mesmo que ainda nao
             // tenha expirado (o JWT por si so nao pode ser revogado, entao checamos a cada request).
-            OnTokenValidated = async context =>
-            {
-                var userIdClaim = context.Principal?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-                if (userIdClaim is null || context.SecurityToken is not JwtSecurityToken jwt)
-                    return;
-
-                var cache = context.HttpContext.RequestServices.GetRequiredService<IDistributedCache>();
-                var revokedBeforeRaw = await cache.GetStringAsync($"session-revoked:{userIdClaim}");
-                if (revokedBeforeRaw is not null &&
-                    long.TryParse(revokedBeforeRaw, out var revokedBeforeUnix) &&
-                    new DateTimeOffset(DateTime.SpecifyKind(jwt.IssuedAt, DateTimeKind.Utc)).ToUnixTimeSeconds() < revokedBeforeUnix)
-                {
-                    context.Fail("Sessao revogada.");
-                }
-            }
+            OnTokenValidated = RejectRevokedSession
         };
         options.TokenValidationParameters = new TokenValidationParameters
         {
@@ -132,6 +130,33 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidAudience = jwtAudience,
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecret)),
             ClockSkew = TimeSpan.FromMinutes(1)
+        };
+    });
+// Second scheme, only for the hub: a 2-minute ticket with its own audience, sent in the WebSocket URL.
+// Normal routes reject it (audience) and the hub rejects the session token (scheme).
+builder.Services.AddAuthentication()
+    .AddJwtBearer(Realtime.Scheme, options =>
+    {
+        options.Events = new JwtBearerEvents
+        {
+            OnMessageReceived = context =>
+            {
+                if (context.Request.Path.StartsWithSegments(Realtime.HubPath))
+                    context.Token = context.Request.Query["access_token"];
+                return Task.CompletedTask;
+            },
+            OnTokenValidated = RejectRevokedSession
+        };
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            ValidIssuer = jwtIssuer,
+            ValidAudience = Realtime.Audience,
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecret)),
+            ClockSkew = TimeSpan.FromSeconds(30)
         };
     });
 builder.Services.AddAuthorization();
@@ -166,6 +191,11 @@ app.Use(async (context, next) =>
         "camera=(self), microphone=(self), geolocation=()";
     await next();
 });
+// WebSocket is not covered by CORS: only the web app's origins may open the hub.
+var webSocketOptions = new WebSocketOptions();
+foreach (var origin in frontendUrls)
+    webSocketOptions.AllowedOrigins.Add(origin);
+app.UseWebSockets(webSocketOptions);
 app.UseCors();
 app.UseRateLimiter();
 app.UseAuthentication();
@@ -249,6 +279,10 @@ app.MapPost("/ops/presentation-seed", async (
     });
 }).AllowAnonymous().RequireRateLimiting("auth");
 app.MapMedSyncEndpoints();
+app.MapPost("/realtime/ticket", (ClaimsPrincipal principal) =>
+        Results.Ok(new { ticket = Realtime.CreateTicket(principal, jwtSecret, jwtIssuer), expiresInSeconds = (int)Realtime.TicketLifetime.TotalSeconds }))
+    .RequireAuthorization();
+app.MapHub<MedSyncHub>(Realtime.HubPath);
 
 await using (var scope = app.Services.CreateAsyncScope())
 {
@@ -372,6 +406,22 @@ static bool FixedTimeEquals(string expected, string actual)
     var actualBytes = Encoding.UTF8.GetBytes(actual);
     return expectedBytes.Length == actualBytes.Length &&
         System.Security.Cryptography.CryptographicOperations.FixedTimeEquals(expectedBytes, actualBytes);
+}
+
+static async Task RejectRevokedSession(TokenValidatedContext context)
+{
+    var userIdClaim = context.Principal?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+    if (userIdClaim is null || context.SecurityToken is not JwtSecurityToken jwt)
+        return;
+
+    var cache = context.HttpContext.RequestServices.GetRequiredService<IDistributedCache>();
+    var revokedBeforeRaw = await cache.GetStringAsync($"session-revoked:{userIdClaim}");
+    if (revokedBeforeRaw is not null &&
+        long.TryParse(revokedBeforeRaw, out var revokedBeforeUnix) &&
+        new DateTimeOffset(DateTime.SpecifyKind(jwt.IssuedAt, DateTimeKind.Utc)).ToUnixTimeSeconds() < revokedBeforeUnix)
+    {
+        context.Fail("Sessao revogada.");
+    }
 }
 
 internal sealed record SeedMode(bool Enabled, string Mode, string Reason);

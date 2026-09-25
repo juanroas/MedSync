@@ -325,6 +325,7 @@ public static partial class ApiEndpoints
         MedSyncDbContext db,
         IPasswordService passwords,
         AuditWriter audit,
+        RealtimeNotifier realtime,
         CancellationToken cancellationToken)
     {
         var actor = RequestContext.From(principal);
@@ -380,6 +381,8 @@ public static partial class ApiEndpoints
         audit.Add(actor, "Clinic.OnboardingCreate", "Clinic", clinic.Id);
         await db.SaveChangesAsync(cancellationToken);
 
+        await realtime.ClinicChangedAsync(clinic.Id);
+
         return Results.Created(
             $"/clinics/{clinic.Id}",
             new ClinicOnboardingResponse(
@@ -415,6 +418,7 @@ public static partial class ApiEndpoints
         ClaimsPrincipal principal,
         MedSyncDbContext db,
         AuditWriter audit,
+        RealtimeNotifier realtime,
         CancellationToken cancellationToken)
     {
         var actor = RequestContext.From(principal);
@@ -455,6 +459,8 @@ public static partial class ApiEndpoints
 
         audit.Add(actor, "Clinic.ActivationUpdate", "Clinic", clinic.Id, "Success", reason);
         await db.SaveChangesAsync(cancellationToken);
+
+        await realtime.ClinicChangedAsync(clinic.Id);
 
         return Results.Ok(ToActivationResponse(clinic));
     }
@@ -536,6 +542,7 @@ public static partial class ApiEndpoints
         ClaimsPrincipal principal,
         MedSyncDbContext db,
         AuditWriter audit,
+        RealtimeNotifier realtime,
         CancellationToken cancellationToken)
     {
         var actor = RequestContext.From(principal);
@@ -580,6 +587,7 @@ public static partial class ApiEndpoints
         db.PrivacyRequests.Add(privacyRequest);
         audit.Add(actor, "PrivacyRequest.Create", "PrivacyRequest", privacyRequest.Id);
         await db.SaveChangesAsync(cancellationToken);
+        await realtime.PrivacyRequestChangedAsync(privacyRequest.Id, privacyRequest.CreatedByUserId);
         return Results.Created($"/privacy/requests/{privacyRequest.Id}", ToResponse(privacyRequest));
     }
 
@@ -589,6 +597,7 @@ public static partial class ApiEndpoints
         ClaimsPrincipal principal,
         MedSyncDbContext db,
         AuditWriter audit,
+        RealtimeNotifier realtime,
         CancellationToken cancellationToken)
     {
         var actor = RequestContext.From(principal);
@@ -619,6 +628,7 @@ public static partial class ApiEndpoints
 
         audit.Add(actor, "PrivacyRequest.UpdateStatus", "PrivacyRequest", privacyRequest.Id);
         await db.SaveChangesAsync(cancellationToken);
+        await realtime.PrivacyRequestChangedAsync(privacyRequest.Id, privacyRequest.CreatedByUserId);
         return Results.Ok(ToResponse(privacyRequest));
     }
 
@@ -665,6 +675,7 @@ public static partial class ApiEndpoints
         ClaimsPrincipal principal,
         MedSyncDbContext db,
         AuditWriter audit,
+        RealtimeNotifier realtime,
         CancellationToken cancellationToken)
     {
         var actor = RequestContext.From(principal);
@@ -694,6 +705,7 @@ public static partial class ApiEndpoints
         db.SupportRequests.Add(supportRequest);
         audit.Add(actor, "SupportRequest.Create", "SupportRequest", supportRequest.Id);
         await db.SaveChangesAsync(cancellationToken);
+        await realtime.SupportRequestChangedAsync(supportRequest.Id, supportRequest.CreatedByUserId);
         return Results.Created($"/support/requests/{supportRequest.Id}", ToResponse(supportRequest));
     }
 
@@ -703,6 +715,7 @@ public static partial class ApiEndpoints
         ClaimsPrincipal principal,
         MedSyncDbContext db,
         AuditWriter audit,
+        RealtimeNotifier realtime,
         CancellationToken cancellationToken)
     {
         var actor = RequestContext.From(principal);
@@ -733,6 +746,7 @@ public static partial class ApiEndpoints
 
         audit.Add(actor, "SupportRequest.UpdateStatus", "SupportRequest", supportRequest.Id);
         await db.SaveChangesAsync(cancellationToken);
+        await realtime.SupportRequestChangedAsync(supportRequest.Id, supportRequest.CreatedByUserId);
         return Results.Ok(ToResponse(supportRequest));
     }
 
@@ -915,6 +929,7 @@ public static partial class ApiEndpoints
         ITokenService tokens,
         AuditWriter audit,
         IConfiguration configuration,
+        RealtimeNotifier realtime,
         CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(request.ClinicName) ||
@@ -968,6 +983,7 @@ public static partial class ApiEndpoints
         await db.SaveChangesAsync(cancellationToken);
 
         SetSessionCookie(http, tokens.CreateJwt(user, clinic, roles), configuration);
+        await realtime.ClinicChangedAsync(clinic.Id);
         return Results.Created(
             $"/clinics/{clinic.Id}",
             new LoginResponse(ToUserSummary(user, clinic, roles)));
@@ -1743,6 +1759,7 @@ public static partial class ApiEndpoints
         ClaimsPrincipal principal,
         MedSyncDbContext db,
         AuditWriter audit,
+        RealtimeNotifier realtime,
         CancellationToken cancellationToken)
     {
         var actor = RequestContext.From(principal);
@@ -1832,6 +1849,8 @@ public static partial class ApiEndpoints
         audit.Add(actor, "Appointment.Request", "Appointment", appointment.Id);
         await db.SaveChangesAsync(cancellationToken);
 
+        await realtime.AppointmentChangedAsync(appointment.Id, cancellationToken);
+
         return Results.Created(
             $"/appointments/{appointment.Id}",
             await AppointmentQuery(db, actor, appointment.Id).SingleAsync(cancellationToken));
@@ -1842,6 +1861,7 @@ public static partial class ApiEndpoints
         ClaimsPrincipal principal,
         MedSyncDbContext db,
         AuditWriter audit,
+        RealtimeNotifier realtime,
         CancellationToken cancellationToken)
     {
         var actor = RequestContext.From(principal);
@@ -1895,6 +1915,7 @@ public static partial class ApiEndpoints
         db.Appointments.Add(appointment);
         audit.Add(actor, "Appointment.Create", "Appointment", appointment.Id);
         await db.SaveChangesAsync(cancellationToken);
+        await realtime.AppointmentChangedAsync(appointment.Id, cancellationToken);
         return Results.Created(
             $"/appointments/{appointment.Id}",
             await AppointmentQuery(db, actor, appointment.Id).SingleAsync(cancellationToken));
@@ -1944,6 +1965,7 @@ public static partial class ApiEndpoints
         HttpContext http,
         MedSyncDbContext db,
         AuditWriter audit,
+        RealtimeNotifier realtime,
         CancellationToken cancellationToken)
     {
         var actor = RequestContext.From(principal);
@@ -1979,6 +2001,7 @@ public static partial class ApiEndpoints
         }
         audit.Add(actor, "Consent.Accept", "Appointment", id);
         await db.SaveChangesAsync(cancellationToken);
+        await realtime.AppointmentChangedAsync(id, cancellationToken);
         return Results.Ok(new
         {
             accepted = true,
@@ -2000,6 +2023,7 @@ public static partial class ApiEndpoints
         ClaimsPrincipal principal,
         MedSyncDbContext db,
         AuditWriter audit,
+        RealtimeNotifier realtime,
         CancellationToken cancellationToken)
     {
         var actor = RequestContext.From(principal);
@@ -2033,6 +2057,8 @@ public static partial class ApiEndpoints
 
         audit.Add(actor, "Appointment.Cancel", "Appointment", id, reason: request.Reason);
         await db.SaveChangesAsync(cancellationToken);
+
+        await realtime.AppointmentChangedAsync(id, cancellationToken);
 
         return Results.Ok(await AppointmentQuery(db, actor, id).SingleAsync(cancellationToken));
     }
@@ -2323,6 +2349,7 @@ public static partial class ApiEndpoints
         ClaimsPrincipal principal,
         MedSyncDbContext db,
         AuditWriter audit,
+        RealtimeNotifier realtime,
         CancellationToken cancellationToken)
     {
         var actor = RequestContext.From(principal);
@@ -2362,6 +2389,7 @@ public static partial class ApiEndpoints
         appointment.Status = AppointmentStatus.InProgress;
         audit.Add(actor, "Consultation.Start", "Appointment", appointmentId);
         await db.SaveChangesAsync(cancellationToken);
+        await realtime.AppointmentChangedAsync(appointmentId, cancellationToken);
         return Results.Ok(ToResponse(room));
     }
 
@@ -2395,6 +2423,7 @@ public static partial class ApiEndpoints
         ITokenService tokens,
         IConfiguration configuration,
         AuditWriter audit,
+        RealtimeNotifier realtime,
         CancellationToken cancellationToken)
     {
         var actor = RequestContext.From(principal);
@@ -2457,6 +2486,7 @@ public static partial class ApiEndpoints
             appointment.ConsultationRoom.PatientJoinedAt ??= DateTime.UtcNow;
         audit.Add(actor, "Video.TokenIssued", "Appointment", appointmentId);
         await db.SaveChangesAsync(cancellationToken);
+        await realtime.AppointmentChangedAsync(appointmentId, cancellationToken);
         return Results.Ok(new
         {
             token = liveKitToken,
@@ -2477,6 +2507,7 @@ public static partial class ApiEndpoints
         MedSyncDbContext db,
         LiveKitRoomManager liveKit,
         AuditWriter audit,
+        RealtimeNotifier realtime,
         CancellationToken cancellationToken)
     {
         var actor = RequestContext.From(principal);
@@ -2505,6 +2536,7 @@ public static partial class ApiEndpoints
             deleteResult == LiveKitDeleteRoomResult.Deleted ? "Success" : "Warning",
             deleteResult == LiveKitDeleteRoomResult.Deleted ? null : $"LiveKit delete result: {deleteResult}.");
         await db.SaveChangesAsync(cancellationToken);
+        await realtime.AppointmentChangedAsync(appointmentId, cancellationToken);
         return Results.NoContent();
     }
 
@@ -2584,6 +2616,7 @@ public static partial class ApiEndpoints
         HttpContext http,
         MedSyncDbContext db,
         IPaymentProvider provider,
+        RealtimeNotifier realtime,
         CancellationToken cancellationToken)
     {
         var signature = http.Request.Headers["x-signature"].ToString();
@@ -2612,6 +2645,7 @@ public static partial class ApiEndpoints
             Result = "Success"
         });
         await db.SaveChangesAsync(cancellationToken);
+        await realtime.AppointmentChangedAsync(payment.AppointmentId, cancellationToken);
         return Results.Ok();
     }
 

@@ -1,5 +1,7 @@
 "use client";
 
+import { useRealtimeRefresh } from "@/lib/realtime";
+
 import { useConfirm } from "@/components/dialog";
 import { AlertBanner, Badge, Button, Card, SelectInput, TextInput, cn, secondaryButtonClass } from "@/components/ui";
 import { formatDateTime } from "@/lib/format";
@@ -60,6 +62,7 @@ export function PrescriptionPanel({ appointmentId, patientId }: { appointmentId:
   useEffect(() => {
     load().catch((err) => setError(err instanceof Error ? err.message : "Não foi possível carregar as receitas."));
   }, [load]);
+  useRealtimeRefresh(["prescriptionChanged"], () => load().catch(() => undefined));
 
   function startNew() {
     setMessage("");

@@ -291,6 +291,7 @@ public static partial class ApiEndpoints
         ClinicalAttachmentStorage storage,
         IDistributedCache cache,
         ILoggerFactory loggerFactory,
+        RealtimeNotifier realtime,
         CancellationToken cancellationToken)
     {
         var actor = RequestContext.From(principal);
@@ -323,7 +324,7 @@ public static partial class ApiEndpoints
         {
             try
             {
-                await SignWithSessionAsync(db, audit, storage, provider, session, prescription, actor, cancellationToken);
+                await SignWithSessionAsync(realtime, db, audit, storage, provider, session, prescription, actor, cancellationToken);
                 return Results.Ok(new { signed = true, simulated = session.Simulated });
             }
             catch (Exception exception) when (exception is InvalidOperationException or HttpRequestException)
@@ -358,6 +359,7 @@ public static partial class ApiEndpoints
         ClinicalAttachmentStorage storage,
         IDistributedCache cache,
         ILoggerFactory loggerFactory,
+        RealtimeNotifier realtime,
         CancellationToken cancellationToken)
     {
         var frontend = FrontendUrl();
@@ -392,7 +394,7 @@ public static partial class ApiEndpoints
             provider.Name, credentialId, pending.Verifier, DateTime.UtcNow.AddHours(pending.LifetimeHours), provider.Simulated);
         try
         {
-            await SignWithSessionAsync(db, audit, storage, provider, session, prescription, actor, cancellationToken);
+            await SignWithSessionAsync(realtime, db, audit, storage, provider, session, prescription, actor, cancellationToken);
             await sessions.SaveAsync(pending.UserId, session, cancellationToken);
             return Results.Redirect($"{documentUrl}?assinatura=ok");
         }
@@ -439,6 +441,7 @@ public static partial class ApiEndpoints
     }
 
     private static async Task SignWithSessionAsync(
+        RealtimeNotifier realtime,
         MedSyncDbContext db,
         AuditWriter audit,
         ClinicalAttachmentStorage storage,
@@ -481,6 +484,7 @@ public static partial class ApiEndpoints
         audit.Add(actor, "Prescription.Sign", "Prescription", prescription.Id, "Success",
             session.Simulated ? "Simulador de assinatura (sem validade)." : null);
         await db.SaveChangesAsync(cancellationToken);
+        await realtime.PrescriptionChangedAsync(prescription.Id, cancellationToken);
     }
 
     private static Task<Prescription?> LoadPrescriptionForSigning(MedSyncDbContext db, Guid id, CancellationToken cancellationToken) =>

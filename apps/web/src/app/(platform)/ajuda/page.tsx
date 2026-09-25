@@ -1,5 +1,7 @@
 "use client";
 
+import { useRealtimeRefresh } from "@/lib/realtime";
+
 import {
   AlertBanner,
   Badge,
@@ -17,7 +19,7 @@ import { PatientHelp } from "@/components/patient-help";
 import type { SupportRequest, SupportRequestStatus } from "@/lib/types";
 import { api, getSession } from "@/services/api";
 import { LifeBuoy, MessageCircleQuestion } from "lucide-react";
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 
 const statusOptions: Array<{ value: SupportRequestStatus; label: string }> = [
   { value: "New", label: "Nova" },
@@ -62,12 +64,18 @@ function TeamHelp() {
     if (prefill) setForm((current) => ({ ...current, subject: prefill }));
   }, []);
 
+  const load = useCallback(
+    () =>
+      api.getSupportRequests()
+        .then(setRequests)
+        .catch((err) => setError(err instanceof Error ? err.message : "Erro ao carregar solicitacoes."))
+        .finally(() => setLoading(false)),
+    [],
+  );
   useEffect(() => {
-    api.getSupportRequests()
-      .then(setRequests)
-      .catch((err) => setError(err instanceof Error ? err.message : "Erro ao carregar solicitacoes."))
-      .finally(() => setLoading(false));
-  }, []);
+    void load();
+  }, [load]);
+  useRealtimeRefresh(["supportRequestChanged"], load);
 
   const openRequests = useMemo(
     () => requests.filter((request) => request.status !== "Resolved").length,

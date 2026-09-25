@@ -136,7 +136,7 @@ recebem uma senha temporária, que deve ser trocada no primeiro acesso.
 | `PORT` | Porta HTTP. O padrão é `8080`. |
 | `DATABASE_URL` | URL PostgreSQL no formato `postgresql://user:pass@host:port/db`. |
 | `ConnectionStrings__DefaultConnection` | Alternativa à `DATABASE_URL`. |
-| `REDIS_URL` | URL do Redis. Sem ela, a API usa cache em memória. No Windows local, use `127.0.0.1` em vez de `localhost` (o cliente tenta IPv6 e o Docker Desktop não responde). |
+| `REDIS_URL` | URL do Redis (cache e backplane do tempo real entre instâncias da API). Sem ela, a API usa cache em memória e o tempo real funciona só dentro de uma instância. No Windows local, use `127.0.0.1` em vez de `localhost` (o cliente tenta IPv6 e o Docker Desktop não responde). |
 | `JWT_SECRET` | Segredo de assinatura do JWT, com no mínimo 32 caracteres. |
 | `JWT_ISSUER` | Emissor do JWT. Padrão: `MedSync`. |
 | `JWT_AUDIENCE` | Audiência do JWT. Padrão: `MedSync.Web`. |
@@ -164,6 +164,7 @@ recebem uma senha temporária, que deve ser trocada no primeiro acesso.
 |---|---|
 | `NEXT_PUBLIC_API_BASE_PATH` | Caminho usado pelo browser para chamar a API. Em Vercel, use `/api` para manter cookie same-origin. |
 | `NEXT_PUBLIC_API_URL` | URL pública da API, sem barra no final. Usada pelo rewrite/proxy do Next.js quando `API_PROXY_TARGET` nao for definido. |
+| `NEXT_PUBLIC_REALTIME_URL` | URL pública da API (Railway) para o tempo real, sem barra final. O navegador conecta direto nela (WebSocket em `/hubs/events`), não pelo proxy da Vercel. Sem ela, as telas atualizam a cada 30 s. Ver ADR-0004. |
 | `API_PROXY_TARGET` | URL interna ou publica da API usada pelo servidor Next.js no rewrite `/api/:path*`. |
 | `NEXT_PUBLIC_LIVEKIT_URL` | URL WebSocket pública do LiveKit (`wss://...`). |
 

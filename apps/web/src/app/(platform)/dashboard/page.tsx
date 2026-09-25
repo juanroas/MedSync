@@ -1,5 +1,7 @@
 "use client";
 
+import { useRealtimeRefresh } from "@/lib/realtime";
+
 import {
   Badge,
   Card,
@@ -46,7 +48,7 @@ import {
   Video,
 } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 const schedulingRoles = ["ClinicAdmin"];
 
@@ -101,20 +103,26 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
+  const load = useCallback(
+    () =>
+      Promise.all([
+          canLoadAppointments ? api.getAppointments() : Promise.resolve([]),
+          canLoadDoctors ? api.getDoctors() : Promise.resolve([]),
+          canLoadPatients ? api.getPatients() : Promise.resolve([]),
+        ])
+          .then(([appointmentData, doctorData, patientData]) => {
+            setAppointments(appointmentData);
+            setDoctors(doctorData);
+            setPatients(patientData);
+          })
+          .catch((err) => setError(err instanceof Error ? err.message : "Erro ao carregar painel."))
+          .finally(() => setLoading(false)),
+    [canLoadAppointments, canLoadDoctors, canLoadPatients],
+  );
   useEffect(() => {
-    Promise.all([
-      canLoadAppointments ? api.getAppointments() : Promise.resolve([]),
-      canLoadDoctors ? api.getDoctors() : Promise.resolve([]),
-      canLoadPatients ? api.getPatients() : Promise.resolve([]),
-    ])
-      .then(([appointmentData, doctorData, patientData]) => {
-        setAppointments(appointmentData);
-        setDoctors(doctorData);
-        setPatients(patientData);
-      })
-      .catch((err) => setError(err instanceof Error ? err.message : "Erro ao carregar painel."))
-      .finally(() => setLoading(false));
-  }, [canLoadAppointments, canLoadDoctors, canLoadPatients]);
+    void load();
+  }, [load]);
+  useRealtimeRefresh(["appointmentChanged"], load);
 
   const upcoming = useMemo(
     () =>
@@ -390,12 +398,18 @@ function MedicalAdminHome() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
+  const load = useCallback(
+    () =>
+      api.getClinicActivations()
+          .then(setClinics)
+          .catch((err) => setError(err instanceof Error ? err.message : "Erro ao carregar clínicas."))
+          .finally(() => setLoading(false)),
+    [],
+  );
   useEffect(() => {
-    api.getClinicActivations()
-      .then(setClinics)
-      .catch((err) => setError(err instanceof Error ? err.message : "Erro ao carregar clínicas."))
-      .finally(() => setLoading(false));
-  }, []);
+    void load();
+  }, [load]);
+  useRealtimeRefresh(["clinicChanged"], load);
 
   const pending = clinics.filter((clinic) => clinic.activationStatus === "Pending");
   const active = clinics.filter((clinic) => clinic.activationStatus === "Active").length;
@@ -457,12 +471,18 @@ function SupportHome() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
+  const load = useCallback(
+    () =>
+      api.getSupportRequests()
+          .then(setRequests)
+          .catch((err) => setError(err instanceof Error ? err.message : "Erro ao carregar a fila de ajuda."))
+          .finally(() => setLoading(false)),
+    [],
+  );
   useEffect(() => {
-    api.getSupportRequests()
-      .then(setRequests)
-      .catch((err) => setError(err instanceof Error ? err.message : "Erro ao carregar a fila de ajuda."))
-      .finally(() => setLoading(false));
-  }, []);
+    void load();
+  }, [load]);
+  useRealtimeRefresh(["supportRequestChanged"], load);
 
   const open = requests.filter((request) => request.status !== "Resolved");
   const newCount = requests.filter((request) => request.status === "New").length;

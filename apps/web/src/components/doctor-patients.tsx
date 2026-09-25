@@ -1,5 +1,7 @@
 "use client";
 
+import { useRealtimeRefresh } from "@/lib/realtime";
+
 import { Badge, Card, ErrorBanner, LoadingState, PageHeader, SearchField, cn } from "@/components/ui";
 import { isAppointmentMissed } from "@/lib/appointments";
 import { formatDate, formatDateTime, statusClass, statusLabel } from "@/lib/format";
@@ -7,7 +9,7 @@ import type { Appointment, Patient } from "@/lib/types";
 import { api } from "@/services/api";
 import { FileText } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 // Pacientes do médico (Fase 2): só quem tem consulta com ele (regra C1). Tela de leitura; o caminho para o
 // contexto clínico é o prontuário da próxima ou da última consulta.
@@ -29,15 +31,21 @@ export function DoctorPatients() {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
 
+  const load = useCallback(
+    () =>
+      Promise.all([api.getPatients(), api.getAppointments()])
+          .then(([patientData, appointmentData]) => {
+            setPatients(patientData);
+            setAppointments(appointmentData);
+          })
+          .catch((err) => setError(err instanceof Error ? err.message : "Erro ao carregar pacientes."))
+          .finally(() => setLoading(false)),
+    [],
+  );
   useEffect(() => {
-    Promise.all([api.getPatients(), api.getAppointments()])
-      .then(([patientData, appointmentData]) => {
-        setPatients(patientData);
-        setAppointments(appointmentData);
-      })
-      .catch((err) => setError(err instanceof Error ? err.message : "Erro ao carregar pacientes."))
-      .finally(() => setLoading(false));
-  }, []);
+    void load();
+  }, [load]);
+  useRealtimeRefresh(["appointmentChanged"], load);
 
   const rows = useMemo<Row[]>(() => {
     const now = Date.now();

@@ -1,5 +1,7 @@
 "use client";
 
+import { useRealtimeRefresh } from "@/lib/realtime";
+
 import {
   AlertBanner,
   Badge,
@@ -17,7 +19,7 @@ import type { PrivacyRequest, PrivacyRequestStatus, PrivacyRequestType } from "@
 import { api, getSession } from "@/services/api";
 import { FileText, LockKeyhole, ShieldCheck } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 
 const requestTypes: Array<{ value: PrivacyRequestType; label: string }> = [
   { value: "Access", label: "Acesso aos dados" },
@@ -77,12 +79,18 @@ function PrivacyQueue() {
     description: "",
   });
 
+  const load = useCallback(
+    () =>
+      api.getPrivacyRequests()
+        .then(setRequests)
+        .catch((err) => setError(err instanceof Error ? err.message : "Erro ao carregar solicitacoes."))
+        .finally(() => setLoading(false)),
+    [],
+  );
   useEffect(() => {
-    api.getPrivacyRequests()
-      .then(setRequests)
-      .catch((err) => setError(err instanceof Error ? err.message : "Erro ao carregar solicitacoes."))
-      .finally(() => setLoading(false));
-  }, []);
+    void load();
+  }, [load]);
+  useRealtimeRefresh(["privacyRequestChanged"], load);
 
   const openRequests = useMemo(
     () => requests.filter((request) => !["Resolved", "Rejected"].includes(request.status)).length,

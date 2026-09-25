@@ -1,6 +1,7 @@
 "use client";
 
 import { Logo } from "@/components/logo";
+import { RealtimeProvider } from "@/lib/realtime";
 import { ROLE_LABELS, type ClinicRole, type User } from "@/lib/types";
 import { api, clearSession, getSession, saveSession } from "@/services/api";
 import {
@@ -169,7 +170,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </span>
           </Link>
         </header>
-        <main className="mx-auto max-w-[1500px] px-5 py-8 sm:px-8 lg:px-10 lg:py-10">{children}</main>
+        <main className="mx-auto max-w-[1500px] px-5 py-8 sm:px-8 lg:px-10 lg:py-10">
+          <RealtimeProvider>{children}</RealtimeProvider>
+        </main>
       </div>
     </div>
   );

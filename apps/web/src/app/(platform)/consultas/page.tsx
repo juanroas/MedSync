@@ -1,5 +1,7 @@
 "use client";
 
+import { useRealtimeRefresh } from "@/lib/realtime";
+
 import { useConfirm } from "@/components/dialog";
 import { DoctorAgenda } from "@/components/doctor-agenda";
 import { EmptyState, ErrorBanner, LoadingState, PageHeader } from "@/components/ui";
@@ -105,6 +107,8 @@ function AppointmentsList() {
       if (isMountedRef.current && showLoading) setLoading(false);
     }
   }, []);
+
+  useRealtimeRefresh(["appointmentChanged"], () => loadAppointments(false));
 
   useEffect(() => {
     isMountedRef.current = true;

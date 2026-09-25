@@ -1,10 +1,12 @@
 "use client";
 
+import { useRealtimeRefresh } from "@/lib/realtime";
+
 import { AlertBanner, Badge, Button, Card, ErrorBanner, LoadingState, PageHeader, SelectInput, TextArea, TextInput, cn } from "@/components/ui";
 import type { PrivacyRequest, PrivacyRequestStatus, PrivacyRequestType, SupportRequest, SupportRequestStatus } from "@/lib/types";
 import { api, getSession } from "@/services/api";
 import { LifeBuoy, ShieldCheck } from "lucide-react";
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 
 // Ajuda do paciente (Fase 3): um lugar só para pedir ajuda. "Pedido sobre meus dados" continua indo para a fila
 // do encarregado (DPO), separada da do Suporte; a LGPD exige o canal (arts. 18 e 41), não um item de menu próprio.
@@ -55,15 +57,24 @@ export function PatientHelp() {
     if (params.get("tipo") === "lgpd") setKind("privacy");
     const subject = params.get("subject");
     if (subject) setSupportForm((current) => ({ ...current, subject }));
-
-    Promise.all([api.getSupportRequests(), api.getPrivacyRequests()])
-      .then(([supportData, privacyData]) => {
-        setSupport(supportData);
-        setPrivacy(privacyData);
-      })
-      .catch((err) => setError(err instanceof Error ? err.message : "Erro ao carregar suas solicitações."))
-      .finally(() => setLoading(false));
   }, []);
+
+  const load = useCallback(
+    () =>
+      Promise.all([api.getSupportRequests(), api.getPrivacyRequests()])
+        .then(([supportData, privacyData]) => {
+          setSupport(supportData);
+          setPrivacy(privacyData);
+        })
+        .catch((err) => setError(err instanceof Error ? err.message : "Erro ao carregar suas solicitações."))
+        .finally(() => setLoading(false)),
+    [],
+  );
+  useEffect(() => {
+    void load();
+  }, [load]);
+  // Answers from Support or the DPO show up without reloading.
+  useRealtimeRefresh(["supportRequestChanged", "privacyRequestChanged"], load);
 
   const items = useMemo<Item[]>(
     () =>

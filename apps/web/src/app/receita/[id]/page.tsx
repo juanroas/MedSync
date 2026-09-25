@@ -1,5 +1,7 @@
 "use client";
 
+import { RealtimeProvider, useRealtimeRefresh } from "@/lib/realtime";
+
 import { AlertBanner, Button, ErrorBanner, LoadingState, secondaryButtonClass } from "@/components/ui";
 import { formatCrm, formatDateTime, formatTime } from "@/lib/format";
 import type { PrescriptionDocument, SigningSession } from "@/lib/types";
@@ -12,6 +14,14 @@ import { useEffect, useState } from "react";
 // Documento da receita para conferir e imprimir (CFM 2.314 art. 13; .agents/rules/medical-documents.md).
 // Sem assinatura ICP-Brasil ele sai com a marca "sem validade" (regra D4).
 export default function PrescriptionDocumentPage() {
+  return (
+    <RealtimeProvider>
+      <PrescriptionDocument />
+    </RealtimeProvider>
+  );
+}
+
+function PrescriptionDocument() {
   const params = useParams<{ id: string }>();
   const signatureResult = useSearchParams().get("assinatura");
   const isDoctor = getSession()?.user.roles.includes("Doctor") ?? false;
@@ -29,6 +39,12 @@ export default function PrescriptionDocumentPage() {
       .catch((err) => setError(err instanceof Error ? err.message : "Não foi possível abrir a receita."));
     if (isDoctor) api.getSigningSession().then(setSession).catch(() => setSession(null));
   }, [params.id, isDoctor]);
+  // Signed elsewhere (another tab, the doctor while the patient waits): show it without reloading.
+  useRealtimeRefresh(
+    ["prescriptionChanged"],
+    () => api.getPrescriptionDocument(params.id).then(setDocument).catch(() => undefined),
+    params.id,
+  );
 
   if (error) {
     return (

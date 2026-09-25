@@ -1,5 +1,7 @@
 "use client";
 
+import { useRealtimeRefresh } from "@/lib/realtime";
+
 import { useConfirm } from "@/components/dialog";
 import {
   AlertBanner,
@@ -17,7 +19,7 @@ import {
 import type { ClinicActivation, ClinicActivationStatus } from "@/lib/types";
 import { api, getSession } from "@/services/api";
 import { Building2, Plus, X } from "lucide-react";
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 
 const statusLabel: Record<ClinicActivationStatus, string> = {
   Pending: "Em análise",
@@ -58,15 +60,24 @@ export default function ClinicsPage() {
   const [form, setForm] = useState(emptyOnboarding);
   const [creating, setCreating] = useState(false);
 
+  const load = useCallback(
+    () =>
+      api.getClinicActivations()
+        .then((items) => {
+          setClinics(items);
+          // Keep what is being typed for clinics already on screen; only new clinics get a fresh draft.
+          setDrafts((current) =>
+            Object.fromEntries(items.map((item) => [item.clinicId, current[item.clinicId] ?? toDraft(item)])),
+          );
+        })
+        .catch((err) => setError(err instanceof Error ? err.message : "Erro ao carregar clínicas."))
+        .finally(() => setLoading(false)),
+    [],
+  );
   useEffect(() => {
-    api.getClinicActivations()
-      .then((items) => {
-        setClinics(items);
-        setDrafts(Object.fromEntries(items.map((item) => [item.clinicId, toDraft(item)])));
-      })
-      .catch((err) => setError(err instanceof Error ? err.message : "Erro ao carregar clínicas."))
-      .finally(() => setLoading(false));
-  }, []);
+    void load();
+  }, [load]);
+  useRealtimeRefresh(["clinicChanged"], load);
 
   const filtered = useMemo(
     () =>

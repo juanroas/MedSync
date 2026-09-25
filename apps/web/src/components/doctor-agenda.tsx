@@ -1,5 +1,7 @@
 "use client";
 
+import { useRealtimeRefresh } from "@/lib/realtime";
+
 import { Badge, Button, Card, ErrorBanner, LoadingState, PageHeader, buttonClass, cn, inputClass } from "@/components/ui";
 import { useConfirm } from "@/components/dialog";
 import { EndConsultationDialog } from "@/components/end-consultation-dialog";
@@ -84,15 +86,11 @@ export function DoctorAgenda() {
     load()
       .catch((err) => setError(err instanceof Error ? err.message : "Erro ao carregar a agenda."))
       .finally(() => setLoading(false));
-    // Room buttons depend on the clock: re-render every minute and refresh when the tab comes back.
+    // Room buttons depend on the clock: re-render every minute.
     const tick = window.setInterval(() => setTick((value) => value + 1), 60_000);
-    const refresh = () => document.visibilityState === "visible" && load().catch(() => undefined);
-    document.addEventListener("visibilitychange", refresh);
-    return () => {
-      window.clearInterval(tick);
-      document.removeEventListener("visibilitychange", refresh);
-    };
+    return () => window.clearInterval(tick);
   }, [load]);
+  useRealtimeRefresh(["appointmentChanged"], () => load().catch(() => undefined));
 
   const weekStart = mondayOf(selectedDay);
   const days = view === "week" ? WEEK.map((_, index) => addDays(weekStart, index)) : [selectedDay];
