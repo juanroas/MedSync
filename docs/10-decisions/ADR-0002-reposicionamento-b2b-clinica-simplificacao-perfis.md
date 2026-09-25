@@ -4,7 +4,9 @@
 
 **Aceito em 23/09/2026** (item 1 — reposicionamento: cliente principal e a clinica). Pesquisa concluida em 09/2026. Parte de UI ja implementada (ver secao "UI/UX: itens do ajustes.png"). `EXECUTION_GUARDRAILS.md`/`AI_AGENT_RULES.md` atualizados para remover a proibicao de linguagem "clinica" que contradizia esta decisao.
 
-Ainda **nao confirmados** (dependem de decisao explicita do usuario antes de qualquer alteracao em producao): simplificacao de perfis (secao 2) e modelo de rede pool compartilhado (secao 3, depende do ADR-0001 Parte 2).
+Ainda **nao confirmados** (dependem de decisao explicita do usuario antes de qualquer alteracao em producao): modelo de rede pool compartilhado (secao 3, depende do ADR-0001 Parte 2).
+
+**Secao 2 (simplificacao de perfis) substituida em 24/09/2026 pelo ADR-0003** (6 perfis e regra de acesso ao prontuario).
 
 ## Contexto
 

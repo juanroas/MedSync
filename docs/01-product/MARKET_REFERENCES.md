@@ -2,6 +2,8 @@
 
 Status: Product Discovery. Este documento registra observacoes iniciais de mercado a partir de referencias publicas indicadas pelo usuario. Nao representa benchmark completo ou validacao comercial.
 
+> Desde 24/09/2026 o concorrente direto e **software de gestao de clinica** (iClinic, Feegow, Amplimed, Doctoralia Pro), com precos e exigencias do CFM verificados em [MARKET_ANALYSIS_CLINIC_SOFTWARE.md](MARKET_ANALYSIS_CLINIC_SOFTWARE.md). Este arquivo continua valido para as marcas de telemedicina voltadas ao consumidor.
+
 ## Objetivo
 
 Registrar aprendizados de referencias de saude digital para ajustar o posicionamento do MedSync antes de aprofundar desenvolvimento.
