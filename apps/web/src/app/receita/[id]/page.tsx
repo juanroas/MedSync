@@ -1,10 +1,10 @@
 "use client";
 
 import { AlertBanner, Button, ErrorBanner, LoadingState, secondaryButtonClass } from "@/components/ui";
-import { formatDateTime } from "@/lib/format";
-import type { PrescriptionDocument } from "@/lib/types";
+import { formatDateTime, formatTime } from "@/lib/format";
+import type { PrescriptionDocument, SigningSession } from "@/lib/types";
 import { api, getSession } from "@/services/api";
-import { ArrowLeft, Download, MessageCircle, PenLine, Printer } from "lucide-react";
+import { ArrowLeft, Download, FlaskConical, MessageCircle, PenLine, Printer } from "lucide-react";
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -19,13 +19,16 @@ export default function PrescriptionDocumentPage() {
   const [error, setError] = useState("");
   const [signError, setSignError] = useState("");
   const [signing, setSigning] = useState(false);
+  const [session, setSession] = useState<SigningSession | null>(null);
+  const [lifetimeHours, setLifetimeHours] = useState(8);
 
   useEffect(() => {
     api
       .getPrescriptionDocument(params.id)
       .then(setDocument)
       .catch((err) => setError(err instanceof Error ? err.message : "Não foi possível abrir a receita."));
-  }, [params.id]);
+    if (isDoctor) api.getSigningSession().then(setSession).catch(() => setSession(null));
+  }, [params.id, isDoctor]);
 
   if (error) {
     return (
@@ -40,17 +43,30 @@ export default function PrescriptionDocumentPage() {
   const signed = prescription.status === "Signed";
   const signBlocked = document.missingForSignature.length > 0 || !document.signatureAvailable;
 
-  // Sends the doctor to the certificate app (IntegraICP); the API callback brings them back here.
+  const sessionActive = session?.active ?? false;
+  const simulator = session?.simulated ?? false;
+
+  // With an approval still running the API signs at once; otherwise the doctor goes to the certificate app
+  // (or the simulator) and the API callback brings them back here.
   async function sign() {
     setSigning(true);
     setSignError("");
     try {
-      const { authorizationUrl } = await api.signPrescription(prescription.id);
-      window.location.href = authorizationUrl;
+      const result = await api.signPrescription(prescription.id, lifetimeHours);
+      if (result.authorizationUrl) {
+        window.location.href = result.authorizationUrl;
+        return;
+      }
+      setDocument(await api.getPrescriptionDocument(prescription.id));
     } catch (err) {
       setSignError(err instanceof Error ? err.message : "Não foi possível iniciar a assinatura.");
-      setSigning(false);
     }
+    setSigning(false);
+  }
+
+  async function endSession() {
+    await api.endSigningSession().catch(() => undefined);
+    setSession(await api.getSigningSession().catch(() => null));
   }
   const copies = prescription.kind === "Antimicrobial" ? ["1ª via — farmácia", "2ª via — paciente"] : [null];
 
@@ -86,17 +102,58 @@ export default function PrescriptionDocumentPage() {
                 <button type="button" className={secondaryButtonClass} onClick={() => window.print()}>
                   <Printer size={17} /> Imprimir rascunho
                 </button>
+                {isDoctor && !sessionActive && !signBlocked && (
+                  <label className="flex items-center gap-2 text-xs font-bold text-slate-600">
+                    Liberar por
+                    <select
+                      value={lifetimeHours}
+                      onChange={(event) => setLifetimeHours(Number(event.target.value))}
+                      className="h-11 rounded-lg border border-slate-200 bg-white px-2 text-sm text-ink"
+                      aria-label="Liberar assinatura por"
+                    >
+                      {[1, 4, 8, 12, 24].map((hours) => (
+                        <option key={hours} value={hours}>
+                          {hours} {hours === 1 ? "hora" : "horas"}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                )}
                 {isDoctor && (
                   <Button type="button" onClick={sign} isLoading={signing} disabled={signBlocked || signing}>
-                    <PenLine size={17} /> Assinar com certificado digital
+                    <PenLine size={17} /> {sessionActive ? "Assinar" : "Assinar com certificado digital"}
                   </Button>
                 )}
               </>
             )}
           </div>
         </div>
-        {signatureResult === "ok" && (
+        {isDoctor && simulator && (
+          <AlertBanner
+            tone="warning"
+            title="Modo simulador de assinatura"
+            message="A integração com o certificado em nuvem (Valid/VIDaaS) ainda não está pronta. As assinaturas deste ambiente são simuladas e os documentos saem com a marca “SIMULAÇÃO — SEM VALIDADE”."
+          />
+        )}
+        {isDoctor && sessionActive && session?.expiresAt && (
+          <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-teal-100 bg-teal-50 px-4 py-3 text-sm text-teal-900">
+            <span>
+              Assinatura liberada até <strong>{formatTime(session.expiresAt)}</strong>: cada receita é assinada com um clique.
+            </span>
+            <button type="button" onClick={endSession} className="text-xs font-bold text-teal-700 underline">
+              Encerrar liberação
+            </button>
+          </div>
+        )}
+        {signatureResult === "ok" && !prescription.signatureSimulated && (
           <AlertBanner tone="success" message="Receita assinada com certificado ICP-Brasil. O paciente já pode baixar o PDF." />
+        )}
+        {signed && prescription.signatureSimulated && (
+          <AlertBanner
+            tone="warning"
+            title="Assinatura simulada — sem validade"
+            message="Esta receita foi assinada pelo simulador de demonstração. Não use em farmácia."
+          />
         )}
         {signatureResult && signatureResult !== "ok" && !signed && (
           <AlertBanner
@@ -104,7 +161,9 @@ export default function PrescriptionDocumentPage() {
             message={
               signatureResult === "falhou"
                 ? "O provedor do certificado recusou a assinatura. Tente de novo; se persistir, fale com o suporte."
-                : "A autorização expirou ou não é válida. Clique em assinar de novo."
+                : signatureResult === "recusada"
+                  ? "Assinatura recusada no app do certificado. Nada foi assinado."
+                  : "A autorização expirou ou não é válida. Clique em assinar de novo."
             }
           />
         )}
@@ -130,13 +189,13 @@ export default function PrescriptionDocumentPage() {
           key={copy ?? "unica"}
           className="relative mx-auto mb-8 max-w-[820px] overflow-hidden bg-white px-12 py-12 shadow-soft print:mb-0 print:max-w-none print:break-after-page print:shadow-none"
         >
-          {!signed && (
+          {(!signed || prescription.signatureSimulated) && (
             <div
               aria-hidden
               className="pointer-events-none absolute inset-0 grid place-items-center [print-color-adjust:exact]"
             >
               <span className="-rotate-[30deg] whitespace-nowrap text-5xl font-black uppercase tracking-widest text-red-500/15">
-                Sem validade — rascunho
+                {signed ? "Simulação — sem validade" : "Sem validade — rascunho"}
               </span>
             </div>
           )}
@@ -198,9 +257,15 @@ export default function PrescriptionDocumentPage() {
               {prescription.kind === "Antimicrobial" && " · Validade: 10 dias a partir da emissão (RDC Anvisa 471/2021)."}
             </p>
             <p className="mt-3 font-semibold text-ink">
-              {signed
-                ? `Assinado digitalmente com certificado ICP-Brasil em ${formatDateTime(prescription.signedAt!)}.`
-                : "Assinatura digital: pendente."}
+              {signed && prescription.signatureSimulated ? (
+                <span className="inline-flex items-center gap-1.5 text-amber-700">
+                  <FlaskConical size={13} /> Assinatura SIMULADA em {formatDateTime(prescription.signedAt!)} — sem validade jurídica.
+                </span>
+              ) : signed ? (
+                `Assinado digitalmente com certificado ICP-Brasil em ${formatDateTime(prescription.signedAt!)}.`
+              ) : (
+                "Assinatura digital: pendente."
+              )}
             </p>
           </footer>
         </article>

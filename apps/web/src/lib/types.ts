@@ -336,6 +336,7 @@ export type Prescription = {
   createdAt: string;
   updatedAt: string;
   signedAt?: string | null;
+  signatureSimulated: boolean;
   items: PrescriptionItem[];
 };
 
@@ -375,4 +376,11 @@ export type MedicationInUse = {
 export type PatientMedications = {
   items: MedicationInUse[];
   legacyNote?: string | null;
+};
+
+export type SigningSession = {
+  active: boolean;
+  expiresAt?: string | null;
+  simulated: boolean;
+  provider?: string | null;
 };

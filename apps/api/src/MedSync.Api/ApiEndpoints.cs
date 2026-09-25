@@ -988,10 +988,12 @@ public static partial class ApiEndpoints
         HttpContext http,
         MedSyncDbContext db,
         AuditWriter audit,
+        SigningSessionStore signingSessions,
         CancellationToken cancellationToken)
     {
         var actor = RequestContext.From(principal);
         http.Response.Cookies.Delete(SessionCookie);
+        await signingSessions.RemoveAsync(actor.UserId, cancellationToken);
         audit.Add(actor, "Auth.Logout", "User", actor.UserId);
         await db.SaveChangesAsync(cancellationToken);
         return Results.NoContent();

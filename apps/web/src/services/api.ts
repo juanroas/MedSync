@@ -4,6 +4,7 @@ import type {
   PatientMedications,
   Prescription,
   PrescriptionDocument,
+  SigningSession,
   SavePrescriptionInput,
   AvailableTime,
   CareSpecialty,
@@ -346,8 +347,14 @@ export const api = {
     request<Prescription>(`/prescriptions/${id}`, { method: "PUT", body: JSON.stringify(input) }),
   deletePrescription: (id: string) => request<void>(`/prescriptions/${id}`, { method: "DELETE" }),
   getPrescriptionDocument: (id: string) => request<PrescriptionDocument>(`/prescriptions/${id}`),
-  signPrescription: (id: string) =>
-    request<{ authorizationUrl: string }>(`/prescriptions/${id}/sign`, { method: "POST" }),
+  // Either signs right away (approval still running) or returns where the doctor approves it.
+  signPrescription: (id: string, lifetimeHours: number) =>
+    request<{ authorizationUrl?: string; signed?: boolean }>(`/prescriptions/${id}/sign`, {
+      method: "POST",
+      body: JSON.stringify({ lifetimeHours }),
+    }),
+  getSigningSession: () => request<SigningSession>("/signature/session"),
+  endSigningSession: () => request<void>("/signature/session", { method: "DELETE" }),
   prescriptionPdfUrl: (id: string) => `${API_URL}/prescriptions/${id}/pdf`,
   getPatientMedications: (patientId: string) =>
     request<PatientMedications>(`/patients/${patientId}/medications`),

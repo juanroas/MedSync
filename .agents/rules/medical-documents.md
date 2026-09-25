@@ -26,6 +26,8 @@ Quem emite é o médico da consulta, com CRM cadastrado. Médico ADM, ADM Clíni
 ## D4 — Nada de documento que pareça válido sem ser
 Enquanto o documento não tiver assinatura ICP-Brasil real (rascunho, ambiente de homologação, sandbox do PSC), a
 visualização e a impressão levam a marca "SEM VALIDADE — rascunho/homologação". Não gerar PDF "de exemplo".
+O simulador de assinatura (`SIGNATURE_PROVIDER=simulator`) segue a mesma regra: tela dizendo que não é o app do
+certificado, PDF com "SIMULAÇÃO — SEM VALIDADE" e a receita marcada como simulada no banco e na auditoria.
 
 ## D5 — Paciente recebe cópia
 Documento emitido aparece em "Meus documentos" do paciente (art. 3º §6: direito à cópia). WhatsApp e e-mail levam

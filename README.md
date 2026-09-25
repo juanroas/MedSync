@@ -144,7 +144,8 @@ recebem uma senha temporária, que deve ser trocada no primeiro acesso.
 | `FRONTEND_URL` | Origem aceita pelo CORS. Aceita múltiplas URLs separadas por vírgula. A primeira é usada nos redirecionamentos da assinatura digital. |
 | `MEDICATION_CATALOG_SYNC` | `false` desliga a importação da base de medicamentos da Anvisa (testes sem internet). |
 | `MEDICATION_CATALOG_URL` | Fonte alternativa do CSV da Anvisa. |
-| `INTEGRAICP_BASE_URL` | URL da API IntegraICP (Valid). Sem as três variáveis `INTEGRAICP_*`, assinar receita fica indisponível. |
+| `SIGNATURE_PROVIDER` | `integraicp` (real, exige as variáveis `INTEGRAICP_*`) ou `simulator` (demonstração: tudo sai marcado "SIMULAÇÃO — SEM VALIDADE"). Sem valor, assinar receita fica indisponível. |
+| `INTEGRAICP_BASE_URL` | URL da API IntegraICP (Valid). |
 | `INTEGRAICP_CHANNEL_ID` | Canal (chave de API) fornecido pela Valid. Nunca é versionado. |
 | `INTEGRAICP_CALLBACK_URL` | URL pública de `/signature/callback` da API, cadastrada na Valid. |
 | `MEDSYNC_ATTACHMENT_STORAGE_PATH` | Pasta dos anexos clínicos e PDFs assinados. Padrão: `App_Data/clinical-attachments`. |

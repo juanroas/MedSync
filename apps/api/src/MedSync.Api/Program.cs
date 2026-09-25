@@ -54,6 +54,10 @@ builder.Services.AddHttpClient();
 builder.Services.AddHostedService<MedicationCatalogImporter>();
 builder.Services.AddHttpClient(nameof(IntegraIcpSignatureProvider));
 builder.Services.AddSingleton<IntegraIcpSignatureProvider>();
+builder.Services.AddSingleton<SimulatedSignatureProvider>();
+builder.Services.AddSingleton<SignatureProviderAccessor>();
+builder.Services.AddDataProtection();
+builder.Services.AddScoped<SigningSessionStore>();
 builder.Services.ConfigureHttpJsonOptions(options =>
     options.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 builder.Services.AddEndpointsApiExplorer();

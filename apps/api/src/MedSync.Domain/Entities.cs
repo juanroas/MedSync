@@ -335,6 +335,8 @@ public sealed class Prescription
     public DateTime? SignedAt { get; set; }
     public string? SignedDocumentKey { get; set; }
     public string? SignedDocumentSha256 { get; set; }
+    // Signed by the demonstration simulator: no legal validity, watermarked everywhere.
+    public bool SignatureSimulated { get; set; }
     public ICollection<PrescriptionItem> Items { get; set; } = [];
 }
 

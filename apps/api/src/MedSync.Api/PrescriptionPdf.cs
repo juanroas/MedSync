@@ -22,7 +22,8 @@ public sealed record PrescriptionPdfData(
     string PatientLocation,
     string? Notes,
     DateTime IssuedAtUtc,
-    IReadOnlyList<PrescriptionItem> Items);
+    IReadOnlyList<PrescriptionItem> Items,
+    bool Simulated = false);
 
 // Builds the prescription PDF on the server and signs it through any IDigitalSigner (PAdES with PDFsharp).
 // The signer is the doctor's ICP-Brasil cloud certificate in production (rule D1); tests use a local certificate.
@@ -75,6 +76,8 @@ public static class PrescriptionPdf
         var ink = XBrushes.Black;
         var muted = new XSolidBrush(XColor.FromArgb(90, 100, 110));
         var y = Margin;
+        if (data.Simulated)
+            DrawSimulationWatermark(graphics, page);
 
         y = Write(graphics, data.DoctorName, title, ink, Margin, y, width);
         y = Write(graphics, $"{data.DoctorSpecialty} · {FormatCrm(data.DoctorCrm, data.DoctorCrmUf)}", body, muted, Margin, y, width);
@@ -114,8 +117,21 @@ public static class PrescriptionPdf
         if (data.Kind == PrescriptionKind.Antimicrobial)
             dateLine += " · Validade: 10 dias a partir da emissão (RDC Anvisa 471/2021).";
         y = Write(graphics, dateLine, small, muted, Margin, y, width);
-        y = Write(graphics, "Assinada digitalmente com certificado ICP-Brasil. Confira em validar.iti.gov.br.", small, muted, Margin, y, width);
+        y = Write(graphics, data.Simulated
+            ? "SIMULAÇÃO: assinatura de demonstração, SEM VALIDADE JURÍDICA. Não use em farmácia."
+            : "Assinada digitalmente com certificado ICP-Brasil. Confira em validar.iti.gov.br.", small, muted, Margin, y, width);
         Write(graphics, $"Documento {data.PrescriptionId}", small, muted, Margin, y, width);
+    }
+
+    private static void DrawSimulationWatermark(XGraphics graphics, PdfPage page)
+    {
+        var state = graphics.Save();
+        graphics.TranslateTransform(page.Width.Point / 2, page.Height.Point / 2);
+        graphics.RotateTransform(-35);
+        var font = new XFont(FontFamily, 34, XFontStyleEx.Bold);
+        var brush = new XSolidBrush(XColor.FromArgb(45, 220, 38, 38));
+        graphics.DrawString("SIMULAÇÃO — SEM VALIDADE", font, brush, new XPoint(0, 0), XStringFormats.Center);
+        graphics.Restore(state);
     }
 
     // Draws wrapped text and returns the next baseline.

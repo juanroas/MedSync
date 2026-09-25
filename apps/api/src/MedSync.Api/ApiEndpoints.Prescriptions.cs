@@ -25,6 +25,8 @@ public static partial class ApiEndpoints
         protectedApi.MapDelete("/prescriptions/{id:guid}", DeletePrescription);
         protectedApi.MapPost("/prescriptions/{id:guid}/sign", SignPrescription);
         protectedApi.MapGet("/prescriptions/{id:guid}/pdf", DownloadPrescriptionPdf);
+        protectedApi.MapGet("/signature/session", GetSigningSession);
+        protectedApi.MapDelete("/signature/session", EndSigningSession);
         protectedApi.MapGet("/patients/{patientId:guid}/medications", GetPatientMedications);
     }
 
@@ -32,7 +34,8 @@ public static partial class ApiEndpoints
     private static void MapSignatureCallback(IEndpointRouteBuilder app) =>
         app.MapGet("/signature/callback", CompletePrescriptionSignature).AllowAnonymous();
 
-    private sealed record PendingSignature(Guid PrescriptionId, Guid UserId, Guid ClinicId, string Verifier);
+
+    private sealed record PendingSignature(Guid PrescriptionId, Guid UserId, Guid ClinicId, string Verifier, double LifetimeHours);
 
     private static async Task<IResult> SearchMedications(
         string? q,
@@ -235,6 +238,7 @@ public static partial class ApiEndpoints
         ClaimsPrincipal principal,
         MedSyncDbContext db,
         AuditWriter audit,
+        SignatureProviderAccessor providers,
         CancellationToken cancellationToken)
     {
         var actor = RequestContext.From(principal);
@@ -272,32 +276,36 @@ public static partial class ApiEndpoints
             IsAssignedDoctor(actor, appointment) ? appointment.Patient.Phone : null,
             appointment.ScheduledAt,
             MissingForSignature(prescription, appointment.Doctor),
-            IsSignatureConfigured()));
+            providers.Current is not null));
     }
 
     private static async Task<IResult> SignPrescription(
         Guid id,
+        SignPrescriptionRequest? request,
         ClaimsPrincipal principal,
         MedSyncDbContext db,
         AuditWriter audit,
-        IntegraIcpSignatureProvider signatureProvider,
+        SignatureProviderAccessor providers,
+        SigningSessionStore sessions,
+        ClinicalAttachmentStorage storage,
         IDistributedCache cache,
+        ILoggerFactory loggerFactory,
         CancellationToken cancellationToken)
     {
         var actor = RequestContext.From(principal);
-        var prescription = await LoadDoctorPrescription(db, actor, id, cancellationToken);
-        if (prescription is null)
+        var prescription = await LoadPrescriptionForSigning(db, id, cancellationToken);
+        if (prescription is null || prescription.Appointment.Doctor.UserId != actor.UserId || !actor.HasAny(ClinicRole.Doctor))
             return Results.NotFound();
         if (prescription.Status != PrescriptionStatus.Draft)
             return Results.Conflict(new { message = "Esta receita já foi assinada." });
 
-        var doctor = await db.Doctors.AsNoTracking().SingleAsync(x => x.Id == prescription.DoctorId, cancellationToken);
-        var missing = MissingForSignature(prescription, doctor);
+        var missing = MissingForSignature(prescription, prescription.Appointment.Doctor);
         if (missing.Count > 0)
             return Validation("prescription", $"Antes de assinar: {string.Join("; ", missing)}.");
 
-        // D1: the signature is the doctor's own ICP-Brasil cloud certificate (IntegraICP). Without a channel, nothing signs.
-        if (!IsSignatureConfigured())
+        // D1: the signature is the doctor's own ICP-Brasil cloud certificate. Without a provider, nothing signs.
+        var provider = providers.Current;
+        if (provider is null)
         {
             audit.Add(actor, "Prescription.Sign", "Prescription", id, "Denied", "Assinatura digital ainda não configurada.");
             await db.SaveChangesAsync(cancellationToken);
@@ -308,32 +316,52 @@ public static partial class ApiEndpoints
             });
         }
 
+        // An approval still running signs right away: one click, no trip to the certificate app.
+        var session = await sessions.GetAsync(actor.UserId, cancellationToken);
+        if (session is not null && session.Provider == provider.Name)
+        {
+            try
+            {
+                await SignWithSessionAsync(db, audit, storage, provider, session, prescription, actor, cancellationToken);
+                return Results.Ok(new { signed = true, simulated = session.Simulated });
+            }
+            catch (Exception exception) when (exception is InvalidOperationException or HttpRequestException)
+            {
+                // The provider no longer accepts the session (revoked in the app, expired early): ask again.
+                loggerFactory.CreateLogger("PrescriptionSignature").LogWarning(exception, "Signing session rejected; asking the doctor again.");
+                await sessions.RemoveAsync(actor.UserId, cancellationToken);
+            }
+        }
+
+        var lifetime = TimeSpan.FromHours(Math.Clamp(request?.LifetimeHours ?? 8, 1, 24));
         var (verifier, challenge) = IntegraIcpSignatureProvider.CreatePkcePair();
         var state = Convert.ToHexString(System.Security.Cryptography.RandomNumberGenerator.GetBytes(24));
         await cache.SetStringAsync(
             $"signature:{state}",
-            JsonSerializer.Serialize(new PendingSignature(prescription.Id, actor.UserId, actor.ClinicId, verifier)),
+            JsonSerializer.Serialize(new PendingSignature(prescription.Id, actor.UserId, actor.ClinicId, verifier, lifetime.TotalHours)),
             new DistributedCacheEntryOptions { AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10) },
             cancellationToken);
-        audit.Add(actor, "Prescription.SignStart", "Prescription", id);
+        audit.Add(actor, "Prescription.SignStart", "Prescription", id, "Success", provider.Simulated ? "Simulador de assinatura." : null);
         await db.SaveChangesAsync(cancellationToken);
-        return Results.Ok(new { authorizationUrl = signatureProvider.BuildAuthorizationUrl(challenge, state) });
+        return Results.Ok(new { authorizationUrl = provider.BuildAuthorizationUrl(challenge, state, lifetime) });
     }
 
     private static async Task<IResult> CompletePrescriptionSignature(
         string? state,
         string? credentialId,
+        string? error,
         MedSyncDbContext db,
         AuditWriter audit,
-        IntegraIcpSignatureProvider signatureProvider,
+        SignatureProviderAccessor providers,
+        SigningSessionStore sessions,
         ClinicalAttachmentStorage storage,
         IDistributedCache cache,
         ILoggerFactory loggerFactory,
         CancellationToken cancellationToken)
     {
-        var frontend = (Environment.GetEnvironmentVariable("FRONTEND_URL") ?? "http://localhost:3000")
-            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)[0].TrimEnd('/');
-        if (string.IsNullOrWhiteSpace(state) || string.IsNullOrWhiteSpace(credentialId))
+        var frontend = FrontendUrl();
+        var provider = providers.Current;
+        if (provider is null || string.IsNullOrWhiteSpace(state))
             return Results.Redirect($"{frontend}/consultas?assinatura=invalida");
 
         // Single use: read and drop the pending signature before doing anything else.
@@ -345,49 +373,26 @@ public static partial class ApiEndpoints
 
         var pending = JsonSerializer.Deserialize<PendingSignature>(pendingJson)!;
         var actor = new RequestContext(pending.UserId, pending.ClinicId, new HashSet<ClinicRole> { ClinicRole.Doctor });
-        var prescription = await db.Prescriptions
-            .Include(x => x.Items)
-            .Include(x => x.Appointment).ThenInclude(x => x.Doctor)
-            .Include(x => x.Appointment).ThenInclude(x => x.Patient)
-            .Include(x => x.Appointment).ThenInclude(x => x.Clinic)
-            .SingleOrDefaultAsync(x => x.Id == pending.PrescriptionId, cancellationToken);
         var documentUrl = $"{frontend}/receita/{pending.PrescriptionId}";
+        if (!string.IsNullOrWhiteSpace(error) || string.IsNullOrWhiteSpace(credentialId))
+        {
+            audit.Add(actor, "Prescription.Sign", "Prescription", pending.PrescriptionId, "Denied", "Médico recusou no app do certificado.");
+            await db.SaveChangesAsync(cancellationToken);
+            return Results.Redirect($"{documentUrl}?assinatura=recusada");
+        }
+
+        var prescription = await LoadPrescriptionForSigning(db, pending.PrescriptionId, cancellationToken);
         if (prescription is null ||
             prescription.Status != PrescriptionStatus.Draft ||
             prescription.Appointment.Doctor.UserId != pending.UserId)
             return Results.Redirect($"{documentUrl}?assinatura=invalida");
 
+        var session = new SigningSession(
+            provider.Name, credentialId, pending.Verifier, DateTime.UtcNow.AddHours(pending.LifetimeHours), provider.Simulated);
         try
         {
-            var appointment = prescription.Appointment;
-            var signedAt = DateTime.UtcNow;
-            var document = PrescriptionPdf.Render(new PrescriptionPdfData(
-                prescription.Id,
-                prescription.Kind,
-                appointment.Doctor.Name,
-                appointment.Doctor.Crm,
-                appointment.Doctor.CrmUf,
-                appointment.Doctor.Specialty,
-                appointment.Doctor.ProfessionalAddress!,
-                appointment.Clinic.Name,
-                appointment.Patient.Name,
-                appointment.Patient.Cpf,
-                prescription.PatientLocation!,
-                prescription.Notes,
-                signedAt,
-                prescription.Items.ToList()));
-            var signer = new RemoteDigitalSigner(signatureProvider.CreateSigner(credentialId, pending.Verifier), cancellationToken);
-            var pdf = await PrescriptionPdf.SignAsync(document, signer, prescription.PatientLocation!);
-            var (storageKey, sha256) = await storage.SaveGeneratedAsync(
-                prescription.ClinicId, "prescriptions", $"{prescription.Id:N}.pdf", pdf, cancellationToken);
-
-            prescription.Status = PrescriptionStatus.Signed;
-            prescription.SignedAt = signedAt;
-            prescription.SignedDocumentKey = storageKey;
-            prescription.SignedDocumentSha256 = sha256;
-            prescription.UpdatedAt = signedAt;
-            audit.Add(actor, "Prescription.Sign", "Prescription", prescription.Id);
-            await db.SaveChangesAsync(cancellationToken);
+            await SignWithSessionAsync(db, audit, storage, provider, session, prescription, actor, cancellationToken);
+            await sessions.SaveAsync(pending.UserId, session, cancellationToken);
             return Results.Redirect($"{documentUrl}?assinatura=ok");
         }
         catch (Exception exception) when (exception is InvalidOperationException or HttpRequestException)
@@ -398,6 +403,95 @@ public static partial class ApiEndpoints
             return Results.Redirect($"{documentUrl}?assinatura=falhou");
         }
     }
+
+    private static async Task<IResult> GetSigningSession(
+        ClaimsPrincipal principal,
+        SignatureProviderAccessor providers,
+        SigningSessionStore sessions,
+        CancellationToken cancellationToken)
+    {
+        var actor = RequestContext.From(principal);
+        if (!actor.HasAny(ClinicRole.Doctor))
+            return Results.Forbid();
+        var provider = providers.Current;
+        var session = await sessions.GetAsync(actor.UserId, cancellationToken);
+        var active = session is not null && provider is not null && session.Provider == provider.Name;
+        return Results.Ok(new SigningSessionResponse(
+            active,
+            active ? session!.ExpiresAtUtc : null,
+            provider?.Simulated ?? false,
+            provider?.Name));
+    }
+
+    private static async Task<IResult> EndSigningSession(
+        ClaimsPrincipal principal,
+        SigningSessionStore sessions,
+        MedSyncDbContext db,
+        AuditWriter audit,
+        CancellationToken cancellationToken)
+    {
+        var actor = RequestContext.From(principal);
+        await sessions.RemoveAsync(actor.UserId, cancellationToken);
+        audit.Add(actor, "SigningSession.End", "User", actor.UserId);
+        await db.SaveChangesAsync(cancellationToken);
+        return Results.NoContent();
+    }
+
+    private static async Task SignWithSessionAsync(
+        MedSyncDbContext db,
+        AuditWriter audit,
+        ClinicalAttachmentStorage storage,
+        ICloudSignatureProvider provider,
+        SigningSession session,
+        Prescription prescription,
+        RequestContext actor,
+        CancellationToken cancellationToken)
+    {
+        var appointment = prescription.Appointment;
+        var signedAt = DateTime.UtcNow;
+        var document = PrescriptionPdf.Render(new PrescriptionPdfData(
+            prescription.Id,
+            prescription.Kind,
+            appointment.Doctor.Name,
+            appointment.Doctor.Crm,
+            appointment.Doctor.CrmUf,
+            appointment.Doctor.Specialty,
+            appointment.Doctor.ProfessionalAddress!,
+            appointment.Clinic.Name,
+            appointment.Patient.Name,
+            appointment.Patient.Cpf,
+            prescription.PatientLocation!,
+            prescription.Notes,
+            signedAt,
+            prescription.Items.ToList(),
+            session.Simulated));
+        var pdf = await PrescriptionPdf.SignAsync(
+            document, provider.CreatePdfSigner(session, cancellationToken), prescription.PatientLocation!);
+        var (storageKey, sha256) = await storage.SaveGeneratedAsync(
+            prescription.ClinicId, "prescriptions", $"{prescription.Id:N}.pdf", pdf, cancellationToken);
+
+        prescription.Status = PrescriptionStatus.Signed;
+        prescription.SignedAt = signedAt;
+        prescription.SignedDocumentKey = storageKey;
+        prescription.SignedDocumentSha256 = sha256;
+        prescription.SignatureSimulated = session.Simulated;
+        prescription.UpdatedAt = signedAt;
+        audit.Add(actor, "Prescription.Sign", "Prescription", prescription.Id, "Success",
+            session.Simulated ? "Simulador de assinatura (sem validade)." : null);
+        await db.SaveChangesAsync(cancellationToken);
+    }
+
+    private static Task<Prescription?> LoadPrescriptionForSigning(MedSyncDbContext db, Guid id, CancellationToken cancellationToken) =>
+        db.Prescriptions
+            .Include(x => x.Items)
+            .Include(x => x.Appointment).ThenInclude(x => x.Doctor)
+            .Include(x => x.Appointment).ThenInclude(x => x.Patient)
+            .Include(x => x.Appointment).ThenInclude(x => x.Clinic)
+            .SingleOrDefaultAsync(x => x.Id == id && x.Status != PrescriptionStatus.Cancelled, cancellationToken);
+
+    private static string FrontendUrl() =>
+        (Environment.GetEnvironmentVariable("FRONTEND_URL") ?? "http://localhost:3000")
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)[0].TrimEnd('/');
 
     private static async Task<IResult> DownloadPrescriptionPdf(
         Guid id,
@@ -553,8 +647,6 @@ public static partial class ApiEndpoints
         return missing;
     }
 
-    private static bool IsSignatureConfigured() => IntegraIcpSignatureProvider.IsConfigured;
-
     private static PrescriptionResponse ToResponse(Prescription prescription) =>
         new(
             prescription.Id,
@@ -567,6 +659,7 @@ public static partial class ApiEndpoints
             prescription.CreatedAt,
             prescription.UpdatedAt,
             prescription.SignedAt,
+            prescription.SignatureSimulated,
             prescription.Items
                 .OrderBy(x => x.Position)
                 .Select(x => new PrescriptionItemResponse(x.Id, x.CatalogItemId, x.MedicationName, x.Dosage, x.Instructions, x.Quantity, x.ContinuousUse))

@@ -199,7 +199,11 @@ export function PrescriptionPanel({ appointmentId, patientId }: { appointmentId:
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
                   <Badge tone={prescription.status === "Signed" ? "success" : "warning"}>
-                    {prescription.status === "Signed" ? "Assinada" : "Rascunho"}
+                    {prescription.status === "Signed"
+                      ? prescription.signatureSimulated
+                        ? "Assinada (simulação)"
+                        : "Assinada"
+                      : "Rascunho"}
                   </Badge>
                   <span className="text-xs text-slate-400">
                     {kindLabel[prescription.kind]} · {formatDateTime(prescription.updatedAt)}

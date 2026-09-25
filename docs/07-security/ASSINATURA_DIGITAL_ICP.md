@@ -12,6 +12,37 @@ Status: pesquisa de 25/09/2026. Regra de produto: `.agents/rules/medical-documen
 O MedSync é só telemedicina, então login + código não serve. A assinatura sai do **certificado em nuvem do próprio
 médico** — o CFM dá o VIDaaS de graça a todo médico com CRM ativo.
 
+## Como o médico se autentica (na prática)
+
+O médico **nunca** digita senha ou PIN do certificado no MedSync, e o MedSync **não guarda** essa credencial.
+A chave privada fica no cofre (HSM) do provedor e só o médico libera o uso dela, no app do certificado — é esse
+controle exclusivo que dá validade jurídica à assinatura. Se o MedSync guardasse o PIN, a plataforma poderia assinar
+no lugar do médico; cifrar não resolve isso.
+
+1. Na receita, **"Assinar com certificado digital"**, escolhendo **por quanto tempo liberar** (1 a 24 h; padrão 8 h).
+2. O MedSync leva o médico ao provedor (IntegraICP), que avisa o celular (push) ou mostra um QR Code.
+3. No app do certificado (ex.: VIDaaS), ele confirma com **PIN ou biometria**.
+4. O provedor devolve uma **autorização temporária**, que só funciona pelo canal do MedSync e com o segredo PKCE daquele
+   pedido. A receita é assinada e ele volta para a tela com "Receita assinada".
+5. **Enquanto a liberação valer**, as próximas receitas são assinadas com **um clique**, sem abrir o celular. A tela
+   mostra "Assinatura liberada até HH:MM" e o botão **"Encerrar liberação"**.
+
+O que o MedSync guarda: só essa autorização temporária (sessão de assinatura), **no servidor**, cifrada (ASP.NET Data
+Protection), com a validade do provedor, **nunca enviada ao navegador**, apagada ao sair da conta, ao encerrar a
+liberação ou quando expira. O médico também pode revogá-la no app do certificado; nesse caso o MedSync pede aprovação
+de novo. Cada assinatura vai para a auditoria.
+
+## Simulador (até a integração real)
+
+Enquanto a Valid não libera o canal, a homologação pode usar `SIGNATURE_PROVIDER=simulator`:
+
+- A aprovação acontece numa tela do MedSync (`/assinatura/simulador`) que diz, em destaque, **"Isto não é o VIDaaS"**.
+- O PDF é assinado com um certificado descartável ("SIMULADOR MedSync - SEM VALIDADE JURIDICA") e sai com a marca d'água
+  **"SIMULAÇÃO — SEM VALIDADE"**; a tela da receita e a lista mostram "Assinada (simulação)".
+- A receita fica marcada no banco (`SignatureSimulated`) e a auditoria registra "Simulador de assinatura".
+- O fluxo é o mesmo da versão real (liberação por tempo, um clique, encerrar), então a troca é só de configuração:
+  `SIGNATURE_PROVIDER=integraicp` + as três variáveis `INTEGRAICP_*`.
+
 ## Como integrar: IntegraICP (Valid)
 
 A Valid encaminha integradores para o **IntegraICP**, uma API única sobre os PSCs em nuvem do Brasil

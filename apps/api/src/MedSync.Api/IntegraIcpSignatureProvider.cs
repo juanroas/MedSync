@@ -1,17 +1,21 @@
 using System.Net.Http.Json;
 using System.Security.Cryptography;
 using System.Text.Json;
+using PdfSharp.Pdf.Signatures;
 
 namespace MedSync.Api;
 
 // Cloud-certificate signing through IntegraICP (Valid): one API over VIDaaS, BirdID, SafeID, SerproID, RemoteID.
 // Flow from Valid's public FAQ (docs/07-security/ASSINATURA_DIGITAL_ICP.md). The full API reference is only
 // published to channel holders, so every field name used here is marked CONFIRMAR and lives in this class only.
-public sealed class IntegraIcpSignatureProvider(IHttpClientFactory httpClientFactory)
+public sealed class IntegraIcpSignatureProvider(IHttpClientFactory httpClientFactory) : ICloudSignatureProvider
 {
     private static string? BaseUrl => Environment.GetEnvironmentVariable("INTEGRAICP_BASE_URL")?.TrimEnd('/');
     private static string? ChannelId => Environment.GetEnvironmentVariable("INTEGRAICP_CHANNEL_ID");
     private static string? CallbackUrl => Environment.GetEnvironmentVariable("INTEGRAICP_CALLBACK_URL");
+
+    public string Name => "integraicp";
+    public bool Simulated => false;
 
     public static bool IsConfigured =>
         !string.IsNullOrWhiteSpace(BaseUrl) &&
@@ -27,18 +31,22 @@ public sealed class IntegraIcpSignatureProvider(IHttpClientFactory httpClientFac
 
     // Step 1: where the doctor's browser goes to approve the signature in the certificate app.
     // CONFIRMAR: parameter names (channelId, secret_data, callback_uri, autostart) and whether state is echoed back.
-    public string BuildAuthorizationUrl(string challenge, string state)
+    // CONFIRMAR: credential_lifetime (seconds) is listed in the FAQ; the certificate app may still ask the doctor.
+    public string BuildAuthorizationUrl(string challenge, string state, TimeSpan lifetime)
     {
         var callback = $"{CallbackUrl}?state={Uri.EscapeDataString(state)}";
         return $"{BaseUrl}/authentications?channelId={Uri.EscapeDataString(ChannelId!)}" +
                $"&secret_data={Uri.EscapeDataString(challenge)}" +
                $"&callback_uri={Uri.EscapeDataString(callback)}" +
+               $"&credential_lifetime={(int)lifetime.TotalSeconds}" +
                "&autostart=true";
     }
 
     // Steps 4–5: exchange the credential for a signer bound to the doctor's certificate session.
-    public ICmsDigestSigner CreateSigner(string credentialId, string verifier) =>
-        new CredentialSigner(httpClientFactory.CreateClient(nameof(IntegraIcpSignatureProvider)), credentialId, verifier);
+    public IDigitalSigner CreatePdfSigner(SigningSession session, CancellationToken cancellationToken) =>
+        new RemoteDigitalSigner(
+            new CredentialSigner(httpClientFactory.CreateClient(nameof(IntegraIcpSignatureProvider)), session.CredentialId, session.Verifier),
+            cancellationToken);
 
     private sealed class CredentialSigner(HttpClient http, string credentialId, string verifier) : ICmsDigestSigner
     {

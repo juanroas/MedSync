@@ -403,7 +403,12 @@ public sealed record PrescriptionResponse(
     DateTime CreatedAt,
     DateTime UpdatedAt,
     DateTime? SignedAt,
+    bool SignatureSimulated,
     IReadOnlyList<PrescriptionItemResponse> Items);
+
+public sealed record SignPrescriptionRequest(int? LifetimeHours);
+
+public sealed record SigningSessionResponse(bool Active, DateTime? ExpiresAt, bool Simulated, string? Provider);
 
 // Everything the printable document needs (CFM 2.314 art. 13), plus what is still missing before it can be signed.
 public sealed record PrescriptionDocumentResponse(
