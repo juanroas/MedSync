@@ -41,8 +41,14 @@ public sealed class MedSyncDbContext(DbContextOptions<MedSyncDbContext> options)
         modelBuilder.Entity<Clinic>(entity =>
         {
             entity.HasIndex(x => x.Slug).IsUnique();
+            entity.HasIndex(x => x.TaxId).IsUnique();
             entity.Property(x => x.Name).HasMaxLength(160);
             entity.Property(x => x.Slug).HasMaxLength(80);
+            entity.Property(x => x.LegalName).HasMaxLength(180);
+            entity.Property(x => x.TaxId).HasMaxLength(14);
+            entity.Property(x => x.ActivationStatus).HasConversion<string>().HasMaxLength(20);
+            entity.Property(x => x.PlanName).HasMaxLength(120);
+            entity.Property(x => x.MonthlyFee).HasPrecision(12, 2);
         });
 
         modelBuilder.Entity<ClinicMembership>(entity =>

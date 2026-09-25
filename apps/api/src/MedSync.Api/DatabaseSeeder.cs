@@ -155,12 +155,17 @@ public static class DatabaseSeeder
                 Slug = tenant.ClinicSlug
             };
             db.Clinics.Add(clinic);
-            return clinic;
         }
 
         clinic.Name = tenant.ClinicName;
         clinic.Slug = tenant.ClinicSlug;
         clinic.IsActive = true;
+        clinic.LegalName = tenant.CompanyLegalName;
+        clinic.TaxId = tenant.CompanyTaxId;
+        clinic.ActivationStatus = ClinicActivationStatus.Active;
+        clinic.ActivatedAt ??= DateTime.UtcNow;
+        clinic.PlanName = tenant.PlanName;
+        clinic.MonthlyFee = tenant.PlanFee;
         return clinic;
     }
 

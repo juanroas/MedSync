@@ -43,7 +43,10 @@ export type User = {
   clinicName: string;
   roles: ClinicRole[];
   mustChangePassword: boolean;
+  clinicActivationStatus: ClinicActivationStatus;
 };
+
+export type ClinicActivationStatus = "Pending" | "Active" | "Suspended";
 
 export type LoginResponse = {
   user: User;
@@ -80,27 +83,24 @@ export type StaffUser = {
   isActive: boolean;
 };
 
-export type CompanyOnboarding = {
-  companyId: string;
-  tenantId: string;
-  companyName: string;
+export type ClinicOnboarding = {
+  clinicId: string;
+  clinicName: string;
   taxIdMasked: string;
   adminEmail: string;
-  contractStatus: CompanyContractStatus;
-  isActive: boolean;
+  activationStatus: ClinicActivationStatus;
   onboardingEmailPreview: string;
 };
 
-export type CompanyActivation = {
-  companyId: string;
-  tenantId: string;
-  tenantName: string;
-  companyName: string;
-  taxIdMasked: string;
+export type ClinicActivation = {
+  clinicId: string;
+  clinicName: string;
+  legalName?: string;
+  taxIdMasked?: string;
   planName?: string;
   monthlyFee?: number;
-  contractStatus?: CompanyContractStatus;
-  isActive: boolean;
+  activationStatus: ClinicActivationStatus;
+  activatedAt?: string;
   createdAt: string;
 };
 
@@ -123,7 +123,6 @@ export type Patient = {
   birthDate: string;
   phone?: string;
   continuousMedications?: string;
-  hasActiveBenefit?: boolean;
 };
 
 export type Doctor = {

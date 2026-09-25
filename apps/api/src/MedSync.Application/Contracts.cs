@@ -9,10 +9,7 @@ public sealed record RegisterClinicRequest(
     string Email,
     string Password,
     string? TradeName,
-    string? TaxId,
-    string? PlanName,
-    decimal? MonthlyFee,
-    int? MonthlyConsultationLimit);
+    string? TaxId);
 public sealed record ChangePasswordRequest(string CurrentPassword, string NewPassword);
 public sealed record LoginResponse(UserSummary User);
 public sealed record MfaRequiredResponse(bool MfaRequired, string PendingToken);
@@ -27,7 +24,8 @@ public sealed record UserSummary(
     Guid ClinicId,
     string ClinicName,
     IReadOnlyCollection<ClinicRole> Roles,
-    bool MustChangePassword);
+    bool MustChangePassword,
+    ClinicActivationStatus ClinicActivationStatus);
 
 public sealed record PersonalProfileResponse(
     Guid Id,
@@ -69,42 +67,37 @@ public sealed record ResetPasswordResponse(
 
 public sealed record CancelAppointmentRequest(string? Reason);
 
-public sealed record CreateCompanyOnboardingRequest(
+public sealed record CreateClinicOnboardingRequest(
     string LegalName,
     string? TradeName,
     string TaxId,
-    string PlanName,
-    decimal MonthlyFee,
-    int MonthlyConsultationLimit,
     string AdminName,
     string AdminEmail,
     string TemporaryPassword);
 
-public sealed record CompanyOnboardingResponse(
-    Guid CompanyId,
-    Guid TenantId,
-    string CompanyName,
+public sealed record ClinicOnboardingResponse(
+    Guid ClinicId,
+    string ClinicName,
     string TaxIdMasked,
     string AdminEmail,
-    CompanyContractStatus ContractStatus,
-    bool IsActive,
+    ClinicActivationStatus ActivationStatus,
     string OnboardingEmailPreview);
 
-public sealed record CompanyActivationResponse(
-    Guid CompanyId,
-    Guid TenantId,
-    string TenantName,
-    string CompanyName,
-    string TaxIdMasked,
+public sealed record ClinicActivationResponse(
+    Guid ClinicId,
+    string ClinicName,
+    string? LegalName,
+    string? TaxIdMasked,
     string? PlanName,
     decimal? MonthlyFee,
-    CompanyContractStatus? ContractStatus,
-    bool IsActive,
+    ClinicActivationStatus ActivationStatus,
+    DateTime? ActivatedAt,
     DateTime CreatedAt);
 
-public sealed record UpdateCompanyActivationRequest(
-    bool IsActive,
+public sealed record UpdateClinicActivationRequest(
+    ClinicActivationStatus Status,
     string? Reason,
+    string? PlanName,
     decimal? MonthlyFee);
 
 public sealed record AuditEventResponse(
@@ -133,8 +126,7 @@ public sealed record PatientResponse(
     string CpfMasked,
     DateOnly BirthDate,
     string? Phone,
-    string? ContinuousMedications,
-    bool HasActiveBenefit = false);
+    string? ContinuousMedications);
 
 public sealed record UpdatePatientRequest(
     string Name,

@@ -100,12 +100,25 @@ public sealed class User
     public ICollection<ClinicMembership> Memberships { get; set; } = [];
 }
 
+public enum ClinicActivationStatus
+{
+    Pending,
+    Active,
+    Suspended
+}
+
 public sealed class Clinic
 {
     public Guid Id { get; set; } = Guid.NewGuid();
     public required string Name { get; set; }
     public required string Slug { get; set; }
     public bool IsActive { get; set; } = true;
+    public string? LegalName { get; set; }
+    public string? TaxId { get; set; }
+    public ClinicActivationStatus ActivationStatus { get; set; } = ClinicActivationStatus.Pending;
+    public DateTime? ActivatedAt { get; set; }
+    public string? PlanName { get; set; }
+    public decimal? MonthlyFee { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public ICollection<ClinicMembership> Memberships { get; set; } = [];
 }

@@ -1,7 +1,7 @@
 "use client";
 
-import { Badge, Card, EmptyState, ErrorBanner, LoadingState, PageHeader, SearchField, buttonClass, inputClass, secondaryButtonClass } from "@/components/ui";
-import type { CompanyActivation, CompanyBeneficiary } from "@/lib/types";
+import { Card, EmptyState, ErrorBanner, LoadingState, PageHeader, SearchField, buttonClass, inputClass, secondaryButtonClass } from "@/components/ui";
+import type { CompanyBeneficiary } from "@/lib/types";
 import { api, getSession } from "@/services/api";
 import { CheckCircle2, ClipboardCheck, ShieldCheck, UserPlus, XCircle } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useState } from "react";
@@ -24,39 +24,26 @@ function toForm(beneficiary: CompanyBeneficiary): EligibilityForm {
 
 export default function EligibilityPage() {
   const roles = getSession()?.user.roles ?? [];
-  const isPlatformAdmin = roles.includes("PlatformAdmin");
   const canManageBeneficiaries = roles.some((role) => ["CompanyAdmin", "Support"].includes(role));
-  const [companies, setCompanies] = useState<CompanyActivation[]>([]);
   const [beneficiaries, setBeneficiaries] = useState<CompanyBeneficiary[]>([]);
   const [forms, setForms] = useState<Record<string, EligibilityForm>>({});
   const [query, setQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
-  const [feeDrafts, setFeeDrafts] = useState<Record<string, string>>({});
   const [beneficiaryForm, setBeneficiaryForm] = useState(initialBeneficiaryForm);
   const [creatingBeneficiary, setCreatingBeneficiary] = useState(false);
 
   useEffect(() => {
-    Promise.all([
-      isPlatformAdmin ? api.getCompanyActivations() : Promise.resolve([]),
-      canManageBeneficiaries ? api.getCompanyBeneficiaries() : Promise.resolve([]),
-    ])
-      .then(([companyItems, beneficiaryItems]) => {
-        setCompanies(companyItems);
+    (canManageBeneficiaries ? api.getCompanyBeneficiaries() : Promise.resolve([]))
+      .then((beneficiaryItems) => {
         setBeneficiaries(beneficiaryItems);
         setForms(Object.fromEntries(beneficiaryItems.map((item) => [item.id, toForm(item)])));
-        setFeeDrafts(
-          Object.fromEntries(
-            companyItems.map((item) => [item.companyId, item.monthlyFee?.toFixed(2) ?? ""]),
-          ),
-        );
       })
       .catch((err) => setError(err instanceof Error ? err.message : "Erro ao carregar elegibilidade."))
       .finally(() => setLoading(false));
-  }, [canManageBeneficiaries, isPlatformAdmin]);
+  }, [canManageBeneficiaries]);
 
   const filtered = useMemo(
     () =>
@@ -66,21 +53,6 @@ export default function EligibilityPage() {
           .includes(query.toLowerCase()),
       ),
     [beneficiaries, query],
-  );
-
-  const filteredCompanies = useMemo(
-    () =>
-      companies.filter((company) => {
-        const matchesSearch = `${company.companyName} ${company.tenantName} ${company.taxIdMasked} ${company.planName ?? ""}`
-          .toLowerCase()
-          .includes(query.toLowerCase());
-        const matchesStatus =
-          statusFilter === "all" ||
-          (statusFilter === "active" && company.isActive) ||
-          (statusFilter === "inactive" && !company.isActive);
-        return matchesSearch && matchesStatus;
-      }),
-    [companies, query, statusFilter],
   );
 
   async function submit(event: FormEvent, beneficiary: CompanyBeneficiary) {
@@ -113,55 +85,6 @@ export default function EligibilityPage() {
       ...current,
       [id]: { ...(current[id] ?? { isEligible: true, eligibleUntil: "", reason: "" }), ...patch },
     }));
-  }
-
-  async function toggleCompany(company: CompanyActivation) {
-    if (
-      company.isActive &&
-      !window.confirm(`Desabilitar o CNPJ de ${company.companyName}? A empresa perde acesso ate ser reabilitada.`)
-    )
-      return;
-    setSavingId(company.companyId);
-    setError("");
-    setSuccess("");
-    try {
-      const updated = await api.updateCompanyActivation(company.companyId, {
-        isActive: !company.isActive,
-        reason: !company.isActive ? "CNPJ habilitado pelo ADM MedSync." : "CNPJ desabilitado pelo ADM MedSync.",
-      });
-      setCompanies((items) => items.map((item) => (item.companyId === updated.companyId ? updated : item)));
-      setSuccess(updated.isActive ? "CNPJ habilitado para uso." : "CNPJ desabilitado.");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Erro ao atualizar CNPJ.");
-    } finally {
-      setSavingId("");
-    }
-  }
-
-  async function saveFee(company: CompanyActivation) {
-    const draft = feeDrafts[company.companyId] ?? "";
-    const monthlyFee = Number(draft.replace(",", "."));
-    if (!draft || Number.isNaN(monthlyFee) || monthlyFee <= 0) {
-      setError("Informe um valor mensal valido antes de salvar.");
-      return;
-    }
-    setSavingId(company.companyId);
-    setError("");
-    setSuccess("");
-    try {
-      const updated = await api.updateCompanyActivation(company.companyId, {
-        isActive: company.isActive,
-        reason: "Valor mensal atualizado pelo ADM MedSync.",
-        monthlyFee,
-      });
-      setCompanies((items) => items.map((item) => (item.companyId === updated.companyId ? updated : item)));
-      setFeeDrafts((current) => ({ ...current, [company.companyId]: updated.monthlyFee?.toFixed(2) ?? "" }));
-      setSuccess("Valor mensal atualizado.");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Erro ao atualizar valor mensal.");
-    } finally {
-      setSavingId("");
-    }
   }
 
   async function createBeneficiary(event: FormEvent) {
@@ -216,114 +139,17 @@ export default function EligibilityPage() {
         </div>
       </div>
 
-      <div className="mb-5 grid gap-3 md:grid-cols-[minmax(260px,1fr)_220px]">
+      <div className="mb-5">
         <SearchField
-          label={isPlatformAdmin ? "Buscar por empresa, CNPJ, tenant ou plano" : "Buscar por nome, e-mail, matricula ou plano"}
-          placeholder={isPlatformAdmin ? "Buscar por empresa, CNPJ, tenant ou plano" : "Buscar por nome, e-mail, matricula ou plano"}
+          label="Buscar por nome, e-mail, matricula ou plano"
+          placeholder="Buscar por nome, e-mail, matricula ou plano"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
         />
-        {isPlatformAdmin && (
-          <select
-            className={inputClass}
-            value={statusFilter}
-            onChange={(event) => setStatusFilter(event.target.value)}
-          >
-            <option value="all">Todos os status</option>
-            <option value="active">Habilitadas</option>
-            <option value="inactive">Aguardando habilitacao</option>
-          </select>
-        )}
       </div>
 
       {loading ? (
         <LoadingState label="Carregando elegibilidade..." />
-      ) : isPlatformAdmin ? (
-        filteredCompanies.length === 0 ? (
-          <EmptyState
-            icon={<ClipboardCheck size={22} />}
-            title="Nenhum CNPJ encontrado"
-            description="Ajuste a busca ou o filtro de status para visualizar empresas cadastradas."
-          />
-        ) : (
-          <Card className="overflow-hidden">
-            <div className="overflow-x-auto">
-              <div className="min-w-[1280px]">
-                <div className="grid grid-cols-[1.2fr_.9fr_.8fr_.9fr_.9fr_.8fr_1.1fr] gap-4 bg-slate-50 px-6 py-4 text-xs font-bold uppercase text-slate-400">
-                  <span>Empresa</span>
-                  <span>CNPJ</span>
-                  <span>Tenant</span>
-                  <span>Plano</span>
-                  <span>Valor mensal</span>
-                  <span>Status</span>
-                  <span className="text-right">Acao</span>
-                </div>
-                <div className="divide-y divide-slate-100">
-                  {filteredCompanies.map((company) => (
-                    <article
-                      key={company.companyId}
-                      className="grid grid-cols-[1.2fr_.9fr_.8fr_.9fr_.9fr_.8fr_1.1fr] items-center gap-4 px-6 py-5 text-sm"
-                    >
-                      <div className="min-w-0">
-                        <p className="truncate font-bold text-ink" title={company.companyName}>
-                          {company.companyName}
-                        </p>
-                        <p className="mt-1 text-xs text-slate-400">
-                          Criada em {formatDate(company.createdAt)}
-                        </p>
-                      </div>
-                      <span className="font-semibold text-slate-700">{company.taxIdMasked}</span>
-                      <span className="truncate text-slate-500" title={company.tenantName}>
-                        {company.tenantName}
-                      </span>
-                      <div className="min-w-0">
-                        <p className="truncate font-semibold text-slate-700" title={company.planName ?? "Sem plano"}>
-                          {company.planName ?? "Sem plano"}
-                        </p>
-                        <p className="mt-1 text-xs text-slate-400">{company.contractStatus ?? "Sem contrato"}</p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-slate-400">R$</span>
-                        <input
-                          className={`${inputClass} h-9 px-2 text-sm`}
-                          type="number"
-                          min={0.01}
-                          step="0.01"
-                          value={feeDrafts[company.companyId] ?? ""}
-                          onChange={(event) =>
-                            setFeeDrafts((current) => ({ ...current, [company.companyId]: event.target.value }))
-                          }
-                        />
-                        <button
-                          type="button"
-                          className="shrink-0 text-xs font-bold text-teal-700 hover:underline disabled:opacity-50"
-                          onClick={() => saveFee(company)}
-                          disabled={savingId === company.companyId}
-                        >
-                          Salvar
-                        </button>
-                      </div>
-                      <Badge tone={company.isActive ? "success" : "warning"}>
-                        {company.isActive ? "Habilitada" : "Pendente"}
-                      </Badge>
-                      <div className="text-right">
-                        <button
-                          className={secondaryButtonClass}
-                          onClick={() => toggleCompany(company)}
-                          disabled={savingId === company.companyId}
-                        >
-                          {savingId === company.companyId
-                            ? "Atualizando..."
-                            : company.isActive ? "Desabilitar" : "Habilitar"}
-                        </button>
-                      </div>
-                    </article>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </Card>
-        )
       ) : (
         <>
           {canManageBeneficiaries && (
@@ -483,8 +309,4 @@ export default function EligibilityPage() {
       )}
     </>
   );
-}
-
-function formatDate(value: string) {
-  return new Intl.DateTimeFormat("pt-BR", { dateStyle: "short" }).format(new Date(value));
 }

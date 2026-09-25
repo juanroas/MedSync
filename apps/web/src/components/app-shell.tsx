@@ -34,8 +34,8 @@ const navigation: Array<{
   { href: "/dashboard", label: "Painel", icon: LayoutDashboard },
   { href: "/perfil", label: "Meus dados", icon: UserRoundCog },
   {
-    href: "/empresas",
-    label: "Empresas",
+    href: "/clinicas",
+    label: "Clínicas",
     icon: Building2,
     roles: ["Support", "PlatformAdmin"],
   },
@@ -43,7 +43,7 @@ const navigation: Array<{
     href: "/elegibilidade",
     label: "Elegibilidade",
     icon: ClipboardCheck,
-    roles: ["CompanyAdmin", "Support", "PlatformAdmin"],
+    roles: ["CompanyAdmin", "Support"],
   },
   {
     href: "/relatorios",
@@ -169,7 +169,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     const platformAdminAllowed =
       item.href === "/dashboard" ||
       item.href === "/perfil" ||
-      item.href === "/empresas" ||
+      item.href === "/clinicas" ||
       item.href === "/acessos" ||
       item.href === "/elegibilidade" ||
       item.href === "/privacidade" ||

@@ -14,9 +14,6 @@ export default function RegisterCompanyPage() {
     clinicName: "",
     tradeName: "",
     taxId: "",
-    planName: "Plano inicial",
-    monthlyFee: "499.90",
-    monthlyConsultationLimit: "100",
     name: "",
     email: "",
     password: "",
@@ -32,8 +29,6 @@ export default function RegisterCompanyPage() {
       const session = await api.registerClinic({
         ...form,
         taxId: onlyDigits(form.taxId),
-        monthlyFee: Number(form.monthlyFee),
-        monthlyConsultationLimit: Number(form.monthlyConsultationLimit),
       });
       saveSession(session);
       router.push("/dashboard");
@@ -63,8 +58,8 @@ export default function RegisterCompanyPage() {
           <h1 className="mt-6 text-h1 font-bold uppercase tracking-tight text-ink">Cadastrar clínica ou consultório</h1>
           <p className="mt-2 text-caption text-slate-500">
             Esta conta será a administradora do seu consultório ou da sua clínica no MedSync. Você já entra e pode
-            configurar a equipe, o plano e a agenda na hora — nossa equipe confere o CNPJ em paralelo para liberar os
-            atendimentos. Se você é médico e já atende por uma clínica que usa o MedSync, não precisa criar outra conta:
+            configurar a equipe e a agenda na hora — nossa equipe confere o CNPJ e combina o plano com você em paralelo
+            para liberar os atendimentos. Se você é médico e já atende por uma clínica que usa o MedSync, não precisa criar outra conta:
             peça ao administrador da clínica para incluir você na equipe.
           </p>
           <div className="mt-8 space-y-5">
@@ -78,7 +73,7 @@ export default function RegisterCompanyPage() {
             <Field
               label="Nome fantasia"
               value={form.tradeName}
-              maxLength={180}
+              maxLength={160}
               onChange={(tradeName) => setForm({ ...form, tradeName })}
             />
             <Field
@@ -87,40 +82,6 @@ export default function RegisterCompanyPage() {
               maxLength={18}
               onChange={(taxId) => setForm({ ...form, taxId: maskCnpj(taxId) })}
               placeholder="00.000.000/0000-00"
-            />
-            <div className="border-t border-slate-100 pt-5">
-              <p className="text-label font-semibold text-ink">Plano no MedSync</p>
-              <p className="mt-1 text-caption text-slate-400">
-                Define o limite e o valor de uso dentro da plataforma. Pode ser ajustado depois com a equipe MedSync —
-                não é uma cobrança feita automaticamente no cadastro.
-              </p>
-            </div>
-            <div className="grid gap-5 md:grid-cols-2">
-              <Field
-                label="Plano contratado"
-                value={form.planName}
-                maxLength={120}
-                onChange={(planName) => setForm({ ...form, planName })}
-              />
-              <Field
-                label="Limite mensal de consultas"
-                type="number"
-                min={1}
-                max={100000}
-                value={form.monthlyConsultationLimit}
-                onChange={(monthlyConsultationLimit) =>
-                  setForm({ ...form, monthlyConsultationLimit: limitNumber(monthlyConsultationLimit, 6) })
-                }
-              />
-            </div>
-            <Field
-              label="Valor mensal"
-              type="number"
-              min={1}
-              max={1000000}
-              step="0.01"
-              value={form.monthlyFee}
-              onChange={(monthlyFee) => setForm({ ...form, monthlyFee: limitNumber(monthlyFee, 10) })}
             />
             <div className="border-t border-slate-100 pt-5">
               <p className="text-label font-semibold text-ink">Seu acesso de administrador</p>
@@ -166,9 +127,6 @@ function Field({
   type = "text",
   minLength,
   maxLength,
-  min,
-  max,
-  step,
   placeholder,
 }: {
   label: string;
@@ -177,9 +135,6 @@ function Field({
   type?: string;
   minLength?: number;
   maxLength?: number;
-  min?: number;
-  max?: number;
-  step?: string;
   placeholder?: string;
 }) {
   return (
@@ -192,9 +147,6 @@ function Field({
         onChange={(event) => onChange(event.target.value)}
         minLength={minLength}
         maxLength={maxLength}
-        min={min}
-        max={max}
-        step={step}
         placeholder={placeholder}
         required
       />
@@ -213,8 +165,4 @@ function maskCnpj(value: string) {
     .replace(/^(\d{2})\.(\d{3})(\d)/, "$1.$2.$3")
     .replace(/\.(\d{3})(\d)/, ".$1/$2")
     .replace(/(\d{4})(\d)/, "$1-$2");
-}
-
-function limitNumber(value: string, maxLength: number) {
-  return value.replace(/[^\d.]/g, "").slice(0, maxLength);
 }

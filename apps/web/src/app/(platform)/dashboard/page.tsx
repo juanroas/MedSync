@@ -55,8 +55,36 @@ const appointmentLoadRoles = [...schedulingRoles, "Patient", "Doctor", "Platform
 const patientLoadRoles = [...schedulingRoles, "Patient", "Doctor"];
 const companyPortalRoles: ClinicRole[] = ["CompanyAdmin"];
 
+function ClinicPendingBanner() {
+  return (
+    <section className="mb-7 flex flex-col gap-4 rounded-lg border border-amber-200 bg-amber-50 p-6 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex items-start gap-3">
+        <span className="grid size-11 shrink-0 place-items-center rounded-lg bg-amber-100 text-amber-700">
+          <ShieldCheck size={20} />
+        </span>
+        <div>
+          <p className="font-bold text-amber-900">Cadastro recebido — você já pode configurar a clínica.</p>
+          <p className="mt-1 text-sm leading-6 text-amber-800">
+            Cadastre a equipe e a agenda enquanto o Médico ADM MedSync confere o CNPJ. Pacientes e consultas são
+            liberados assim que a clínica for ativada. Fale com o suporte para acelerar.
+          </p>
+        </div>
+      </div>
+      <Link
+        href={`/ajuda?subject=${encodeURIComponent("Finalizar ativação da clínica")}`}
+        className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-lg bg-amber-600 px-5 text-sm font-bold text-white hover:bg-amber-700"
+      >
+        Falar com o suporte
+      </Link>
+    </section>
+  );
+}
+
 export default function DashboardPage() {
-  const roles = getSession()?.user.roles ?? [];
+  const session = getSession();
+  const roles = session?.user.roles ?? [];
+  const clinicPending =
+    roles.includes("ClinicAdmin") && (session?.user.clinicActivationStatus ?? "Active") !== "Active";
   const isPatientHome = roles.includes("Patient") && !roles.some((role) => role !== "Patient");
   const isCompanyPortal = roles.some((role) => companyPortalRoles.includes(role));
   const isCompanyFinanceHome = roles.includes("CompanyFinance");
@@ -204,13 +232,14 @@ export default function DashboardPage() {
         eyebrow="Visao geral"
         title="Central de operacao"
         description="Acompanhe atendimentos, agenda e acessos permitidos para o seu perfil."
-        action={canSchedule ? (
+        action={canSchedule && !clinicPending ? (
           <Link href="/consultas/nova" className={buttonClass}>
             <CalendarCheck2 size={17} /> Nova consulta
           </Link>
         ) : undefined}
       />
       {error && <ErrorBanner message={error} />}
+      {clinicPending && <ClinicPendingBanner />}
       {loading ? (
         <LoadingState label="Organizando seu painel..." />
       ) : (
@@ -368,28 +397,7 @@ function CompanyPortalHome({
         <LoadingState label="Carregando dados empresariais permitidos..." />
       ) : portal ? (
         <>
-          {!portal.company.isActive && (
-            <section className="mb-7 flex flex-col gap-4 rounded-lg border border-amber-200 bg-amber-50 p-6 sm:flex-row sm:items-center sm:justify-between">
-              <div className="flex items-start gap-3">
-                <span className="grid size-11 shrink-0 place-items-center rounded-lg bg-amber-100 text-amber-700">
-                  <ShieldCheck size={20} />
-                </span>
-                <div>
-                  <p className="font-bold text-amber-900">Cadastro recebido — voce ja pode explorar o painel.</p>
-                  <p className="mt-1 text-sm leading-6 text-amber-800">
-                    Nossa equipe esta validando o CNPJ para liberar atendimentos reais e cobranca. Configure a conta
-                    enquanto isso, ou fale com o suporte para acelerar a ativacao.
-                  </p>
-                </div>
-              </div>
-              <Link
-                href={`/ajuda?subject=${encodeURIComponent("Finalizar ativacao do CNPJ")}`}
-                className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-lg bg-amber-600 px-5 text-sm font-bold text-white hover:bg-amber-700"
-              >
-                Falar com o suporte
-              </Link>
-            </section>
-          )}
+          {!portal.company.isActive && <ClinicPendingBanner />}
 
           <section className="brand-surface mb-7 rounded-lg border border-teal-100 p-6 shadow-sm">
             <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">

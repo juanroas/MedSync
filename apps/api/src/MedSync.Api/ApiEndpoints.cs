@@ -35,9 +35,9 @@ public static class ApiEndpoints
         protectedApi.MapPut("/staff-users/{id:guid}/activation", UpdateStaffUserActivation);
         protectedApi.MapPost("/staff-users/{id:guid}/reset-password", ResetStaffUserPassword);
         protectedApi.MapGet("/audit-events", GetAuditEvents);
-        protectedApi.MapPost("/companies/onboarding", CreateCompanyOnboarding);
-        protectedApi.MapGet("/companies/activation", GetCompanyActivations);
-        protectedApi.MapPut("/companies/{id:guid}/activation", UpdateCompanyActivation);
+        protectedApi.MapPost("/clinics/onboarding", CreateClinicOnboarding);
+        protectedApi.MapGet("/clinics/activation", GetClinicActivations);
+        protectedApi.MapPut("/clinics/{id:guid}/activation", UpdateClinicActivation);
         protectedApi.MapGet("/company-portal", GetCompanyPortal);
         protectedApi.MapGet("/company-beneficiaries", GetCompanyBeneficiaries);
         protectedApi.MapPost("/company-beneficiaries", CreateCompanyBeneficiary);
@@ -411,8 +411,8 @@ public static class ApiEndpoints
         return Results.Ok(events);
     }
 
-    private static async Task<IResult> CreateCompanyOnboarding(
-        CreateCompanyOnboardingRequest request,
+    private static async Task<IResult> CreateClinicOnboarding(
+        CreateClinicOnboardingRequest request,
         ClaimsPrincipal principal,
         MedSyncDbContext db,
         IPasswordService passwords,
@@ -426,61 +426,33 @@ public static class ApiEndpoints
         var legalName = request.LegalName.Trim();
         var tradeName = string.IsNullOrWhiteSpace(request.TradeName) ? legalName : request.TradeName.Trim();
         var taxId = DigitsOnly(request.TaxId);
-        var planName = request.PlanName.Trim();
         var adminName = request.AdminName.Trim();
         var adminEmail = request.AdminEmail.Trim().ToLowerInvariant();
 
         if (legalName.Length is < 3 or > 180)
-            return Validation("legalName", "Razao social deve ter entre 3 e 180 caracteres.");
-        if (tradeName.Length > 180)
-            return Validation("tradeName", "Nome fantasia deve ter ate 180 caracteres.");
+            return Validation("legalName", "Razão social deve ter entre 3 e 180 caracteres.");
+        if (tradeName.Length > 160)
+            return Validation("tradeName", "Nome fantasia deve ter até 160 caracteres.");
         if (!IsValidCnpj(taxId))
-            return Validation("taxId", "Informe um CNPJ valido.");
-        if (planName.Length is < 3 or > 120)
-            return Validation("planName", "Plano deve ter entre 3 e 120 caracteres.");
-        if (request.MonthlyFee <= 0 || request.MonthlyFee > 1_000_000)
-            return Validation("monthlyFee", "Valor mensal deve ser maior que zero e menor que 1.000.000.");
-        if (request.MonthlyConsultationLimit is < 1 or > 100_000)
-            return Validation("monthlyConsultationLimit", "Limite mensal deve estar entre 1 e 100.000 consultas.");
+            return Validation("taxId", "Informe um CNPJ válido.");
         if (adminName.Length is < 3 or > 160)
-            return Validation("adminName", "Nome do admin deve ter entre 3 e 160 caracteres.");
+            return Validation("adminName", "Nome do administrador deve ter entre 3 e 160 caracteres.");
         if (!IsValidEmail(adminEmail))
-            return Validation("adminEmail", "Informe um e-mail valido para o admin.");
+            return Validation("adminEmail", "Informe um e-mail válido para o administrador.");
         if (PasswordPolicy.Validate(request.TemporaryPassword) is { } passwordError)
             return Validation("temporaryPassword", passwordError);
-        if (await db.Companies.AnyAsync(x => x.TaxId == taxId, cancellationToken))
-            return Results.Conflict(new { message = "Ja existe uma empresa com este CNPJ." });
+        if (await db.Clinics.AnyAsync(x => x.TaxId == taxId, cancellationToken))
+            return Results.Conflict(new { message = "Já existe uma clínica cadastrada com este CNPJ." });
         if (await db.Users.AnyAsync(x => x.Email == adminEmail, cancellationToken))
-            return Results.Conflict(new { message = "Ja existe uma conta com este e-mail." });
+            return Results.Conflict(new { message = "Já existe uma conta com este e-mail." });
 
-        var tenant = new Clinic
+        var clinic = new Clinic
         {
             Name = tradeName,
-            Slug = SecurityText.Slug(tradeName)
-        };
-        var company = new Company
-        {
-            Clinic = tenant,
+            Slug = SecurityText.Slug(tradeName),
             LegalName = legalName,
-            TradeName = tradeName,
             TaxId = taxId,
-            IsActive = false
-        };
-        var plan = new BenefitPlan
-        {
-            Clinic = tenant,
-            Name = planName,
-            Description = "Plano criado no onboarding assistido MedSync.",
-            MonthlyFee = request.MonthlyFee,
-            MonthlyConsultationLimit = request.MonthlyConsultationLimit
-        };
-        var contract = new CompanyContract
-        {
-            ClinicId = tenant.Id,
-            Company = company,
-            BenefitPlan = plan,
-            Status = CompanyContractStatus.Draft,
-            StartsAt = DateOnly.FromDateTime(DateTime.UtcNow.Date)
+            ActivationStatus = ClinicActivationStatus.Pending
         };
         var admin = new User
         {
@@ -491,69 +463,47 @@ public static class ApiEndpoints
         };
         var membership = new ClinicMembership
         {
-            Clinic = tenant,
+            Clinic = clinic,
             User = admin,
-            Role = ClinicRole.CompanyAdmin
+            Role = ClinicRole.ClinicAdmin
         };
 
-        db.AddRange(tenant, company, plan, contract, admin, membership);
-        audit.Add(actor, "Company.OnboardingCreate", "Company", company.Id);
+        db.AddRange(clinic, admin, membership);
+        audit.Add(actor, "Clinic.OnboardingCreate", "Clinic", clinic.Id);
         await db.SaveChangesAsync(cancellationToken);
 
         return Results.Created(
-            $"/companies/{company.Id}",
-            new CompanyOnboardingResponse(
-                company.Id,
-                tenant.Id,
+            $"/clinics/{clinic.Id}",
+            new ClinicOnboardingResponse(
+                clinic.Id,
                 tradeName,
                 MaskTaxId(taxId),
                 adminEmail,
-                contract.Status,
-                company.IsActive,
-                $"Enviar boas-vindas para {adminEmail}: acesso criado, troca de senha obrigatoria, CNPJ aguardando habilitacao pelo ADM MedSync."));
+                clinic.ActivationStatus,
+                $"Enviar boas-vindas para {adminEmail}: acesso criado, troca de senha obrigatória, clínica aguardando ativação pelo Médico ADM MedSync."));
     }
 
-    private static async Task<IResult> GetCompanyActivations(
+    private static async Task<IResult> GetClinicActivations(
         ClaimsPrincipal principal,
         MedSyncDbContext db,
         CancellationToken cancellationToken)
     {
         var actor = RequestContext.From(principal);
-        if (!actor.HasAny(ClinicRole.PlatformAdmin))
+        if (!actor.HasAny(ClinicRole.PlatformAdmin, ClinicRole.Support))
             return Results.Forbid();
 
-        var companies = await db.Companies.AsNoTracking()
-            .Include(x => x.Clinic)
-            .Include(x => x.Contracts)
-            .ThenInclude(x => x.BenefitPlan)
-            .OrderBy(x => x.TradeName ?? x.LegalName)
+        var clinics = await db.Clinics.AsNoTracking()
+            .Where(x => x.TaxId != null)
+            .OrderBy(x => x.ActivationStatus == ClinicActivationStatus.Pending ? 0 : 1)
+            .ThenBy(x => x.Name)
             .ToListAsync(cancellationToken);
 
-        return Results.Ok(companies.Select(x => new CompanyActivationResponse(
-            x.Id,
-            x.ClinicId,
-            x.Clinic.Name,
-            x.TradeName ?? x.LegalName,
-            MaskTaxId(x.TaxId),
-            x.Contracts
-                .OrderByDescending(c => c.StartsAt)
-                .Select(c => c.BenefitPlan.Name)
-                .FirstOrDefault(),
-            x.Contracts
-                .OrderByDescending(c => c.StartsAt)
-                .Select(c => (decimal?)c.BenefitPlan.MonthlyFee)
-                .FirstOrDefault(),
-            x.Contracts
-                .OrderByDescending(c => c.StartsAt)
-                .Select(c => (CompanyContractStatus?)c.Status)
-                .FirstOrDefault(),
-            x.IsActive,
-            x.CreatedAt)));
+        return Results.Ok(clinics.Select(ToActivationResponse));
     }
 
-    private static async Task<IResult> UpdateCompanyActivation(
+    private static async Task<IResult> UpdateClinicActivation(
         Guid id,
-        UpdateCompanyActivationRequest request,
+        UpdateClinicActivationRequest request,
         ClaimsPrincipal principal,
         MedSyncDbContext db,
         AuditWriter audit,
@@ -562,51 +512,67 @@ public static class ApiEndpoints
         var actor = RequestContext.From(principal);
         if (!actor.HasAny(ClinicRole.PlatformAdmin))
         {
-            audit.Add(actor, "Company.ActivationUpdate", "Company", id, "Denied", "Somente ADM MedSync pode habilitar CNPJ.");
+            audit.Add(actor, "Clinic.ActivationUpdate", "Clinic", id, "Denied", "Somente o Médico ADM MedSync pode ativar clínicas.");
             await db.SaveChangesAsync(cancellationToken);
             return Results.Forbid();
         }
 
-        var company = await db.Companies
-            .Include(x => x.Clinic)
-            .Include(x => x.Contracts)
-            .ThenInclude(x => x.BenefitPlan)
-            .SingleOrDefaultAsync(x => x.Id == id, cancellationToken);
-        if (company is null)
+        var clinic = await db.Clinics.SingleOrDefaultAsync(x => x.Id == id, cancellationToken);
+        if (clinic is null)
             return Results.NotFound();
 
         var reason = string.IsNullOrWhiteSpace(request.Reason)
-            ? request.IsActive ? "CNPJ habilitado pelo ADM MedSync." : "CNPJ desabilitado pelo ADM MedSync."
+            ? request.Status switch
+            {
+                ClinicActivationStatus.Active => "Clínica ativada pelo Médico ADM MedSync.",
+                ClinicActivationStatus.Suspended => "Clínica suspensa pelo Médico ADM MedSync.",
+                _ => "Clínica voltou para análise.",
+            }
             : request.Reason.Trim();
         if (reason.Length > 240)
-            return Validation("reason", "Motivo deve ter ate 240 caracteres.");
+            return Validation("reason", "Motivo deve ter até 240 caracteres.");
+        var planName = string.IsNullOrWhiteSpace(request.PlanName) ? null : request.PlanName.Trim();
+        if (planName is { Length: > 120 })
+            return Validation("planName", "Plano deve ter até 120 caracteres.");
         if (request.MonthlyFee is { } monthlyFee && (monthlyFee <= 0 || monthlyFee > 1_000_000))
             return Validation("monthlyFee", "Valor mensal deve ser maior que zero e menor que 1.000.000.");
 
-        company.IsActive = request.IsActive;
-        var latestContract = company.Contracts.OrderByDescending(x => x.StartsAt).FirstOrDefault();
-        if (latestContract is not null)
-        {
-            latestContract.Status = request.IsActive ? CompanyContractStatus.Active : CompanyContractStatus.Suspended;
-            if (request.MonthlyFee is { } newMonthlyFee)
-                latestContract.BenefitPlan.MonthlyFee = newMonthlyFee;
-        }
+        if (request.Status == ClinicActivationStatus.Active && clinic.ActivationStatus != ClinicActivationStatus.Active)
+            clinic.ActivatedAt = DateTime.UtcNow;
+        clinic.ActivationStatus = request.Status;
+        if (planName is not null)
+            clinic.PlanName = planName;
+        if (request.MonthlyFee is { } newMonthlyFee)
+            clinic.MonthlyFee = newMonthlyFee;
 
-        audit.Add(actor, "Company.ActivationUpdate", "Company", company.Id, "Success", reason);
+        audit.Add(actor, "Clinic.ActivationUpdate", "Clinic", clinic.Id, "Success", reason);
         await db.SaveChangesAsync(cancellationToken);
 
-        return Results.Ok(new CompanyActivationResponse(
-            company.Id,
-            company.ClinicId,
-            company.Clinic.Name,
-            company.TradeName ?? company.LegalName,
-            MaskTaxId(company.TaxId),
-            latestContract?.BenefitPlan.Name,
-            latestContract?.BenefitPlan.MonthlyFee,
-            latestContract?.Status,
-            company.IsActive,
-            company.CreatedAt));
+        return Results.Ok(ToActivationResponse(clinic));
     }
+
+    private static ClinicActivationResponse ToActivationResponse(Clinic clinic) =>
+        new(
+            clinic.Id,
+            clinic.Name,
+            clinic.LegalName,
+            clinic.TaxId is null ? null : MaskTaxId(clinic.TaxId),
+            clinic.PlanName,
+            clinic.MonthlyFee,
+            clinic.ActivationStatus,
+            clinic.ActivatedAt,
+            clinic.CreatedAt);
+
+    private const string ClinicPendingStaffMessage =
+        "A clínica ainda está em ativação. Pacientes e consultas são liberados assim que o Médico ADM MedSync ativar o cadastro.";
+
+    private const string ClinicNotActiveMessage =
+        "Sua clínica ainda está em ativação no MedSync. Assim que for liberada, você poderá solicitar consultas.";
+
+    private static Task<bool> IsClinicActiveAsync(MedSyncDbContext db, Guid clinicId, CancellationToken cancellationToken) =>
+        db.Clinics.AsNoTracking().AnyAsync(
+            x => x.Id == clinicId && x.ActivationStatus == ClinicActivationStatus.Active,
+            cancellationToken);
 
     private static async Task<IResult> GetCompanyPortal(
         ClaimsPrincipal principal,
@@ -1707,28 +1673,27 @@ public static class ApiEndpoints
         var taxId = DigitsOnly(request.TaxId ?? string.Empty);
         if (!IsValidCnpj(taxId))
             return Validation("taxId", "Informe um CNPJ válido.");
-        var monthlyFee = request.MonthlyFee ?? 0m;
-        if (monthlyFee <= 0)
-            return Validation("monthlyFee", "Informe um valor mensal maior que zero.");
-        var monthlyConsultationLimit = request.MonthlyConsultationLimit ?? 0;
-        if (monthlyConsultationLimit <= 0)
-            return Validation("monthlyConsultationLimit", "Informe um limite mensal de consultas maior que zero.");
-        var planName = string.IsNullOrWhiteSpace(request.PlanName)
-            ? "Plano inicial"
-            : request.PlanName.Trim();
-        if (planName.Length < 3)
-            return Validation("planName", "Informe o nome do plano contratado.");
+        var legalName = request.ClinicName.Trim();
+        var tradeName = string.IsNullOrWhiteSpace(request.TradeName) ? legalName : request.TradeName.Trim();
+        if (legalName.Length > 180)
+            return Validation("clinicName", "Razão social deve ter até 180 caracteres.");
+        if (tradeName.Length > 160)
+            return Validation("tradeName", "Nome fantasia deve ter até 160 caracteres.");
 
         var email = request.Email.Trim().ToLowerInvariant();
         if (await db.Users.AnyAsync(x => x.Email == email, cancellationToken))
             return Results.Conflict(new { message = "Já existe uma conta com este e-mail." });
-        if (await db.Companies.AnyAsync(x => x.TaxId == taxId, cancellationToken))
+        if (await db.Clinics.AnyAsync(x => x.TaxId == taxId, cancellationToken))
             return Results.Conflict(new { message = "Já existe uma clínica cadastrada com este CNPJ." });
 
+        // Self sign-up never activates the clinic: it stays Pending until the Médico ADM MedSync reviews it.
         var clinic = new Clinic
         {
-            Name = request.ClinicName.Trim(),
-            Slug = SecurityText.Slug(request.ClinicName)
+            Name = tradeName,
+            Slug = SecurityText.Slug(tradeName),
+            LegalName = legalName,
+            TaxId = taxId,
+            ActivationStatus = ClinicActivationStatus.Pending
         };
         var user = new User
         {
@@ -1740,46 +1705,17 @@ public static class ApiEndpoints
         {
             Clinic = clinic,
             User = user,
-            Role = ClinicRole.CompanyAdmin
+            Role = ClinicRole.ClinicAdmin
         };
-        var company = new Company
-        {
-            Clinic = clinic,
-            LegalName = request.ClinicName.Trim(),
-            TradeName = string.IsNullOrWhiteSpace(request.TradeName) ? request.ClinicName.Trim() : request.TradeName.Trim(),
-            TaxId = taxId,
-            IsActive = false
-        };
-        var plan = new BenefitPlan
-        {
-            Clinic = clinic,
-            Name = planName,
-            Description = "Plano criado no autocadastro.",
-            MonthlyFee = monthlyFee,
-            MonthlyConsultationLimit = monthlyConsultationLimit
-        };
-        var contract = new CompanyContract
-        {
-            ClinicId = clinic.Id,
-            Company = company,
-            BenefitPlan = plan,
-            Status = CompanyContractStatus.Draft,
-            StartsAt = DateOnly.FromDateTime(DateTime.UtcNow.Date)
-        };
-        db.AddRange(clinic, user, membership, company, plan, contract);
-        var roles = new[] { ClinicRole.CompanyAdmin };
+        db.AddRange(clinic, user, membership);
+        var roles = new[] { ClinicRole.ClinicAdmin };
         var actor = new RequestContext(user.Id, clinic.Id, roles.ToHashSet());
-        // Autocadastro nao ativa o CNPJ automaticamente: fica pendente ate a
-        // equipe MedSync habilitar, mesma trava que ja existe no onboarding
-        // assistido (CreateCompanyOnboarding). Evita ativacao instantanea sem
-        // verificacao, que foi o motivo original de este endpoint ter sido
-        // desabilitado.
-        audit.Add(actor, "Company.Register", "Company", company.Id);
+        audit.Add(actor, "Clinic.Register", "Clinic", clinic.Id);
         await db.SaveChangesAsync(cancellationToken);
 
         SetSessionCookie(http, tokens.CreateJwt(user, clinic, roles), configuration);
         return Results.Created(
-            $"/companies/{company.Id}",
+            $"/clinics/{clinic.Id}",
             new LoginResponse(ToUserSummary(user, clinic, roles)));
     }
 
@@ -1913,6 +1849,8 @@ public static class ApiEndpoints
         var actor = RequestContext.From(principal);
         if (!actor.HasAny(AccessRules.ManagePatients))
             return Results.Forbid();
+        if (!await IsClinicActiveAsync(db, actor.ClinicId, cancellationToken))
+            return Results.Conflict(new { message = ClinicPendingStaffMessage });
         var name = request.Name.Trim();
         if (name.Length < 3)
             return Validation("name", "Informe o nome completo com pelo menos 3 caracteres.");
@@ -2028,31 +1966,9 @@ public static class ApiEndpoints
             ClinicRole.Patient);
 
         var patients = await query.OrderBy(x => x.Name).ToListAsync(cancellationToken);
-
-        var today = DateOnly.FromDateTime(DateTime.UtcNow.Date);
-        var patientIds = patients.Select(x => x.Id).ToList();
-        var activeBenefitPatientIds = await db.CompanyEmployees.AsNoTracking()
-            .Where(x =>
-                x.ClinicId == actor.ClinicId &&
-                x.PatientId != null &&
-                patientIds.Contains(x.PatientId!.Value) &&
-                x.IsActive &&
-                x.Company.IsActive &&
-                x.EligibilityRecords.Any(e =>
-                    e.IsEligible &&
-                    e.EligibleFrom <= today &&
-                    (e.EligibleUntil == null || e.EligibleUntil >= today)) &&
-                db.CompanyContracts.Any(c =>
-                    c.ClinicId == actor.ClinicId &&
-                    c.CompanyId == x.CompanyId &&
-                    c.Status == CompanyContractStatus.Active))
-            .Select(x => x.PatientId!.Value)
-            .ToListAsync(cancellationToken);
-        var activeBenefitSet = activeBenefitPatientIds.ToHashSet();
-
         audit.Add(actor, "Patient.List", "Patient", null);
         await db.SaveChangesAsync(cancellationToken);
-        return Results.Ok(patients.Select(x => ToResponse(x, canSeeMedications, activeBenefitSet.Contains(x.Id))));
+        return Results.Ok(patients.Select(x => ToResponse(x, canSeeMedications)));
     }
 
     private static async Task<IResult> UpdatePatient(
@@ -2463,11 +2379,11 @@ public static class ApiEndpoints
             return Results.Forbid();
 
         if (actor.HasAny(ClinicRole.Patient) &&
-            !await HasEligibleBenefitAsync(db, actor, cancellationToken))
+            !await IsClinicActiveAsync(db, actor.ClinicId, cancellationToken))
         {
-            audit.Add(actor, "CareSpecialty.List", "Doctor", null, "Denied", "Paciente sem elegibilidade ativa.");
+            audit.Add(actor, "CareSpecialty.List", "Doctor", null, "Denied", "Clínica ainda não ativada.");
             await db.SaveChangesAsync(cancellationToken);
-            return Results.Conflict(new { message = "Seu beneficio nao esta elegivel para solicitar consulta. Entre em contato com o suporte MedSync." });
+            return Results.Conflict(new { message = ClinicNotActiveMessage });
         }
 
         var doctorsWithAvailability = await db.Doctors.AsNoTracking()
@@ -2528,11 +2444,11 @@ public static class ApiEndpoints
         if (patient is null)
             return Results.NotFound(new { message = "Paciente nao encontrado para este ambiente." });
 
-        if (!await HasEligibleBenefitAsync(db, actor, cancellationToken))
+        if (!await IsClinicActiveAsync(db, actor.ClinicId, cancellationToken))
         {
-            audit.Add(actor, "Appointment.Request", "Appointment", null, "Denied", "Paciente sem elegibilidade ativa.");
+            audit.Add(actor, "Appointment.Request", "Appointment", null, "Denied", "Clínica ainda não ativada.");
             await db.SaveChangesAsync(cancellationToken);
-            return Results.Conflict(new { message = "Seu beneficio nao esta elegivel para solicitar consulta. Entre em contato com o suporte MedSync." });
+            return Results.Conflict(new { message = ClinicNotActiveMessage });
         }
 
         var scheduledEndsAt = scheduledAt.AddMinutes(request.DurationMinutes);
@@ -2608,6 +2524,8 @@ public static class ApiEndpoints
             return Results.Forbid();
         if (!actor.HasAny(AccessRules.ManageAppointments))
             return Results.Forbid();
+        if (!await IsClinicActiveAsync(db, actor.ClinicId, cancellationToken))
+            return Results.Conflict(new { message = ClinicPendingStaffMessage });
         if (request.DoctorId == Guid.Empty || request.PatientId == Guid.Empty)
             return Validation("appointment", "Paciente e médico são obrigatórios.");
         if (request.ScheduledAt == default)
@@ -3439,29 +3357,6 @@ public static class ApiEndpoints
                 canSeeNotes ? x.Patient.ContinuousMedications : null));
     }
 
-    private static Task<bool> HasEligibleBenefitAsync(
-        MedSyncDbContext db,
-        RequestContext actor,
-        CancellationToken cancellationToken)
-    {
-        var today = DateOnly.FromDateTime(DateTime.UtcNow.Date);
-        return db.CompanyEmployees.AsNoTracking()
-            .AnyAsync(
-                x => x.ClinicId == actor.ClinicId &&
-                     x.Patient != null &&
-                     x.Patient.UserId == actor.UserId &&
-                     x.IsActive &&
-                     x.Company.IsActive &&
-                     x.EligibilityRecords.Any(e =>
-                         e.IsEligible &&
-                         e.EligibleFrom <= today &&
-                         (e.EligibleUntil == null || e.EligibleUntil >= today)) &&
-                     db.CompanyContracts.Any(c =>
-                         c.ClinicId == actor.ClinicId &&
-                         c.CompanyId == x.CompanyId &&
-                         c.Status == CompanyContractStatus.Active),
-                cancellationToken);
-    }
 
     private static Task<Appointment?> LoadAppointment(
         MedSyncDbContext db,
@@ -3685,7 +3580,7 @@ public static class ApiEndpoints
         User user,
         Clinic clinic,
         IReadOnlyCollection<ClinicRole> roles) =>
-        new(user.Id, user.Name, user.Email, clinic.Id, clinic.Name, roles, user.MustChangePassword);
+        new(user.Id, user.Name, user.Email, clinic.Id, clinic.Name, roles, user.MustChangePassword, clinic.ActivationStatus);
 
     private static PersonalProfileResponse ToPersonalProfile(
         User user,
@@ -3729,10 +3624,7 @@ public static class ApiEndpoints
             user.MfaEnabled);
     }
 
-    private static PatientResponse ToResponse(
-        Patient patient,
-        bool includeContinuousMedications = true,
-        bool hasActiveBenefit = false) =>
+    private static PatientResponse ToResponse(Patient patient, bool includeContinuousMedications = true) =>
         new(
             patient.Id,
             patient.Name,
@@ -3740,8 +3632,7 @@ public static class ApiEndpoints
             SecurityText.MaskCpf(patient.Cpf),
             patient.BirthDate,
             patient.Phone,
-            includeContinuousMedications ? patient.ContinuousMedications : null,
-            hasActiveBenefit);
+            includeContinuousMedications ? patient.ContinuousMedications : null);
 
     private static DoctorResponse ToResponse(Doctor doctor) =>
         new(doctor.Id, doctor.Name, doctor.Email, doctor.Crm, doctor.CrmUf, doctor.Specialty, doctor.Phone);

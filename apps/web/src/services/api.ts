@@ -6,9 +6,10 @@ import type {
   ClinicalRecord,
   ClinicalRecordAttachment,
   ClinicRole,
-  CompanyActivation,
+  ClinicActivation,
+  ClinicActivationStatus,
+  ClinicOnboarding,
   CompanyBeneficiary,
-  CompanyOnboarding,
   CompanyPortal,
   ConsultationRoom,
   Doctor,
@@ -137,9 +138,6 @@ export const api = {
     clinicName: string;
     tradeName?: string;
     taxId: string;
-    planName: string;
-    monthlyFee: number;
-    monthlyConsultationLimit: number;
     name: string;
     email: string;
     password: string;
@@ -184,27 +182,24 @@ export const api = {
       method: "POST",
     }),
   getAuditEvents: () => request<AuditEvent[]>("/audit-events"),
-  createCompanyOnboarding: (input: {
+  createClinicOnboarding: (input: {
     legalName: string;
     tradeName?: string;
     taxId: string;
-    planName: string;
-    monthlyFee: number;
-    monthlyConsultationLimit: number;
     adminName: string;
     adminEmail: string;
     temporaryPassword: string;
   }) =>
-    request<CompanyOnboarding>("/companies/onboarding", {
+    request<ClinicOnboarding>("/clinics/onboarding", {
       method: "POST",
       body: JSON.stringify(input),
     }),
-  getCompanyActivations: () => request<CompanyActivation[]>("/companies/activation"),
-  updateCompanyActivation: (
+  getClinicActivations: () => request<ClinicActivation[]>("/clinics/activation"),
+  updateClinicActivation: (
     id: string,
-    input: { isActive: boolean; reason?: string; monthlyFee?: number },
+    input: { status: ClinicActivationStatus; reason?: string; planName?: string; monthlyFee?: number },
   ) =>
-    request<CompanyActivation>(`/companies/${id}/activation`, {
+    request<ClinicActivation>(`/clinics/${id}/activation`, {
       method: "PUT",
       body: JSON.stringify(input),
     }),

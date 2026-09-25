@@ -39,10 +39,11 @@ export async function loginByUi(page: Page, email: string, password = sharedPass
   for (let attempt = 1; attempt <= 4; attempt++) {
     await page.getByRole("button", { name: /entrar/i }).click();
     try {
-      await expect(page).toHaveURL(/\/(dashboard|alterar-senha)/, { timeout: 5000 });
+      await expect(page).toHaveURL(/\/(dashboard|alterar-senha)/, { timeout: 15000 });
       return;
     } catch (error) {
-      if (attempt === 4) throw error;
+      // A slow login may still be navigating; only click again if we are really still on /login.
+      if (attempt === 4 || !page.url().endsWith("/login")) throw error;
       await page.waitForTimeout(attempt * 1000);
     }
   }
