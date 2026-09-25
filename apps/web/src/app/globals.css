@@ -79,6 +79,11 @@ body {
   background: #111d1b !important;
 }
 
+/* Exits live in the room header: "Sair da sala" (everyone) and "Encerrar consulta" (doctor). */
+.medsync-room .lk-disconnect-button {
+  display: none !important;
+}
+
 .medsync-room .lk-participant-tile {
   border-radius: 1.25rem !important;
   overflow: hidden;

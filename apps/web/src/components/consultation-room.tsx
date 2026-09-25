@@ -15,6 +15,7 @@ import {
   ClipboardPlus,
   CreditCard,
   FileText,
+  PhoneOff,
   Pill,
   Save,
   ShieldCheck,
@@ -34,6 +35,8 @@ export function ConsultationRoom({ appointmentId }: { appointmentId: string }) {
   const [encryptionKey, setEncryptionKey] = useState("");
   const [encryption, setEncryption] = useState<E2EEOptions>();
   const [error, setError] = useState("");
+  // In-room error: the full-screen error state would unmount the call.
+  const [endError, setEndError] = useState("");
   const [waiting, setWaiting] = useState(false);
   const [term, setTerm] = useState<ConsentTerm | null>(null);
   const [accepting, setAccepting] = useState(false);
@@ -251,7 +254,7 @@ export function ConsultationRoom({ appointmentId }: { appointmentId: string }) {
         setClinicalLoaded(true);
         setClinicalMessage(`Prontuario salvo. Versao ${updated.version}.`);
       } catch (err) {
-        setError(
+        setEndError(
           err instanceof Error
             ? err.message
             : "Nao foi possivel salvar o prontuario antes de encerrar a consulta.",
@@ -263,6 +266,8 @@ export function ConsultationRoom({ appointmentId }: { appointmentId: string }) {
     return true;
   }
 
+  // Leaving keeps the consultation open (the doctor can come back while the window lasts);
+  // only "Encerrar consulta" ends it for everyone.
   async function leave() {
     if (exitingRef.current) return;
     exitingRef.current = true;
@@ -272,10 +277,28 @@ export function ConsultationRoom({ appointmentId }: { appointmentId: string }) {
       return;
     }
 
-    if (isDoctor) {
-      await api.endConsultation(appointmentId).catch(() => undefined);
-    }
     router.push("/consultas");
+  }
+
+  async function endConsultation() {
+    if (exitingRef.current) return;
+    if (!window.confirm("Encerrar a consulta? O paciente será desconectado e a consulta ficará como concluída.")) return;
+    exitingRef.current = true;
+    setEndError("");
+
+    if (!await saveClinicalDraftBeforeExit()) {
+      exitingRef.current = false;
+      return;
+    }
+
+    try {
+      await api.endConsultation(appointmentId);
+    } catch (err) {
+      setEndError(err instanceof Error ? err.message : "Não foi possível encerrar a consulta. Tente novamente.");
+      exitingRef.current = false;
+      return;
+    }
+    router.push(`/prontuario/${appointmentId}`);
   }
 
   async function handleRoomDisconnected() {
@@ -415,12 +438,28 @@ export function ConsultationRoom({ appointmentId }: { appointmentId: string }) {
               className="flex items-center gap-2 text-sm font-semibold text-white/60 hover:text-white"
               onClick={leave}
             >
-              <ArrowLeft size={17} /> {isDoctor ? "Encerrar consulta" : "Sair da sala"}
+              <ArrowLeft size={17} /> Sair da sala
             </button>
-            <span className="flex items-center gap-2 rounded-full bg-teal-400/10 px-3 py-1.5 text-xs text-teal-200">
-              <span className="size-1.5 rounded-full bg-teal-300" /> Criptografia ponta a ponta
-            </span>
+            <div className="flex items-center gap-3">
+              <span className="hidden items-center gap-2 rounded-full bg-teal-400/10 px-3 py-1.5 text-xs text-teal-200 sm:flex">
+                <span className="size-1.5 rounded-full bg-teal-300" /> Criptografia ponta a ponta
+              </span>
+              {isDoctor && (
+                <button
+                  type="button"
+                  onClick={endConsultation}
+                  className="inline-flex h-10 items-center gap-2 rounded-lg bg-red-600 px-4 text-sm font-bold text-white hover:bg-red-700 focus:outline-none focus:ring-4 focus:ring-red-300/40"
+                >
+                  <PhoneOff size={16} /> Encerrar consulta
+                </button>
+              )}
+            </div>
           </header>
+          {endError && (
+            <p role="alert" className="shrink-0 border-b border-red-300/30 bg-red-500/15 px-5 py-2.5 text-sm text-red-100">
+              {endError}
+            </p>
+          )}
           <div className="min-h-0 min-w-0 flex-1 overflow-hidden">
             <VideoConference />
             <RoomAudioRenderer />

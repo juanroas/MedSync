@@ -49,6 +49,17 @@ Legenda: ⬜ a fazer · 🟨 em andamento · ✅ feito · ⏸ bloqueado por deci
 | Meus documentos | ⬜ | Baixar | Receitas/atestados; cópia do registro (art. 3º §6) |
 | Meus dados | 🟨 | Salvar | — |
 
+Pontos levantados pelo usuário em 25/09 (homologação), para esta fase:
+1. **Solicitar consulta (`/consultas/nova`)**: trocar o seletor de data por um **calendário aberto** que só deixa
+   escolher os dias em que o médico tem horário; dia sem horário aparece desabilitado. Os horários do dia escolhido
+   continuam embaixo, como hoje. Precisa de endpoint que devolva os dias com vaga no mês (hoje só existe
+   `available-times` por dia).
+2. **Ajuda × Privacidade no menu do paciente**: parecem a mesma coisa para o paciente. Proposta: um item só
+   ("Ajuda"), com a opção "Pedido sobre meus dados (LGPD)" dentro dele. A LGPD (art. 18 e art. 41) exige canal para o
+   titular e um encarregado, não um item de menu próprio; a fila do DPO continua separada da do Suporte por trás.
+3. **Sala do paciente**: quando o médico encerra, o paciente deve ver "Consulta encerrada pelo médico" (hoje só
+   volta para a lista) e, depois, o acesso aos documentos da consulta.
+
 ## Fase 4 — ADM Clínica
 | Tela | Status | Ação principal | Paridade / regulação |
 |---|---|---|---|
