@@ -15,6 +15,7 @@ public sealed record PrescriptionPdfData(
     string DoctorCrm,
     string DoctorCrmUf,
     string DoctorSpecialty,
+    string? DoctorRqe,
     string DoctorProfessionalAddress,
     string ClinicName,
     string PatientName,
@@ -80,7 +81,8 @@ public static class PrescriptionPdf
             DrawSimulationWatermark(graphics, page);
 
         y = Write(graphics, data.DoctorName, title, ink, Margin, y, width);
-        y = Write(graphics, $"{data.DoctorSpecialty} · {FormatCrm(data.DoctorCrm, data.DoctorCrmUf)}", body, muted, Margin, y, width);
+        y = Write(graphics, $"{data.DoctorSpecialty} · {FormatCrm(data.DoctorCrm, data.DoctorCrmUf)}" +
+            (string.IsNullOrWhiteSpace(data.DoctorRqe) ? "" : $" · RQE {data.DoctorRqe}"), body, muted, Margin, y, width);
         y = Write(graphics, data.DoctorProfessionalAddress, body, muted, Margin, y, width);
         y = Write(graphics, data.ClinicName, small, muted, Margin, y, width) + 8;
         graphics.DrawLine(XPens.Gray, Margin, y, Margin + width, y);

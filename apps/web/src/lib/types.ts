@@ -115,6 +115,7 @@ export type Doctor = {
   specialty: string;
   phone?: string;
   professionalAddress?: string | null;
+  rqe?: string | null;
 };
 
 export type WeekDay =
@@ -354,6 +355,7 @@ export type PrescriptionDocument = {
   doctorCrm: string;
   doctorCrmUf: string;
   doctorSpecialty: string;
+  doctorRqe?: string | null;
   doctorProfessionalAddress?: string | null;
   clinicName: string;
   patientName: string;

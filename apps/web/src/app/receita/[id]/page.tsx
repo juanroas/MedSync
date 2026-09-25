@@ -1,7 +1,7 @@
 "use client";
 
 import { AlertBanner, Button, ErrorBanner, LoadingState, secondaryButtonClass } from "@/components/ui";
-import { formatDateTime, formatTime } from "@/lib/format";
+import { formatCrm, formatDateTime, formatTime } from "@/lib/format";
 import type { PrescriptionDocument, SigningSession } from "@/lib/types";
 import { api, getSession } from "@/services/api";
 import { ArrowLeft, Download, FlaskConical, MessageCircle, PenLine, Printer } from "lucide-react";
@@ -204,6 +204,7 @@ export default function PrescriptionDocumentPage() {
             <p className="text-xl font-bold text-ink">{document.doctorName}</p>
             <p className="text-sm text-slate-600">
               {document.doctorSpecialty} · {formatCrm(document.doctorCrm, document.doctorCrmUf)}
+              {document.doctorRqe ? ` · RQE ${document.doctorRqe}` : ""}
             </p>
             <p className="mt-1 text-sm text-slate-600">
               {document.doctorProfessionalAddress ?? "Endereço profissional não cadastrado"}
@@ -272,12 +273,6 @@ export default function PrescriptionDocumentPage() {
       ))}
     </main>
   );
-}
-
-// CRM is stored in different shapes ("123456", "CRM-SP 123456"); print it once as "CRM 123456/SP".
-function formatCrm(crm: string, uf: string) {
-  const number = crm.replace(/^\s*CRM[\s/-]*(?:[A-Za-z]{2}(?=[\s/-]))?[\s/-]*/i, "").trim();
-  return `CRM ${number}/${uf.toUpperCase()}`;
 }
 
 const buttonLinkClass =

@@ -39,7 +39,7 @@ Legenda: ⬜ a fazer · 🟨 em andamento · ✅ feito · ⏸ bloqueado por deci
 | Receita | 🟨 | Salvar rascunho → Assinar com certificado digital | Feito: base Anvisa + item próprio, rascunho, renovar uso contínuo, "Medicações em uso", PDF art. 13 gerado no servidor e assinado (PAdES) pelo fluxo IntegraICP, download do PDF assinado, envio pelo WhatsApp do médico. Sessão de assinatura (aprova uma vez, um clique por receita, "Encerrar liberação") e simulador marcado "SIMULAÇÃO — SEM VALIDADE". Falta: **canal da Valid** (liga a assinatura real), e-mail (SMTP Hostinger), "Meus documentos" do paciente |
 | Atestado | ⬜ | Emitir e assinar | Exige assinatura qualificada (Lei 14.063 art. 13); entra depois do VIDaaS |
 | Pacientes | ✅ | — (leitura) | Só pacientes com consulta com o médico; busca por nome/CPF, filtro "com consulta marcada", próxima e última consulta, "Abrir prontuário" |
-| Meu perfil | ⬜ | Salvar | CRM, UF, especialidade/RQE, status da assinatura digital |
+| Meu perfil | ✅ | Salvar | Nome, e-mail, telefone, RQE e endereço profissional editáveis; CRM/UF/especialidade como credenciamento (só a administração altera); "Pronto para receitas" com o que falta (art. 13) e o certificado digital "em preparação" |
 
 ## Fase 3 — Paciente
 | Tela | Status | Ação principal | Paridade / regulação |

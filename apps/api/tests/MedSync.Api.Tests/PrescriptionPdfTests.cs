@@ -69,6 +69,7 @@ public class PrescriptionPdfTests
             "200000",
             "SP",
             "Clínica geral",
+            "12345",
             "Av. Paulista, 1000 — São Paulo/SP",
             "Clínica Demo",
             "Carlos Oliveira",

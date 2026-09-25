@@ -152,7 +152,8 @@ public sealed record DoctorResponse(
     string CrmUf,
     string Specialty,
     string? Phone,
-    string? ProfessionalAddress);
+    string? ProfessionalAddress,
+    string? Rqe);
 
 public sealed record CareSpecialtyResponse(
     string Specialty,
@@ -171,8 +172,9 @@ public sealed record UpdateDoctorRequest(
     string CrmUf,
     string Specialty,
     string? Phone,
-    // Null keeps the current value (the clinic admin's form does not send it).
-    string? ProfessionalAddress = null);
+    // Null keeps the current value (the clinic admin's form does not send them).
+    string? ProfessionalAddress = null,
+    string? Rqe = null);
 
 public sealed record CreateAppointmentRequest(
     Guid DoctorId,
@@ -417,6 +419,7 @@ public sealed record PrescriptionDocumentResponse(
     string DoctorCrm,
     string DoctorCrmUf,
     string DoctorSpecialty,
+    string? DoctorRqe,
     string? DoctorProfessionalAddress,
     string ClinicName,
     string PatientName,

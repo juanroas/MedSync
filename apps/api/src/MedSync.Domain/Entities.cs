@@ -132,6 +132,8 @@ public sealed class Doctor
     public string? Phone { get; set; }
     // CFM 2.314 art. 13: professional address printed on documents issued at a distance.
     public string? ProfessionalAddress { get; set; }
+    // CFM 2.299/2021: specialist registration number (RQE), printed on documents when the doctor has one.
+    public string? Rqe { get; set; }
     public ICollection<Appointment> Appointments { get; set; } = [];
 }
 

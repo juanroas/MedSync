@@ -48,7 +48,7 @@ public class SigningSessionTests
         var provider = new SimulatedSignatureProvider();
         var session = new SigningSession(provider.Name, "sim", "v", DateTime.UtcNow.AddHours(1), true);
         var document = PrescriptionPdf.Render(new PrescriptionPdfData(
-            Guid.NewGuid(), PrescriptionKind.Simple, "Dra. Teste", "1", "SP", "Clínica geral", "Rua A, 1", "Clínica",
+            Guid.NewGuid(), PrescriptionKind.Simple, "Dra. Teste", "1", "SP", "Clínica geral", null, "Rua A, 1", "Clínica",
             "Paciente", "12345678909", "São Paulo/SP", null, DateTime.UtcNow,
             [new PrescriptionItem { MedicationName = "DIPIRONA", Instructions = "1 comprimido se dor" }],
             Simulated: true));

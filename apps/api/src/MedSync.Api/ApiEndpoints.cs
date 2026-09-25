@@ -1378,7 +1378,7 @@ public static partial class ApiEndpoints
         var doctors = await query
             .OrderBy(x => x.Name)
             .Select(x => new DoctorResponse(
-                x.Id, x.Name, x.Email, x.Crm, x.CrmUf, x.Specialty, x.Phone, x.ProfessionalAddress))
+                x.Id, x.Name, x.Email, x.Crm, x.CrmUf, x.Specialty, x.Phone, x.ProfessionalAddress, x.Rqe))
             .ToListAsync(cancellationToken);
         return Results.Ok(doctors);
     }
@@ -1427,6 +1427,8 @@ public static partial class ApiEndpoints
             return Validation("phone", "Informe um telefone válido com DDD.");
         if (request.ProfessionalAddress?.Trim().Length > 300)
             return Validation("professionalAddress", "O endereço profissional pode ter até 300 caracteres.");
+        if (request.Rqe?.Trim().Length > 20)
+            return Validation("rqe", "O RQE pode ter até 20 caracteres.");
 
         var email = request.Email.Trim().ToLowerInvariant();
         var crm = request.Crm.Trim();
@@ -1449,6 +1451,8 @@ public static partial class ApiEndpoints
             doctor.ProfessionalAddress = string.IsNullOrWhiteSpace(request.ProfessionalAddress)
                 ? null
                 : request.ProfessionalAddress.Trim();
+        if (request.Rqe is not null)
+            doctor.Rqe = string.IsNullOrWhiteSpace(request.Rqe) ? null : request.Rqe.Trim();
         if (doctor.User is not null)
         {
             doctor.User.Name = name;
@@ -2820,7 +2824,7 @@ public static partial class ApiEndpoints
             includeContinuousMedications ? patient.ContinuousMedications : null);
 
     private static DoctorResponse ToResponse(Doctor doctor) =>
-        new(doctor.Id, doctor.Name, doctor.Email, doctor.Crm, doctor.CrmUf, doctor.Specialty, doctor.Phone, doctor.ProfessionalAddress);
+        new(doctor.Id, doctor.Name, doctor.Email, doctor.Crm, doctor.CrmUf, doctor.Specialty, doctor.Phone, doctor.ProfessionalAddress, doctor.Rqe);
 
     private static RoomResponse ToResponse(ConsultationRoom room) =>
         new(

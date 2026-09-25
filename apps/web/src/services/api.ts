@@ -299,6 +299,7 @@ export const api = {
     specialty: string;
     phone?: string;
     professionalAddress?: string;
+    rqe?: string;
   }) =>
     request<Doctor>(`/doctors/${id}`, {
       method: "PUT",

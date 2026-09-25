@@ -63,3 +63,9 @@ export const statusClass: Record<AppointmentStatus, string> = {
   Cancelled: "bg-red-50 text-red-700",
   NoShow: "bg-slate-100 text-slate-500",
 };
+
+// CRM is stored in different shapes ("123456", "CRM-SP 123456"); show it once as "CRM 123456/SP".
+export function formatCrm(crm: string, uf: string) {
+  const number = crm.replace(/^\s*CRM[\s/-]*(?:[A-Za-z]{2}(?=[\s/-]))?[\s/-]*/i, "").trim();
+  return `CRM ${number}/${uf.toUpperCase()}`;
+}
