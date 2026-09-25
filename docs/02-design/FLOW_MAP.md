@@ -65,6 +65,7 @@ o bloco fixo "Nova consulta" — a ação vive no header de `/consultas` e no Pa
 | Sala `/sala/{id}` | Médico | **Encerrar consulta** (cabeçalho, com confirmação) → vai para o prontuário | "Sair da sala" sai sem encerrar; o "Leave" do LiveKit fica escondido |
 | `/prontuario/{id}` | Médico | **Salvar prontuário** | Seção Receita: "Nova receita", "Renovar uso contínuo", por linha "Ver e imprimir" / "Editar" / excluir rascunho |
 | `/assinatura/simulador` | Médico (só com `SIGNATURE_PROVIDER=simulator`) | **Aprovar (simulação)** | "Recusar" volta sem assinar; a tela diz que não é o VIDaaS |
+| `/patients` (Pacientes vinculados) | Médico (só médico) | nenhuma (leitura) | Por paciente: "Abrir prontuário" da próxima ou da última consulta |
 | `/receita/{id}` | Médico (rascunho e assinada), paciente (só assinada) | Rascunho: **Assinar com certificado digital** (desabilitado com o motivo quando falta dado ou integração) · Assinada: **Baixar PDF assinado** | Secundárias: "Imprimir rascunho"; "Enviar pelo WhatsApp" só para o médico, com a receita assinada. Rascunho sai com a marca "sem validade" |
 | `/clinicas` | Suporte, Médico ADM | **Cadastrar clínica** (onboarding assistido) | só o Médico ADM ativa/suspende e define plano, por linha |
 | `/acessos` | ADM da clínica, Médico ADM | **Novo acesso** | ADM cria ADM da clínica; Médico ADM cria Médico ADM/Suporte/DPO; ninguém desabilita o próprio acesso |

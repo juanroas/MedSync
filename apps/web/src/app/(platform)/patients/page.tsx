@@ -1,5 +1,6 @@
 "use client";
 
+import { DoctorPatients } from "@/components/doctor-patients";
 import { ErrorBanner, EmptyState, LoadingState, PageHeader, SearchField, buttonClass, inputClass } from "@/components/ui";
 import { formatDate, formatDateTime, statusClass, statusLabel } from "@/lib/format";
 import type { Appointment, AppointmentStatus, Patient } from "@/lib/types";
@@ -26,7 +27,14 @@ const initialEditForm = {
   continuousMedications: "",
 };
 
+// Só médico: lista própria de pacientes atendidos. Paciente, ADM da clínica e quem acumula médico + ADM usam a tela abaixo.
 export default function PatientsPage() {
+  const roles = getSession()?.user.roles ?? [];
+  const isDoctorOnly = roles.length > 0 && roles.every((role) => role === "Doctor");
+  return isDoctorOnly ? <DoctorPatients /> : <PatientsRegistry />;
+}
+
+function PatientsRegistry() {
   const roles = getSession()?.user.roles ?? [];
   const isDoctor = roles.includes("Doctor");
   const isPatient = roles.includes("Patient");
@@ -416,7 +424,7 @@ export default function PatientsPage() {
                 <p className="flex items-center gap-2.5"><Phone size={15} className="text-teal-600" /> {patient.phone || "Nao informado"}</p>
                 <p className="text-xs text-slate-400">Nascimento: {formatDate(patient.birthDate)}</p>
               </div>
-              {(isDoctor || canManage) && patient.continuousMedications && (
+              {isDoctor && patient.continuousMedications && (
                 <div className="mt-4 flex gap-2.5 rounded-lg border border-amber-100 bg-amber-50/70 p-3 text-xs text-amber-800">
                   <Pill size={15} className="mt-0.5 shrink-0" />
                   <div>

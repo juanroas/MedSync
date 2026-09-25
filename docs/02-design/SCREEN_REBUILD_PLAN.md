@@ -38,7 +38,7 @@ Legenda: ⬜ a fazer · 🟨 em andamento · ✅ feito · ⏸ bloqueado por deci
 | Atendimento / Prontuário | 🟨 | Finalizar e assinar | Registro assinado ICP-Brasil para dispensar papel (CFM 1.821 arts. 3º–5º); alerta de presencial ≤ 180 dias em crônicos (CFM 2.314 art. 6º §2) |
 | Receita | 🟨 | Salvar rascunho → Assinar com certificado digital | Feito: base Anvisa + item próprio, rascunho, renovar uso contínuo, "Medicações em uso", PDF art. 13 gerado no servidor e assinado (PAdES) pelo fluxo IntegraICP, download do PDF assinado, envio pelo WhatsApp do médico. Sessão de assinatura (aprova uma vez, um clique por receita, "Encerrar liberação") e simulador marcado "SIMULAÇÃO — SEM VALIDADE". Falta: **canal da Valid** (liga a assinatura real), e-mail (SMTP Hostinger), "Meus documentos" do paciente |
 | Atestado | ⬜ | Emitir e assinar | Exige assinatura qualificada (Lei 14.063 art. 13); entra depois do VIDaaS |
-| Pacientes | ⬜ | — (leitura) | Só pacientes atendidos |
+| Pacientes | ✅ | — (leitura) | Só pacientes com consulta com o médico; busca por nome/CPF, filtro "com consulta marcada", próxima e última consulta, "Abrir prontuário" |
 | Meu perfil | ⬜ | Salvar | CRM, UF, especialidade/RQE, status da assinatura digital |
 
 ## Fase 3 — Paciente
