@@ -6,6 +6,7 @@ COPY apps/api/src/MedSync.Domain/MedSync.Domain.csproj apps/api/src/MedSync.Doma
 COPY apps/api/src/MedSync.Application/MedSync.Application.csproj apps/api/src/MedSync.Application/
 COPY apps/api/src/MedSync.Infrastructure/MedSync.Infrastructure.csproj apps/api/src/MedSync.Infrastructure/
 COPY apps/api/src/MedSync.Api/MedSync.Api.csproj apps/api/src/MedSync.Api/
+COPY apps/api/tests/MedSync.Api.Tests/MedSync.Api.Tests.csproj apps/api/tests/MedSync.Api.Tests/
 RUN dotnet restore apps/api/MedSync.sln
 
 COPY apps/api/ apps/api/
