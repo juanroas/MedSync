@@ -114,6 +114,7 @@ export type Doctor = {
   crmUf: string;
   specialty: string;
   phone?: string;
+  professionalAddress?: string | null;
 };
 
 export type WeekDay =
@@ -301,3 +302,76 @@ export type SupportRequest = {
   updatedAt: string;
 };
 
+
+export type MedicationSearchItem = {
+  id: string;
+  name: string;
+  activeIngredient?: string | null;
+  therapeuticClass?: string | null;
+  source: "Anvisa" | "Custom";
+};
+
+export type PrescriptionKind = "Simple" | "Antimicrobial";
+export type PrescriptionStatus = "Draft" | "Signed" | "Cancelled";
+
+export type PrescriptionItemInput = {
+  catalogItemId?: string | null;
+  medicationName: string;
+  dosage?: string | null;
+  instructions: string;
+  quantity?: string | null;
+  continuousUse: boolean;
+};
+
+export type PrescriptionItem = PrescriptionItemInput & { id: string };
+
+export type Prescription = {
+  id: string;
+  appointmentId: string;
+  kind: PrescriptionKind;
+  status: PrescriptionStatus;
+  patientLocation?: string | null;
+  notes?: string | null;
+  renewedFromId?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  signedAt?: string | null;
+  items: PrescriptionItem[];
+};
+
+export type SavePrescriptionInput = {
+  kind: PrescriptionKind;
+  patientLocation?: string | null;
+  notes?: string | null;
+  renewedFromId?: string | null;
+  items: PrescriptionItemInput[];
+};
+
+export type PrescriptionDocument = {
+  prescription: Prescription;
+  doctorName: string;
+  doctorCrm: string;
+  doctorCrmUf: string;
+  doctorSpecialty: string;
+  doctorProfessionalAddress?: string | null;
+  clinicName: string;
+  patientName: string;
+  patientCpf: string;
+  appointmentAt: string;
+  missingForSignature: string[];
+  signatureAvailable: boolean;
+};
+
+export type MedicationInUse = {
+  medicationName: string;
+  dosage?: string | null;
+  instructions: string;
+  lastPrescribedAt: string;
+  prescribedBy: string;
+  prescriptionId: string;
+};
+
+export type PatientMedications = {
+  items: MedicationInUse[];
+  legacyNote?: string | null;
+};

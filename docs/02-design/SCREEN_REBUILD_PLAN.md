@@ -35,8 +35,9 @@ Legenda: ⬜ a fazer · 🟨 em andamento · ✅ feito · ⏸ bloqueado por deci
 | Início | ✅ | Entrar na próxima consulta | KPIs do dia, cartão "Próxima consulta" (termo do paciente + Entrar na sala quando abre), agenda de hoje |
 | Agenda | 🟨 | Adicionar horário | Já tem disponibilidade; falta visão semana/dia |
 | Certificado digital (em Meu perfil) | ⬜ | Conectar certificado | Certificado em nuvem gratuito do CFM; **a confirmar a API do PSC (VALID)** antes de construir |
-| Atendimento / Prontuário | ⬜ | Finalizar e assinar | Registro assinado ICP-Brasil para dispensar papel (CFM 1.821 arts. 3º–5º); alerta de presencial ≤ 180 dias em crônicos (CFM 2.314 art. 6º §2) |
-| Receita e atestado | ⬜ | Emitir e assinar | **Prioridade 1 de mercado.** Integração Memed; campos do art. 13 |
+| Atendimento / Prontuário | 🟨 | Finalizar e assinar | Registro assinado ICP-Brasil para dispensar papel (CFM 1.821 arts. 3º–5º); alerta de presencial ≤ 180 dias em crônicos (CFM 2.314 art. 6º §2) |
+| Receita | 🟨 | Salvar rascunho → Assinar e enviar | Feito: base Anvisa + item próprio, rascunho, renovar uso contínuo, "Medicações em uso", documento art. 13 para imprimir (marca "sem validade"). Falta: **assinatura VIDaaS** (registrar o MedSync na Valid), envio por WhatsApp/e-mail com link, "Meus documentos" do paciente |
+| Atestado | ⬜ | Emitir e assinar | Exige assinatura qualificada (Lei 14.063 art. 13); entra depois do VIDaaS |
 | Pacientes | ⬜ | — (leitura) | Só pacientes atendidos |
 | Meu perfil | ⬜ | Salvar | CRM, UF, especialidade/RQE, status da assinatura digital |
 

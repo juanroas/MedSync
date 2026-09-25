@@ -62,6 +62,9 @@ o bloco fixo "Nova consulta" — a ação vive no header de `/consultas` e no Pa
 | `/consultas/nova` | Paciente / ADM da clínica | **Solicitar** / **Confirmar agendamento** | exige clínica ativa |
 | `/ajuda` | Todos menos Suporte | **Enviar para o suporte** | Suporte e Médico ADM veem a fila de todas as clínicas; o Suporte não tem o formulário (não abre pedido para si) |
 | `/privacidade` | Paciente, DPO | **Registrar solicitação** | só pedidos formais de titular (LGPD); o DPO registra pedidos recebidos por outros canais e atualiza a fila |
+| Sala `/sala/{id}` | Médico | **Encerrar consulta** (cabeçalho, com confirmação) → vai para o prontuário | "Sair da sala" sai sem encerrar; o "Leave" do LiveKit fica escondido |
+| `/prontuario/{id}` | Médico | **Salvar prontuário** | Seção Receita: "Nova receita", "Renovar uso contínuo", por linha "Ver e imprimir" / "Editar" / excluir rascunho |
+| `/receita/{id}` | Médico (rascunho e assinada), paciente (só assinada) | **Imprimir** | "Voltar ao prontuário" é o único link; rascunho sai com a marca "sem validade" |
 | `/clinicas` | Suporte, Médico ADM | **Cadastrar clínica** (onboarding assistido) | só o Médico ADM ativa/suspende e define plano, por linha |
 | `/acessos` | ADM da clínica, Médico ADM | **Novo acesso** | ADM cria ADM da clínica; Médico ADM cria Médico ADM/Suporte/DPO; ninguém desabilita o próprio acesso |
 

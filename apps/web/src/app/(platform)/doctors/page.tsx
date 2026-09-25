@@ -25,6 +25,7 @@ const initialEditForm = {
   crmUf: "",
   specialty: "",
   phone: "",
+  professionalAddress: "",
 };
 
 export default function DoctorsPage() {
@@ -64,6 +65,7 @@ export default function DoctorsPage() {
       crmUf: ownDoctor.crmUf,
       specialty: ownDoctor.specialty,
       phone: ownDoctor.phone ?? "",
+      professionalAddress: ownDoctor.professionalAddress ?? "",
     });
   }, [ownDoctor]);
 
@@ -249,6 +251,16 @@ export default function DoctorsPage() {
                 type="tel"
                 value={editForm.phone}
                 onChange={(event) => setEditForm({ ...editForm, phone: event.target.value })}
+              />
+            </label>
+            <label className="block md:col-span-2 xl:col-span-3">
+              <span className="mb-2 block text-xs font-bold text-slate-600">Endereço profissional</span>
+              <input
+                className={inputClass}
+                value={editForm.professionalAddress}
+                onChange={(event) => setEditForm({ ...editForm, professionalAddress: event.target.value })}
+                maxLength={300}
+                placeholder="Rua, número, cidade/UF — sai impresso nas receitas (CFM 2.314 art. 13)"
               />
             </label>
           </div>

@@ -1,5 +1,10 @@
 import type {
   Appointment,
+  MedicationSearchItem,
+  PatientMedications,
+  Prescription,
+  PrescriptionDocument,
+  SavePrescriptionInput,
   AvailableTime,
   CareSpecialty,
   ClinicalRecord,
@@ -292,6 +297,7 @@ export const api = {
     crmUf: string;
     specialty: string;
     phone?: string;
+    professionalAddress?: string;
   }) =>
     request<Doctor>(`/doctors/${id}`, {
       method: "PUT",
@@ -325,6 +331,24 @@ export const api = {
     `${API_URL}/appointments/${appointmentId}/clinical-record/attachments/${attachmentId}/download`,
   getPatientClinicalRecords: (patientId: string) =>
     request<PatientClinicalRecord[]>(`/patients/${patientId}/clinical-records`),
+  searchMedications: (query: string) =>
+    request<MedicationSearchItem[]>(`/medications?q=${encodeURIComponent(query)}`),
+  createMedication: (input: { name: string; activeIngredient?: string }) =>
+    request<MedicationSearchItem>("/medications", { method: "POST", body: JSON.stringify(input) }),
+  getAppointmentPrescriptions: (appointmentId: string) =>
+    request<Prescription[]>(`/appointments/${appointmentId}/prescriptions`),
+  createPrescription: (appointmentId: string, input: SavePrescriptionInput) =>
+    request<Prescription>(`/appointments/${appointmentId}/prescriptions`, {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
+  updatePrescription: (id: string, input: SavePrescriptionInput) =>
+    request<Prescription>(`/prescriptions/${id}`, { method: "PUT", body: JSON.stringify(input) }),
+  deletePrescription: (id: string) => request<void>(`/prescriptions/${id}`, { method: "DELETE" }),
+  getPrescriptionDocument: (id: string) => request<PrescriptionDocument>(`/prescriptions/${id}`),
+  signPrescription: (id: string) => request<void>(`/prescriptions/${id}/sign`, { method: "POST" }),
+  getPatientMedications: (patientId: string) =>
+    request<PatientMedications>(`/patients/${patientId}/medications`),
   createAppointment: (appointment: {
     doctorId: string;
     patientId: string;

@@ -2,6 +2,7 @@
 
 import { AlertBanner, Button, Card, ErrorBanner, LoadingState, PageHeader, TextArea } from "@/components/ui";
 import { ClinicalAttachmentsPanel } from "@/components/clinical-attachments-panel";
+import { PrescriptionPanel } from "@/components/prescription-panel";
 import { formatDateTime } from "@/lib/format";
 import type { Appointment, ClinicalRecord, PatientClinicalRecord } from "@/lib/types";
 import { ApiError, api, getSession } from "@/services/api";
@@ -279,7 +280,7 @@ export default function ClinicalRecordPage() {
                   <InfoPill label="Status" value={appointment.status} />
                 </div>
               </div>
-              {appointment.patientContinuousMedications && (
+              {appointment.patientContinuousMedications && !canEditClinicalRecord && (
                 <div className="mt-5 flex gap-3 rounded-lg border border-amber-100 bg-amber-50/70 p-4 text-sm text-amber-800">
                   <Pill size={17} className="mt-0.5 shrink-0" />
                   <div>
@@ -352,6 +353,10 @@ export default function ClinicalRecordPage() {
                 </div>
               </form>
             </Card>
+
+            {canEditClinicalRecord && (
+              <PrescriptionPanel appointmentId={appointmentId} patientId={appointment.patientId} />
+            )}
           </div>
 
           <aside className="space-y-6">
