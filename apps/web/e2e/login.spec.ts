@@ -1,18 +1,14 @@
 import { test } from "@playwright/test";
 import { loginByUi, sharedPassword, users } from "./fixtures";
 
+// Os seis perfis do ADR-0003.
 const profiles = [
-  ["admin plataforma", users.platformAdmin],
-  ["empresa admin", users.companyAdmin],
-  ["financeiro empresa", users.companyFinance],
-  ["financeiro plataforma", users.platformFinance],
-  ["suporte MedSync", users.support],
-  ["auditor empresa", users.companyAuditor],
-  ["auditor plataforma", users.platformAuditor],
-  ["DPO", users.dpo],
-  ["ADM medico do trabalho", users.occupationalHealthAdmin],
   ["paciente", users.patient],
   ["medico", users.doctor],
+  ["ADM da clinica", users.clinicAdmin],
+  ["medico ADM MedSync", users.medicalAdmin],
+  ["suporte MedSync", users.support],
+  ["DPO MedSync", users.dpo],
 ] as const;
 
 test.describe("login por perfil", () => {

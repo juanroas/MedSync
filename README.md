@@ -116,17 +116,13 @@ O relatório HTML é gerado em `apps/web/playwright-report`.
 
 | Perfil | E-mail | Senha |
 |---|---|---|
-| Médico | `medico@medsync.dev` | valor de `SEED_DEMO_PASSWORD` |
 | Paciente | `paciente@medsync.dev` | valor de `SEED_DEMO_PASSWORD` |
-| Admin plataforma | `admin@medsync.dev` | valor de `SEED_DEMO_PASSWORD` |
-| Empresa/parceiro admin | `empresa.admin@medsync.dev` | valor de `SEED_DEMO_PASSWORD` |
-| Financeiro empresa | `empresa.financeiro@medsync.dev` | valor de `SEED_DEMO_PASSWORD` |
-| Financeiro MedSync | `plataforma.financeiro@medsync.dev` | valor de `SEED_DEMO_PASSWORD` |
+| Médico | `medico@medsync.dev` | valor de `SEED_DEMO_PASSWORD` |
+| ADM da clínica (Clínica Demo) | `clinica.admin@medsync.dev` | valor de `SEED_DEMO_PASSWORD` |
+| ADM da clínica (Clínica Alfa / Beta) | `clinica2.admin@medsync.dev` / `clinica3.admin@medsync.dev` | valor de `SEED_DEMO_PASSWORD` |
+| Médico ADM MedSync | `admin@medsync.dev` | valor de `SEED_DEMO_PASSWORD` |
 | Suporte MedSync | `suporte@medsync.dev` | valor de `SEED_DEMO_PASSWORD` |
-| Auditor empresa | `empresa.auditor@medsync.dev` | valor de `SEED_DEMO_PASSWORD` |
-| Auditor MedSync | `plataforma.auditor@medsync.dev` | valor de `SEED_DEMO_PASSWORD` |
-| DPO/Privacidade | `dpo@medsync.dev` | valor de `SEED_DEMO_PASSWORD` |
-| ADM Medico do Trabalho | `medico.trabalho@medsync.dev` | valor de `SEED_DEMO_PASSWORD` |
+| DPO MedSync | `dpo@medsync.dev` | valor de `SEED_DEMO_PASSWORD` |
 
 O seed existe somente em `Development`. Contas criadas pelo administrador
 recebem uma senha temporária, que deve ser trocada no primeiro acesso.

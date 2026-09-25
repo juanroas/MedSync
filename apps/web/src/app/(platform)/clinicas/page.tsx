@@ -41,8 +41,8 @@ const emptyOnboarding = {
 
 export default function ClinicsPage() {
   const roles = getSession()?.user.roles ?? [];
-  const canActivate = roles.includes("PlatformAdmin");
-  const canOnboard = roles.some((role) => ["Support", "PlatformAdmin"].includes(role));
+  const canActivate = roles.includes("MedicalDirector");
+  const canOnboard = roles.some((role) => ["Support", "MedicalDirector"].includes(role));
 
   const [clinics, setClinics] = useState<ClinicActivation[]>([]);
   const [drafts, setDrafts] = useState<Record<string, { planName: string; monthlyFee: string }>>({});

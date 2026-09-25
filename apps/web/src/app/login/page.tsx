@@ -14,11 +14,12 @@ import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
 
 const demoAccounts = [
-  { label: "Admin MedSync", email: "admin@medsync.dev" },
-  { label: "Financeiro MedSync", email: "plataforma.financeiro@medsync.dev" },
-  { label: "Empresa admin", email: "empresa.admin@medsync.dev" },
   { label: "Paciente", email: "paciente@medsync.dev" },
   { label: "Médico", email: "medico@medsync.dev" },
+  { label: "ADM da clínica", email: "clinica.admin@medsync.dev" },
+  { label: "Médico ADM MedSync", email: "admin@medsync.dev" },
+  { label: "Suporte", email: "suporte@medsync.dev" },
+  { label: "DPO", email: "dpo@medsync.dev" },
 ];
 
 // Atalho de demonstracao (seleciona o e-mail e mostra os perfis seed). So deve aparecer em

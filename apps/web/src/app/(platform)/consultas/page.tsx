@@ -38,11 +38,11 @@ export default function AppointmentsPage() {
   const isDoctor = roles.includes("Doctor");
   const isPatient = roles.includes("Patient");
   const canOperationalSchedule = roles.some((role) =>
-    ["Receptionist", "ClinicAdmin", "MedicalDirector", "Support", "OccupationalHealthAdmin"].includes(role),
+    role === "ClinicAdmin",
   );
   const canRequestOrSchedule = isPatient || canOperationalSchedule;
   const canJoinRole = roles.some((role) =>
-    ["Doctor", "Patient", "MedicalDirector", "OccupationalHealthAdmin"].includes(role),
+    ["Doctor", "Patient"].includes(role),
   );
   // Simplificacao de tela: quando o proprio perfil ja e o paciente ou o medico da linha, a coluna
   // correspondente so repetiria o mesmo nome em toda a lista, entao ela e omitida.

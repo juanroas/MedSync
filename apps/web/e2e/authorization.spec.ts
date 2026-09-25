@@ -4,7 +4,7 @@ import { baseApiURL, loginByApi, sharedPassword, users } from "./fixtures";
 test.describe("autorizacao por perfil", () => {
   test.skip(!sharedPassword, "defina MEDSYNC_E2E_PASSWORD para executar login E2E");
 
-  test("empresa, financeiro e suporte nao acessam prontuario clinico", async () => {
+  test("ADM da clinica, medico ADM, suporte e DPO nao acessam prontuario clinico", async () => {
     const patientContext = await request.newContext({ baseURL: baseApiURL });
     await loginByApi(patientContext, users.patient);
     const patientAppointments = await patientContext.get("/appointments");
@@ -14,33 +14,35 @@ test.describe("autorizacao por perfil", () => {
     const appointmentId = patientList[0].id;
     await patientContext.dispose();
 
-    for (const email of [users.companyAdmin, users.companyFinance, users.platformFinance, users.support]) {
+    for (const email of [users.clinicAdmin, users.medicalAdmin, users.support, users.dpo]) {
       const context = await request.newContext({ baseURL: baseApiURL });
       await loginByApi(context, email);
       const clinicalRecord = await context.get(`/appointments/${appointmentId}/clinical-record`);
-      expect([403, 404]).toContain(clinicalRecord.status());
+      expect([403, 404], email).toContain(clinicalRecord.status());
       await context.dispose();
     }
   });
 
-  test("auditor de empresa nao altera dados operacionais", async () => {
-    const context = await request.newContext({ baseURL: baseApiURL });
-    await loginByApi(context, users.companyAuditor);
-    const response = await context.post("/patients", {
-      data: {
-        name: "Paciente Bloqueado",
-        email: "bloqueado-auditor@example.test",
-        cpf: "52998224725",
-        birthDate: "1990-01-01",
-        temporaryPassword: "Temp123!Temp",
-      },
-    });
-    expect(response.status()).toBe(403);
-    await context.dispose();
+  test("suporte e DPO nao cadastram paciente", async () => {
+    for (const email of [users.support, users.dpo]) {
+      const context = await request.newContext({ baseURL: baseApiURL });
+      await loginByApi(context, email);
+      const response = await context.post("/patients", {
+        data: {
+          name: "Paciente Bloqueado",
+          email: "bloqueado-plataforma@example.test",
+          cpf: "52998224725",
+          birthDate: "1990-01-01",
+          temporaryPassword: "Temp123!Temp",
+        },
+      });
+      expect(response.status(), email).toBe(403);
+      await context.dispose();
+    }
   });
 
-  test("perfis empresariais nao acessam lista individual de consultas por API", async () => {
-    for (const email of [users.companyAdmin, users.companyFinance, users.companyAuditor]) {
+  test("equipe MedSync nao acessa lista individual de consultas por API", async () => {
+    for (const email of [users.medicalAdmin, users.support, users.dpo]) {
       const context = await request.newContext({ baseURL: baseApiURL });
       await loginByApi(context, email);
       const response = await context.get("/appointments");
@@ -49,9 +51,9 @@ test.describe("autorizacao por perfil", () => {
     }
   });
 
-  test("admin plataforma nao recebe token de videochamada", async () => {
+  test("ADM da clinica nao recebe token de videochamada", async () => {
     const context = await request.newContext({ baseURL: baseApiURL });
-    await loginByApi(context, users.platformAdmin);
+    await loginByApi(context, users.clinicAdmin);
     const appointments = await context.get("/appointments");
     expect(appointments.status()).toBeLessThan(400);
     const list = (await appointments.json()) as Array<{ id: string }>;
@@ -62,8 +64,8 @@ test.describe("autorizacao por perfil", () => {
     await context.dispose();
   });
 
-  test("medico e admin plataforma nao criam agenda por API direta", async () => {
-    for (const email of [users.doctor, users.platformAdmin]) {
+  test("medico e medico ADM nao criam agenda por API direta", async () => {
+    for (const email of [users.doctor, users.medicalAdmin]) {
       const context = await request.newContext({ baseURL: baseApiURL });
       await loginByApi(context, email);
       const response = await context.post("/appointments", {
@@ -74,6 +76,18 @@ test.describe("autorizacao por perfil", () => {
           durationMinutes: 30,
           paymentRequired: false,
         },
+      });
+      expect(response.status(), email).toBe(403);
+      await context.dispose();
+    }
+  });
+
+  test("so o medico ADM ativa clinica", async () => {
+    for (const email of [users.support, users.clinicAdmin]) {
+      const context = await request.newContext({ baseURL: baseApiURL });
+      await loginByApi(context, email);
+      const response = await context.put("/clinics/00000000-0000-0000-0000-000000000000/activation", {
+        data: { status: "Active", planName: "Teste", monthlyFee: 100, reason: "teste de autorizacao" },
       });
       expect(response.status(), email).toBe(403);
       await context.dispose();

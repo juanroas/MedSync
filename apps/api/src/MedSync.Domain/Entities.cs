@@ -113,6 +113,7 @@ public sealed class Clinic
     public required string Name { get; set; }
     public required string Slug { get; set; }
     public bool IsActive { get; set; } = true;
+    public bool IsPlatform { get; set; }
     public string? LegalName { get; set; }
     public string? TaxId { get; set; }
     public ClinicActivationStatus ActivationStatus { get; set; } = ClinicActivationStatus.Pending;

@@ -12,7 +12,7 @@ test.describe("solicitacao de consulta por paciente", () => {
   test.skip(!sharedPassword, "defina MEDSYNC_E2E_PASSWORD para executar login E2E");
 
   test("paciente empresa2 solicita consulta por especialidade disponivel", async ({ page }) => {
-    await loginByUi(page, users.company2Patient);
+    await loginByUi(page, users.clinic2Patient);
     await page.getByRole("link", { name: /minhas consultas/i }).click();
 
     await expect(page.getByRole("heading", { name: /minhas consultas/i })).toBeVisible();
@@ -29,7 +29,7 @@ test.describe("solicitacao de consulta por paciente", () => {
   });
 
   test("api bloqueia solicitacao sem especialidade disponivel", async ({ request }) => {
-    await loginByApi(request, users.company2Patient);
+    await loginByApi(request, users.clinic2Patient);
     const response = await request.post(`${baseApiURL}/appointments/request`, {
       data: {
         specialty: "Especialidade inexistente",

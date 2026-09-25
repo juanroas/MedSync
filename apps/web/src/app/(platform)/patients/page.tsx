@@ -30,12 +30,7 @@ export default function PatientsPage() {
   const roles = getSession()?.user.roles ?? [];
   const isDoctor = roles.includes("Doctor");
   const isPatient = roles.includes("Patient");
-  const canManage = roles.some((role) =>
-    role === "Receptionist" ||
-    role === "ClinicAdmin" ||
-    role === "MedicalDirector" ||
-    role === "Support",
-  );
+  const canManage = roles.includes("ClinicAdmin");
   const [patients, setPatients] = useState<Patient[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [form, setForm] = useState(initialForm);

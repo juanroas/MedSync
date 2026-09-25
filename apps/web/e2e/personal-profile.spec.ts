@@ -2,35 +2,26 @@ import { expect, test } from "@playwright/test";
 import { baseApiURL, loginByApi, loginByUi, sharedPassword, users } from "./fixtures";
 
 const editableProfiles = [
-  ["admin plataforma", users.platformAdmin],
-  ["financeiro plataforma", users.platformFinance],
+  ["medico ADM MedSync", users.medicalAdmin],
   ["suporte", users.support],
-  ["auditor plataforma", users.platformAuditor],
   ["dpo", users.dpo],
-  ["medico do trabalho", users.occupationalHealthAdmin],
-  ["paciente cnpj tecnico", users.patient],
-  ["paciente cnpj tecnico 2", users.patient2],
-  ["paciente cnpj tecnico 3", users.patient3],
-  ["empresa admin", users.companyAdmin],
-  ["financeiro empresa", users.companyFinance],
-  ["auditor empresa", users.companyAuditor],
-  ["paciente empresa demo", users.demoPatient],
-  ["paciente empresa demo 2", users.demoPatient2],
-  ["empresa alfa admin", users.company2Admin],
-  ["empresa alfa financeiro", users.company2Finance],
-  ["empresa alfa auditor", users.company2Auditor],
-  ["paciente empresa alfa", users.company2Patient],
-  ["empresa beta admin", users.company3Admin],
-  ["empresa beta financeiro", users.company3Finance],
-  ["empresa beta auditor", users.company3Auditor],
-  ["paciente empresa beta", users.company3Patient],
+  ["ADM clinica demo", users.clinicAdmin],
+  ["ADM clinica alfa", users.clinic2Admin],
+  ["ADM clinica beta", users.clinic3Admin],
+  ["paciente", users.patient],
+  ["paciente 2", users.patient2],
+  ["paciente 3", users.patient3],
+  ["paciente demo", users.demoPatient],
+  ["paciente demo 2", users.demoPatient2],
+  ["paciente clinica alfa", users.clinic2Patient],
+  ["paciente clinica beta", users.clinic3Patient],
 ] as const;
 
 test.describe("perfil pessoal", () => {
   test.skip(!sharedPassword, "defina MEDSYNC_E2E_PASSWORD para executar login E2E");
 
-  test("tela meus dados permite edicao pessoal para admin plataforma", async ({ page }) => {
-    await loginByUi(page, users.platformAdmin);
+  test("tela meus dados permite edicao pessoal para medico ADM", async ({ page }) => {
+    await loginByUi(page, users.medicalAdmin);
     await page.getByRole("link", { name: /meus dados/i }).click();
 
     await expect(page.getByRole("heading", { name: /meus dados/i })).toBeVisible();

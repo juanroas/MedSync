@@ -97,54 +97,23 @@ public static class ApiEndpoints
     // Brasil nao usa horario de verao desde 2019; deslocamento fixo em relacao ao UTC.
     private static readonly TimeSpan BrazilUtcOffset = TimeSpan.FromHours(-3);
 
-    private static readonly ClinicRole[] StaffRoles =
-    [
-        ClinicRole.Receptionist,
-        ClinicRole.Finance,
-        ClinicRole.ClinicAdmin,
-        ClinicRole.MedicalDirector,
-        ClinicRole.PrivacyAuditor,
-        ClinicRole.CompanyAdmin,
-        ClinicRole.CompanyFinance,
-        ClinicRole.PlatformFinance,
-        ClinicRole.Support,
-        ClinicRole.CompanyAuditor,
-        ClinicRole.PlatformAuditor,
-        ClinicRole.DataProtectionOfficer,
-        ClinicRole.PlatformAdmin,
-        ClinicRole.OccupationalHealthAdmin
-    ];
-
     private static readonly ClinicRole[] PlatformStaffRoles =
     [
-        ClinicRole.PlatformFinance,
-        ClinicRole.Support,
-        ClinicRole.PlatformAuditor,
-        ClinicRole.DataProtectionOfficer,
-        ClinicRole.PlatformAdmin,
-        ClinicRole.OccupationalHealthAdmin
-    ];
-
-    private static readonly ClinicRole[] CompanyStaffRoles =
-    [
-        ClinicRole.CompanyAdmin,
-        ClinicRole.CompanyFinance,
-        ClinicRole.CompanyAuditor,
-        ClinicRole.Receptionist,
-        ClinicRole.MedicalDirector
-    ];
-
-    // Perfis que um ClinicAdmin "puro" (sem PlatformAdmin nem CompanyAdmin) pode gerenciar.
-    // Sem este limite, um admin de clinica conseguia criar/promover contas com papeis de
-    // plataforma (ex.: PlatformAdmin) ou de empresa parceira — escalonamento de privilegio.
-    private static readonly ClinicRole[] ClinicStaffRoles =
-    [
-        ClinicRole.Receptionist,
-        ClinicRole.Finance,
-        ClinicRole.ClinicAdmin,
         ClinicRole.MedicalDirector,
-        ClinicRole.PrivacyAuditor
+        ClinicRole.Support,
+        ClinicRole.DataProtectionOfficer
     ];
+
+    private static readonly ClinicRole[] ClinicStaffRoles = [ClinicRole.ClinicAdmin];
+
+    // Médico ADM manages the MedSync team; a clinic admin manages only clinic admins. Nobody else
+    // manages staff — this is what prevents a clinic admin from granting platform roles.
+    private static ClinicRole[] ManageableStaffRoles(RequestContext actor) =>
+        actor.IsMedicalAdmin
+            ? PlatformStaffRoles
+            : !actor.IsPlatformStaff && actor.HasAny(ClinicRole.ClinicAdmin)
+                ? ClinicStaffRoles
+                : [];
 
     private static async Task<IResult> CreateStaffUser(
         CreateStaffUserRequest request,
@@ -155,21 +124,13 @@ public static class ApiEndpoints
         CancellationToken cancellationToken)
     {
         var actor = RequestContext.From(principal);
-        if (!actor.HasAny(ClinicRole.ClinicAdmin, ClinicRole.PlatformAdmin, ClinicRole.CompanyAdmin))
+        var manageable = ManageableStaffRoles(actor);
+        if (manageable.Length == 0)
             return Results.Forbid();
-        if (!StaffRoles.Contains(request.Role))
-            return Validation("role", "Selecione um perfil administrativo permitido.");
-        if (actor.HasAny(ClinicRole.PlatformAdmin) &&
-            !PlatformStaffRoles.Contains(request.Role))
-            return Validation("role", "Admin MedSync pode criar apenas perfis operacionais MedSync.");
-        if (actor.HasAny(ClinicRole.CompanyAdmin) &&
-            !actor.HasAny(ClinicRole.PlatformAdmin) &&
-            !CompanyStaffRoles.Contains(request.Role))
-            return Validation("role", "Empresa admin pode criar apenas perfis da propria empresa.");
-        if (actor.HasAny(ClinicRole.ClinicAdmin) &&
-            !actor.HasAny(ClinicRole.PlatformAdmin, ClinicRole.CompanyAdmin) &&
-            !ClinicStaffRoles.Contains(request.Role))
-            return Validation("role", "Admin da clinica pode criar apenas perfis operacionais da propria clinica.");
+        if (!manageable.Contains(request.Role))
+            return Validation("role", actor.IsMedicalAdmin
+                ? "Na equipe MedSync só é possível criar Médico ADM, Suporte ou DPO."
+                : "Na clínica só é possível criar outro administrador. Médicos são cadastrados em Médicos.");
         if (string.IsNullOrWhiteSpace(request.Name) || string.IsNullOrWhiteSpace(request.Email))
             return Validation("user", "Nome e e-mail são obrigatórios.");
         if (PasswordPolicy.Validate(request.TemporaryPassword) is { } passwordError)
@@ -214,28 +175,9 @@ public static class ApiEndpoints
         CancellationToken cancellationToken)
     {
         var actor = RequestContext.From(principal);
-        if (!actor.HasAny(
-                ClinicRole.ClinicAdmin,
-                ClinicRole.CompanyAdmin,
-                ClinicRole.PrivacyAuditor,
-                ClinicRole.PlatformAdmin,
-                ClinicRole.CompanyAuditor,
-                ClinicRole.PlatformAuditor,
-                ClinicRole.DataProtectionOfficer))
+        var allowedRoles = ManageableStaffRoles(actor);
+        if (allowedRoles.Length == 0)
             return Results.Forbid();
-
-        var allowedRoles = actor.HasAny(ClinicRole.PlatformAdmin)
-            ? PlatformStaffRoles
-            : actor.HasAny(ClinicRole.CompanyAdmin)
-                ? CompanyStaffRoles
-                : actor.HasAny(ClinicRole.ClinicAdmin) &&
-                  !actor.HasAny(
-                      ClinicRole.PrivacyAuditor,
-                      ClinicRole.CompanyAuditor,
-                      ClinicRole.PlatformAuditor,
-                      ClinicRole.DataProtectionOfficer)
-                    ? ClinicStaffRoles
-                    : StaffRoles;
 
         var users = await db.ClinicMemberships.AsNoTracking()
             .Where(x => x.ClinicId == actor.ClinicId && allowedRoles.Contains(x.Role))
@@ -261,34 +203,21 @@ public static class ApiEndpoints
         CancellationToken cancellationToken)
     {
         var actor = RequestContext.From(principal);
-        if (!actor.HasAny(ClinicRole.ClinicAdmin, ClinicRole.PlatformAdmin, ClinicRole.CompanyAdmin))
+        var manageable = ManageableStaffRoles(actor);
+        if (manageable.Length == 0)
             return Results.Forbid();
 
         if (id == actor.UserId && !request.IsActive)
-            return Validation("isActive", "Voce nao pode desabilitar o proprio acesso.");
+            return Validation("isActive", "Você não pode desabilitar o próprio acesso.");
 
         var membership = await db.ClinicMemberships
             .Include(x => x.User)
-            .SingleOrDefaultAsync(
-                x => x.ClinicId == actor.ClinicId && x.UserId == id && StaffRoles.Contains(x.Role),
+            .FirstOrDefaultAsync(
+                x => x.ClinicId == actor.ClinicId && x.UserId == id && manageable.Contains(x.Role),
                 cancellationToken);
 
         if (membership is null)
-            return Results.NotFound(new { message = "Acesso nao encontrado neste escopo." });
-
-        if (actor.HasAny(ClinicRole.PlatformAdmin) &&
-            !PlatformStaffRoles.Contains(membership.Role))
-            return Results.Forbid();
-
-        if (actor.HasAny(ClinicRole.CompanyAdmin) &&
-            !actor.HasAny(ClinicRole.PlatformAdmin) &&
-            !CompanyStaffRoles.Contains(membership.Role))
-            return Results.Forbid();
-
-        if (actor.HasAny(ClinicRole.ClinicAdmin) &&
-            !actor.HasAny(ClinicRole.PlatformAdmin, ClinicRole.CompanyAdmin) &&
-            !ClinicStaffRoles.Contains(membership.Role))
-            return Results.Forbid();
+            return Results.NotFound(new { message = "Acesso não encontrado neste escopo." });
 
         membership.User.IsActive = request.IsActive;
         audit.Add(
@@ -321,31 +250,18 @@ public static class ApiEndpoints
         CancellationToken cancellationToken)
     {
         var actor = RequestContext.From(principal);
-        if (!actor.HasAny(ClinicRole.ClinicAdmin, ClinicRole.PlatformAdmin, ClinicRole.CompanyAdmin))
+        var manageable = ManageableStaffRoles(actor);
+        if (manageable.Length == 0)
             return Results.Forbid();
 
         var membership = await db.ClinicMemberships
             .Include(x => x.User)
-            .SingleOrDefaultAsync(
-                x => x.ClinicId == actor.ClinicId && x.UserId == id && StaffRoles.Contains(x.Role),
+            .FirstOrDefaultAsync(
+                x => x.ClinicId == actor.ClinicId && x.UserId == id && manageable.Contains(x.Role),
                 cancellationToken);
 
         if (membership is null)
-            return Results.NotFound(new { message = "Acesso nao encontrado neste escopo." });
-
-        if (actor.HasAny(ClinicRole.PlatformAdmin) &&
-            !PlatformStaffRoles.Contains(membership.Role))
-            return Results.Forbid();
-
-        if (actor.HasAny(ClinicRole.CompanyAdmin) &&
-            !actor.HasAny(ClinicRole.PlatformAdmin) &&
-            !CompanyStaffRoles.Contains(membership.Role))
-            return Results.Forbid();
-
-        if (actor.HasAny(ClinicRole.ClinicAdmin) &&
-            !actor.HasAny(ClinicRole.PlatformAdmin, ClinicRole.CompanyAdmin) &&
-            !ClinicStaffRoles.Contains(membership.Role))
-            return Results.Forbid();
+            return Results.NotFound(new { message = "Acesso não encontrado neste escopo." });
 
         var temporaryPassword = SecurityText.GenerateTemporaryPassword();
         membership.User.PasswordHash = passwords.Hash(temporaryPassword);
@@ -385,17 +301,12 @@ public static class ApiEndpoints
         CancellationToken cancellationToken)
     {
         var actor = RequestContext.From(principal);
-        if (!actor.HasAny(
-                ClinicRole.PrivacyAuditor,
-                ClinicRole.ClinicAdmin,
-                ClinicRole.CompanyAuditor,
-                ClinicRole.PlatformAuditor,
-                ClinicRole.DataProtectionOfficer,
-                ClinicRole.PlatformAdmin))
+        var isClinicAdmin = !actor.IsPlatformStaff && actor.HasAny(ClinicRole.ClinicAdmin);
+        if (!actor.IsDpo && !isClinicAdmin)
             return Results.Forbid();
 
         var events = await db.AuditEvents.AsNoTracking()
-            .Where(x => x.ClinicId == actor.ClinicId)
+            .Where(x => actor.IsDpo || x.ClinicId == actor.ClinicId)
             .OrderByDescending(x => x.CreatedAt)
             .Take(200)
             .Select(x => new AuditEventResponse(
@@ -420,7 +331,7 @@ public static class ApiEndpoints
         CancellationToken cancellationToken)
     {
         var actor = RequestContext.From(principal);
-        if (!actor.HasAny(ClinicRole.Support, ClinicRole.PlatformAdmin))
+        if (!actor.IsSupport && !actor.IsMedicalAdmin)
             return Results.Forbid();
 
         var legalName = request.LegalName.Trim();
@@ -489,7 +400,7 @@ public static class ApiEndpoints
         CancellationToken cancellationToken)
     {
         var actor = RequestContext.From(principal);
-        if (!actor.HasAny(ClinicRole.PlatformAdmin, ClinicRole.Support))
+        if (!actor.IsSupport && !actor.IsMedicalAdmin)
             return Results.Forbid();
 
         var clinics = await db.Clinics.AsNoTracking()
@@ -510,7 +421,7 @@ public static class ApiEndpoints
         CancellationToken cancellationToken)
     {
         var actor = RequestContext.From(principal);
-        if (!actor.HasAny(ClinicRole.PlatformAdmin))
+        if (!actor.IsMedicalAdmin)
         {
             audit.Add(actor, "Clinic.ActivationUpdate", "Clinic", id, "Denied", "Somente o Médico ADM MedSync pode ativar clínicas.");
             await db.SaveChangesAsync(cancellationToken);
@@ -1114,8 +1025,9 @@ public static class ApiEndpoints
             return Results.Forbid();
         }
 
+        // The DPO is platform staff and answers requests from every clinic.
         var query = db.PrivacyRequests.AsNoTracking()
-            .Where(x => x.ClinicId == actor.ClinicId);
+            .Where(x => canOperatePrivacy || x.ClinicId == actor.ClinicId);
 
         if (!canOperatePrivacy)
         {
@@ -1216,7 +1128,7 @@ public static class ApiEndpoints
         }
 
         var privacyRequest = await db.PrivacyRequests
-            .SingleOrDefaultAsync(x => x.Id == id && x.ClinicId == actor.ClinicId, cancellationToken);
+            .SingleOrDefaultAsync(x => x.Id == id, cancellationToken);
         if (privacyRequest is null)
             return Results.NotFound();
 
@@ -1247,8 +1159,9 @@ public static class ApiEndpoints
         var actor = RequestContext.From(principal);
         var canOperateSupport = CanOperateSupport(actor);
 
+        // Support is platform staff and works the queue of every clinic.
         var query = db.SupportRequests.AsNoTracking()
-            .Where(x => x.ClinicId == actor.ClinicId);
+            .Where(x => canOperateSupport || x.ClinicId == actor.ClinicId);
 
         if (!canOperateSupport)
         {
@@ -1329,7 +1242,7 @@ public static class ApiEndpoints
         }
 
         var supportRequest = await db.SupportRequests
-            .SingleOrDefaultAsync(x => x.Id == id && x.ClinicId == actor.ClinicId, cancellationToken);
+            .SingleOrDefaultAsync(x => x.Id == id, cancellationToken);
         if (supportRequest is null)
             return Results.NotFound();
 
@@ -1579,7 +1492,7 @@ public static class ApiEndpoints
             .Distinct()
             .ToArray();
         SetSessionCookie(http, tokens.CreateJwt(user, clinic, roles), configuration);
-        var actor = new RequestContext(user.Id, clinic.Id, roles.ToHashSet());
+        var actor = new RequestContext(user.Id, clinic.Id, roles.ToHashSet(), clinic.IsPlatform);
         audit.Add(actor, "Auth.Login", "User", user.Id);
         await db.SaveChangesAsync(cancellationToken);
         return Results.Ok(new LoginResponse(ToUserSummary(user, clinic, roles)));
@@ -1955,20 +1868,24 @@ public static class ApiEndpoints
             return Results.Forbid();
         }
 
-        // Dados clinicos sensiveis (LGPD) na listagem: somente papeis assistenciais
-        // (ou o proprio paciente) veem medicacoes de uso continuo. Perfis administrativos
-        // e de auditoria (Receptionist, ClinicAdmin, Support, CompanyAuditor, PlatformAuditor)
-        // veem a lista, mas sem este campo clinico.
-        var canSeeMedications = actor.HasAny(
-            ClinicRole.Doctor,
-            ClinicRole.MedicalDirector,
-            ClinicRole.OccupationalHealthAdmin,
-            ClinicRole.Patient);
-
         var patients = await query.OrderBy(x => x.Name).ToListAsync(cancellationToken);
+
+        // Continuous medications are clinical data: only the patient and the doctors who attend them see it,
+        // even when the same user is also clinic admin (.agents/rules/clinical-data-access.md, C1).
+        var ownPatientIds = actor.HasAny(ClinicRole.Doctor)
+            ? (await db.Appointments.AsNoTracking()
+                .Where(a => a.ClinicId == actor.ClinicId && a.Doctor.UserId == actor.UserId)
+                .Select(a => a.PatientId)
+                .Distinct()
+                .ToListAsync(cancellationToken)).ToHashSet()
+            : [];
+        bool CanSeeMedications(Patient patient) =>
+            ownPatientIds.Contains(patient.Id) ||
+            (actor.HasAny(ClinicRole.Patient) && patient.UserId == actor.UserId);
+
         audit.Add(actor, "Patient.List", "Patient", null);
         await db.SaveChangesAsync(cancellationToken);
-        return Results.Ok(patients.Select(x => ToResponse(x, canSeeMedications)));
+        return Results.Ok(patients.Select(x => ToResponse(x, CanSeeMedications(x))));
     }
 
     private static async Task<IResult> UpdatePatient(
@@ -2375,11 +2292,10 @@ public static class ApiEndpoints
         CancellationToken cancellationToken)
     {
         var actor = RequestContext.From(principal);
-        if (!actor.HasAny(ClinicRole.Patient, ClinicRole.Support, ClinicRole.PlatformAdmin))
+        if (!actor.HasAny(ClinicRole.Patient))
             return Results.Forbid();
 
-        if (actor.HasAny(ClinicRole.Patient) &&
-            !await IsClinicActiveAsync(db, actor.ClinicId, cancellationToken))
+        if (!await IsClinicActiveAsync(db, actor.ClinicId, cancellationToken))
         {
             audit.Add(actor, "CareSpecialty.List", "Doctor", null, "Denied", "Clínica ainda não ativada.");
             await db.SaveChangesAsync(cancellationToken);
@@ -2520,8 +2436,6 @@ public static class ApiEndpoints
         CancellationToken cancellationToken)
     {
         var actor = RequestContext.From(principal);
-        if (actor.HasAny(ClinicRole.Doctor, ClinicRole.PlatformAdmin))
-            return Results.Forbid();
         if (!actor.HasAny(AccessRules.ManageAppointments))
             return Results.Forbid();
         if (!await IsClinicActiveAsync(db, actor.ClinicId, cancellationToken))
@@ -3188,13 +3102,7 @@ public static class ApiEndpoints
         var appointment = await LoadAppointment(db, actor, appointmentId, cancellationToken);
         if (appointment is null)
             return Results.NotFound();
-        if (!IsPatient(actor, appointment) &&
-            !actor.HasAny(
-                ClinicRole.Finance,
-                ClinicRole.ClinicAdmin,
-                ClinicRole.CompanyFinance,
-                ClinicRole.PlatformFinance,
-                ClinicRole.PlatformAdmin))
+        if (!IsPatient(actor, appointment) && !actor.HasAny(ClinicRole.ClinicAdmin))
             return Results.Forbid();
         if (!provider.IsConfigured)
             return Results.Problem(
@@ -3248,13 +3156,7 @@ public static class ApiEndpoints
             return Results.NotFound();
         if (!IsPatient(actor, appointment) &&
             !IsAssignedDoctor(actor, appointment) &&
-            !actor.HasAny(
-                ClinicRole.Finance,
-                ClinicRole.ClinicAdmin,
-                ClinicRole.MedicalDirector,
-                ClinicRole.CompanyFinance,
-                ClinicRole.PlatformFinance,
-                ClinicRole.PlatformAdmin))
+            !actor.HasAny(ClinicRole.ClinicAdmin))
             return Results.Forbid();
         var payment = appointment.Payments.OrderByDescending(x => x.CreatedAt).FirstOrDefault();
         return payment is null ? Results.NotFound() : Results.Ok(ToResponse(payment));
@@ -3322,10 +3224,9 @@ public static class ApiEndpoints
             query = query.Where(_ => false);
         }
 
-        var canSeeNotes = actor.HasAny(
-            ClinicRole.Doctor,
-            ClinicRole.MedicalDirector,
-            ClinicRole.OccupationalHealthAdmin);
+        // Notes and medications are clinical: only the assigned doctor sees them, per appointment.
+        var isDoctor = actor.HasAny(ClinicRole.Doctor);
+        var actorUserId = actor.UserId;
         var now = DateTime.UtcNow;
         return query.OrderByDescending(x => x.ScheduledAt)
             .Select(x => new AppointmentResponse(
@@ -3338,7 +3239,7 @@ public static class ApiEndpoints
                 x.ScheduledAt,
                 x.DurationMinutes,
                 x.Status,
-                canSeeNotes ? x.Notes : null,
+                isDoctor && x.Doctor.UserId == actorUserId ? x.Notes : null,
                 x.Price,
                 x.PaymentRequired,
                 x.Payments.OrderByDescending(p => p.CreatedAt)
@@ -3354,7 +3255,7 @@ public static class ApiEndpoints
                     ? null
                     : x.ConsultationRoom.RoomName,
                 x.ConsultationRoom == null ? null : x.ConsultationRoom.Status,
-                canSeeNotes ? x.Patient.ContinuousMedications : null));
+                isDoctor && x.Doctor.UserId == actorUserId ? x.Patient.ContinuousMedications : null));
     }
 
 
@@ -3389,9 +3290,8 @@ public static class ApiEndpoints
         IsAssignedDoctor(actor, appointment) ||
         IsPatient(actor, appointment);
 
+    // Médico ADM access to other doctors' records needs the justification flow (ADR-0003, rule C3); until it exists, none.
     private static bool CanViewClinical(RequestContext actor, Appointment appointment) =>
-        actor.HasAny(ClinicRole.MedicalDirector) ||
-        actor.HasAny(ClinicRole.OccupationalHealthAdmin) ||
         IsAssignedDoctor(actor, appointment) ||
         IsPatient(actor, appointment);
 
@@ -3401,9 +3301,6 @@ public static class ApiEndpoints
         Guid patientId,
         CancellationToken cancellationToken)
     {
-        if (actor.HasAny(ClinicRole.MedicalDirector, ClinicRole.OccupationalHealthAdmin))
-            return Task.FromResult(true);
-
         if (actor.HasAny(ClinicRole.Doctor))
         {
             return db.Appointments.AsNoTracking()
@@ -3436,23 +3333,11 @@ public static class ApiEndpoints
          attachment.UploadedByUserId == actor.UserId &&
          attachment.ReleasedToPatient);
 
-    private static bool CanOperatePrivacy(RequestContext actor) =>
-        actor.HasAny(
-            ClinicRole.Support,
-            ClinicRole.PrivacyAuditor,
-            ClinicRole.PlatformAuditor,
-            ClinicRole.DataProtectionOfficer,
-            ClinicRole.PlatformAdmin);
+    private static bool CanOperatePrivacy(RequestContext actor) => actor.IsDpo;
 
-    private static bool CanUpdatePrivacyRequest(RequestContext actor) =>
-        actor.HasAny(
-            ClinicRole.PrivacyAuditor,
-            ClinicRole.PlatformAuditor,
-            ClinicRole.DataProtectionOfficer,
-            ClinicRole.PlatformAdmin);
+    private static bool CanUpdatePrivacyRequest(RequestContext actor) => actor.IsDpo;
 
-    private static bool CanOperateSupport(RequestContext actor) =>
-        actor.HasAny(ClinicRole.Support, ClinicRole.PlatformAdmin);
+    private static bool CanOperateSupport(RequestContext actor) => actor.IsSupport || actor.IsMedicalAdmin;
 
     private static bool CanViewBusinessReports(RequestContext actor) =>
         actor.HasAny(

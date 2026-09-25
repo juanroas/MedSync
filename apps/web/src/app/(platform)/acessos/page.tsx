@@ -7,75 +7,39 @@ import { KeyRound, Plus, Power, ShieldCheck, UserCog } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
 const roleHints: Partial<Record<ClinicRole, string>> = {
-  Receptionist: "cadastra pacientes/beneficiarios",
-  MedicalDirector: "cadastra medicos",
+  MedicalDirector: "ativa clínicas e responde pela plataforma",
+  Support: "cadastra clínicas e atende a Ajuda",
+  DataProtectionOfficer: "privacidade e trilha de auditoria",
+  ClinicAdmin: "pacientes, médicos e agenda da clínica",
 };
 
-const staffRoleOptions: Array<{ value: ClinicRole; label: string }> = (
-  [
-    "CompanyAdmin",
-    "CompanyFinance",
-    "PlatformFinance",
-    "Support",
-    "CompanyAuditor",
-    "PlatformAuditor",
-    "DataProtectionOfficer",
-    "OccupationalHealthAdmin",
-    "PlatformAdmin",
-    "Receptionist",
-    "MedicalDirector",
-  ] as ClinicRole[]
-).map((value) => ({
-  value,
-  label: roleHints[value] ? `${ROLE_LABELS[value]} (${roleHints[value]})` : ROLE_LABELS[value],
-}));
+// Mirrors ManageableStaffRoles in ApiEndpoints.cs: MedSync staff is managed by the Médico ADM,
+// clinic staff by the clinic's own ADM. Doctors and patients have their own screens.
+const platformStaffRoleValues: ClinicRole[] = ["MedicalDirector", "Support", "DataProtectionOfficer"];
+const clinicStaffRoleValues: ClinicRole[] = ["ClinicAdmin"];
 
-const platformStaffRoleValues: ClinicRole[] = [
-  "PlatformFinance",
-  "Support",
-  "PlatformAuditor",
-  "DataProtectionOfficer",
-  "OccupationalHealthAdmin",
-  "PlatformAdmin",
-];
-
-const companyStaffRoleValues: ClinicRole[] = [
-  "CompanyAdmin",
-  "CompanyFinance",
-  "CompanyAuditor",
-  "Receptionist",
-  "MedicalDirector",
-];
+function roleOption(value: ClinicRole) {
+  return { value, label: roleHints[value] ? `${ROLE_LABELS[value]} (${roleHints[value]})` : ROLE_LABELS[value] };
+}
 
 const initialForm = {
   name: "",
   email: "",
-  role: "CompanyAdmin" as ClinicRole,
+  role: "ClinicAdmin" as ClinicRole,
   temporaryPassword: "",
 };
 
-
 export default function AccessPage() {
   const [roles, setRoles] = useState<ClinicRole[]>(() => getSession()?.user.roles ?? []);
-  const canCreateAccess = roles.some((role) => role === "ClinicAdmin" || role === "PlatformAdmin" || role === "CompanyAdmin");
-  const isPlatformAdmin = roles.includes("PlatformAdmin");
-  const isCompanyAdmin =
-    roles.includes("CompanyAdmin") &&
-    !roles.includes("PlatformAdmin");
-  const allowedRoleValues = isPlatformAdmin
+  const currentUserId = getSession()?.user.id;
+  const isMedicalAdmin = roles.includes("MedicalDirector");
+  const canCreateAccess = isMedicalAdmin || roles.includes("ClinicAdmin");
+  const allowedRoleValues = isMedicalAdmin
     ? platformStaffRoleValues
-    : isCompanyAdmin
-      ? companyStaffRoleValues
-      : roles.length > 0
-        ? staffRoleOptions.map((option) => option.value)
-        : [];
-  const availableRoleOptions = isPlatformAdmin
-    ? staffRoleOptions.filter((option) => platformStaffRoleValues.includes(option.value))
-    : isCompanyAdmin
-    ? staffRoleOptions.filter((option) => companyStaffRoleValues.includes(option.value))
-    : roles.length > 0
-      ? staffRoleOptions
+    : roles.includes("ClinicAdmin")
+      ? clinicStaffRoleValues
       : [];
+  const availableRoleOptions = allowedRoleValues.map(roleOption);
   const [users, setUsers] = useState<StaffUser[]>([]);
   const [form, setForm] = useState(initialForm);
   const [showForm, setShowForm] = useState(false);
@@ -121,7 +85,7 @@ export default function AccessPage() {
 
   useEffect(() => {
     if (!availableRoleOptions.some((option) => option.value === form.role)) {
-      setForm((current) => ({ ...current, role: availableRoleOptions[0]?.value ?? "CompanyAdmin" }));
+      setForm((current) => ({ ...current, role: availableRoleOptions[0]?.value ?? "ClinicAdmin" }));
     }
   }, [availableRoleOptions, form.role]);
 
@@ -134,7 +98,7 @@ export default function AccessPage() {
       setUsers((current) => [...current, created].sort((a, b) => a.name.localeCompare(b.name)));
       setForm(initialForm);
       setShowForm(false);
-      setSuccess("Acesso criado. O usuario deve trocar a senha no primeiro acesso.");
+      setSuccess("Acesso criado. A pessoa deve trocar a senha no primeiro acesso.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro ao criar acesso.");
     } finally {
@@ -180,9 +144,9 @@ export default function AccessPage() {
   return (
     <>
       <PageHeader
-        eyebrow="Governanca de acesso"
+        eyebrow="Governança de acesso"
         title="Equipe e acessos"
-        description="Gerencie perfis administrativos do ambiente de teste com menor privilegio e separacao B2B."
+        description={isMedicalAdmin ? "Contas da equipe MedSync: Médico ADM, Suporte e DPO." : "Contas de administração da sua clínica. Médicos e pacientes são cadastrados nas telas próprias."}
         action={canCreateAccess ? (
           <button className={buttonClass} onClick={() => setShowForm((value) => !value)}>
             <Plus size={17} /> Novo acesso
@@ -213,9 +177,9 @@ export default function AccessPage() {
         </div>
       )}
       <div className="mb-5 rounded-lg border border-teal-100 bg-teal-50 p-5 text-sm leading-6 text-teal-900">
-        Perfis administrativos, financeiros e de auditoria nao recebem acesso a prontuario,
-        diagnostico, observacao clinica ou conteudo de chamada. Tentativas indevidas devem
-        ser tratadas como evento de auditoria.
+        Perfis administrativos, de suporte e de privacidade não recebem acesso a prontuário,
+        diagnóstico, observação clínica ou conteúdo de chamada. Tentativas indevidas são
+        registradas na auditoria.
       </div>
 
       <div className="mb-5 grid gap-3 lg:grid-cols-[minmax(280px,1fr)_220px_180px]">
@@ -328,20 +292,22 @@ export default function AccessPage() {
                         <KeyRound size={15} />
                         {resettingId === user.id ? "Gerando..." : "Redefinir senha"}
                       </button>
-                      <button
-                        className={`inline-flex h-10 items-center justify-center gap-2 rounded-lg px-3 text-xs font-bold transition focus:outline-none focus:ring-4 disabled:cursor-not-allowed disabled:opacity-60 ${
-                          user.isActive
-                            ? "border border-slate-200 bg-white text-slate-700 hover:border-amber-200 hover:bg-amber-50 focus:ring-amber-100"
-                            : "bg-teal-700 text-white hover:bg-teal-800 focus:ring-teal-100"
-                        }`}
-                        onClick={() => toggleAccess(user)}
-                        disabled={savingId === user.id}
-                      >
-                        <Power size={15} />
-                        {savingId === user.id
-                          ? "Atualizando..."
-                          : user.isActive ? "Desabilitar" : "Habilitar"}
-                      </button>
+                      {user.id !== currentUserId && (
+                        <button
+                          className={`inline-flex h-10 items-center justify-center gap-2 rounded-lg px-3 text-xs font-bold transition focus:outline-none focus:ring-4 disabled:cursor-not-allowed disabled:opacity-60 ${
+                            user.isActive
+                              ? "border border-slate-200 bg-white text-slate-700 hover:border-amber-200 hover:bg-amber-50 focus:ring-amber-100"
+                              : "bg-teal-700 text-white hover:bg-teal-800 focus:ring-teal-100"
+                          }`}
+                          onClick={() => toggleAccess(user)}
+                          disabled={savingId === user.id}
+                        >
+                          <Power size={15} />
+                          {savingId === user.id
+                            ? "Atualizando..."
+                            : user.isActive ? "Desabilitar" : "Habilitar"}
+                        </button>
+                      )}
                     </div>
                   </article>
                 ))}

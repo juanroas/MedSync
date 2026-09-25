@@ -38,7 +38,9 @@ const statusLabel = Object.fromEntries(statusOptions.map((item) => [item.value, 
 export default function HelpPage() {
   const session = getSession();
   const roles = session?.user.roles ?? [];
-  const canOperate = roles.some((role) => ["Support", "PlatformAdmin"].includes(role));
+  const canOperate = roles.some((role) => ["Support", "MedicalDirector"].includes(role));
+  // Support answers the queue; opening a request to itself would be a fake action.
+  const canCreate = !roles.includes("Support");
 
   const [requests, setRequests] = useState<SupportRequest[]>([]);
   const [loading, setLoading] = useState(true);
@@ -135,35 +137,37 @@ export default function HelpPage() {
         </Card>
       </section>
 
-      <section className="mt-7 grid gap-7 xl:grid-cols-[420px_1fr]">
-        <Card className="p-6">
-          <h2 className="text-lg font-bold text-ink">Nova solicitacao</h2>
-          <form className="mt-5 space-y-4" onSubmit={createRequest}>
-            <label className="block">
-              <span className="mb-1.5 block text-xs font-bold text-slate-500">Assunto</span>
-              <TextInput
-                value={form.subject}
-                onChange={(event) => setForm((current) => ({ ...current, subject: event.target.value }))}
-                placeholder="Ex: Nao consigo entrar na videochamada"
-                maxLength={160}
-                required
-              />
-            </label>
-            <label className="block">
-              <span className="mb-1.5 block text-xs font-bold text-slate-500">Descricao</span>
-              <TextArea
-                value={form.description}
-                onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))}
-                placeholder="Descreva o que esta acontecendo..."
-                maxLength={1000}
-                required
-              />
-            </label>
-            <Button type="submit" className="w-full" isLoading={saving}>
-              Enviar para o suporte
-            </Button>
-          </form>
-        </Card>
+      <section className={`mt-7 grid gap-7 ${canCreate ? "xl:grid-cols-[420px_1fr]" : ""}`}>
+        {canCreate && (
+          <Card className="p-6">
+            <h2 className="text-lg font-bold text-ink">Nova solicitacao</h2>
+            <form className="mt-5 space-y-4" onSubmit={createRequest}>
+              <label className="block">
+                <span className="mb-1.5 block text-xs font-bold text-slate-500">Assunto</span>
+                <TextInput
+                  value={form.subject}
+                  onChange={(event) => setForm((current) => ({ ...current, subject: event.target.value }))}
+                  placeholder="Ex: Nao consigo entrar na videochamada"
+                  maxLength={160}
+                  required
+                />
+              </label>
+              <label className="block">
+                <span className="mb-1.5 block text-xs font-bold text-slate-500">Descricao</span>
+                <TextArea
+                  value={form.description}
+                  onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))}
+                  placeholder="Descreva o que esta acontecendo..."
+                  maxLength={1000}
+                  required
+                />
+              </label>
+              <Button type="submit" className="w-full" isLoading={saving}>
+                Enviar para o suporte
+              </Button>
+            </form>
+          </Card>
+        )}
 
         <Card className="overflow-hidden">
           <div className="border-b border-slate-100 px-6 py-5">

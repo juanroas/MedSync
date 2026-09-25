@@ -18,7 +18,17 @@ import {
   isAppointmentStaleInProgress,
 } from "@/lib/appointments";
 import { formatDateTime, statusClass, statusLabel } from "@/lib/format";
-import type { Appointment, BusinessReportCompany, ClinicRole, CompanyPortal, Doctor, FinanceInvoice, Patient } from "@/lib/types";
+import type {
+  Appointment,
+  BusinessReportCompany,
+  ClinicActivation,
+  ClinicRole,
+  CompanyPortal,
+  Doctor,
+  FinanceInvoice,
+  Patient,
+  SupportRequest,
+} from "@/lib/types";
 import { api, getSession } from "@/services/api";
 import {
   ArrowRight,
@@ -42,16 +52,10 @@ import {
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
-const schedulingRoles = [
-  "Receptionist",
-  "ClinicAdmin",
-  "MedicalDirector",
-  "Support",
-  "OccupationalHealthAdmin",
-];
+const schedulingRoles = ["ClinicAdmin"];
 
-const joinRoles = ["Doctor", "Patient", "MedicalDirector", "OccupationalHealthAdmin"];
-const appointmentLoadRoles = [...schedulingRoles, "Patient", "Doctor", "PlatformAdmin"];
+const joinRoles = ["Doctor", "Patient"];
+const appointmentLoadRoles = [...schedulingRoles, "Patient", "Doctor"];
 const patientLoadRoles = [...schedulingRoles, "Patient", "Doctor"];
 const companyPortalRoles: ClinicRole[] = ["CompanyAdmin"];
 
@@ -90,15 +94,14 @@ export default function DashboardPage() {
   const isCompanyFinanceHome = roles.includes("CompanyFinance");
   const isCompanyAuditorHome = roles.includes("CompanyAuditor");
   const isDoctorHome = roles.includes("Doctor") && !roles.some((role) => role !== "Doctor");
-  const isPlatformAdminHome = roles.includes("PlatformAdmin");
+  const isMedicalAdminHome = roles.includes("MedicalDirector");
+  const isSupportHome = roles.includes("Support") && !isMedicalAdminHome;
   const isPlatformFinanceHome = roles.includes("PlatformFinance");
-  const isPlatformAuditorHome = roles.includes("PlatformAuditor") && !roles.includes("PlatformAdmin");
-  const isDpoHome = roles.includes("DataProtectionOfficer") && !roles.includes("PlatformAdmin");
+  const isPlatformAuditorHome = roles.includes("PlatformAuditor");
+  const isDpoHome = roles.includes("DataProtectionOfficer") && !isMedicalAdminHome;
   const canSchedule = roles.some((role) => schedulingRoles.includes(role));
   const canJoin = roles.some((role) => joinRoles.includes(role));
-  const canViewAudit = roles.some((role) =>
-    ["ClinicAdmin", "PrivacyAuditor", "CompanyAuditor", "PlatformAuditor", "DataProtectionOfficer"].includes(role),
-  );
+  const canViewAudit = roles.some((role) => ["ClinicAdmin", "DataProtectionOfficer"].includes(role));
   const canLoadAppointments = roles.some((role) => appointmentLoadRoles.includes(role));
   const canLoadPatients = roles.some((role) => patientLoadRoles.includes(role));
   const canLoadDoctors = roles.some((role) => schedulingRoles.includes(role));
@@ -216,14 +219,12 @@ export default function DashboardPage() {
     return <DpoHome error={error} />;
   }
 
-  if (isPlatformAdminHome) {
-    return (
-      <PlatformOverviewHome
-        appointments={appointments}
-        loading={loading}
-        error={error}
-      />
-    );
+  if (isMedicalAdminHome) {
+    return <MedicalAdminHome />;
+  }
+
+  if (isSupportHome) {
+    return <SupportHome />;
   }
 
   return (
@@ -979,41 +980,129 @@ function PlatformFinanceHome({
   );
 }
 
-function PlatformOverviewHome({
-  appointments,
-  loading,
-  error,
-}: {
-  appointments: Appointment[];
-  loading: boolean;
-  error: string;
-}) {
+function MedicalAdminHome() {
+  const [clinics, setClinics] = useState<ClinicActivation[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    api.getClinicActivations()
+      .then(setClinics)
+      .catch((err) => setError(err instanceof Error ? err.message : "Erro ao carregar clínicas."))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const pending = clinics.filter((clinic) => clinic.activationStatus === "Pending");
+  const active = clinics.filter((clinic) => clinic.activationStatus === "Active").length;
+  const suspended = clinics.filter((clinic) => clinic.activationStatus === "Suspended").length;
+
   return (
     <>
       <PageHeader
-        eyebrow="MedSync Geral"
-        title="Relatorios da plataforma"
-        description="Visao geral por CNPJ e ambiente. Este perfil nao cria agenda; ele acompanha operacao, evidencias e relatorios."
+        eyebrow="Médico ADM MedSync"
+        title="Painel"
+        description="Responsável técnico da plataforma: confira e ative as clínicas cadastradas."
       />
       {error && <ErrorBanner message={error} />}
       {loading ? (
-        <LoadingState label="Carregando relatorios da plataforma..." />
+        <LoadingState label="Carregando clínicas..." />
       ) : (
         <>
-          <section className="brand-panel mb-7 rounded-lg p-6 text-white shadow-brand">
-            <p className="text-xs font-bold uppercase tracking-[0.08em] text-teal-100">Platform Control</p>
-            <h2 className="mt-2 text-2xl font-bold">Operacao MedSync por CNPJ e ambiente.</h2>
-            <p className="mt-2 max-w-3xl text-sm leading-6 text-white/70">
-              Visao de plataforma para acompanhar operacao, evidencias e evolucao do produto sem operar atendimento individual.
-            </p>
+          <section className="grid gap-4 sm:grid-cols-3">
+            <MetricCard label="Aguardando análise" value={pending.length} detail="clínicas cadastradas" icon={<Clock3 size={20} />} tone="warning" />
+            <MetricCard label="Ativas" value={active} detail="atendendo pacientes" icon={<CheckCircle2 size={20} />} tone="success" />
+            <MetricCard label="Suspensas" value={suspended} detail="sem novas consultas" icon={<ShieldCheck size={20} />} tone="neutral" />
           </section>
+          <Card className="mt-7 overflow-hidden">
+            <SectionHeader
+              title="Clínicas aguardando análise"
+              description="Confira CNPJ e responsável técnico antes de ativar"
+              action={(
+                <Link href="/clinicas" className="flex items-center gap-1.5 text-xs font-bold text-teal-600">
+                  Ver todas <ArrowRight size={14} />
+                </Link>
+              )}
+            />
+            {pending.length === 0 ? (
+              <div className="p-6">
+                <EmptyState icon={<Building2 size={22} />} title="Nenhuma clínica aguardando" description="Novos cadastros aparecem aqui." />
+              </div>
+            ) : (
+              <div className="divide-y divide-slate-100">
+                {pending.slice(0, 5).map((clinic) => (
+                  <div key={clinic.clinicId} className="flex items-center justify-between gap-4 px-6 py-4 text-sm">
+                    <div className="min-w-0">
+                      <p className="truncate font-bold text-ink">{clinic.clinicName}</p>
+                      <p className="mt-1 text-xs text-slate-500">CNPJ {clinic.taxIdMasked ?? "—"}</p>
+                    </div>
+                    <Badge tone="warning">Em análise</Badge>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
+        </>
+      )}
+    </>
+  );
+}
+
+function SupportHome() {
+  const [requests, setRequests] = useState<SupportRequest[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    api.getSupportRequests()
+      .then(setRequests)
+      .catch((err) => setError(err instanceof Error ? err.message : "Erro ao carregar a fila de ajuda."))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const open = requests.filter((request) => request.status !== "Resolved");
+  const newCount = requests.filter((request) => request.status === "New").length;
+  const inProgress = requests.filter((request) => request.status === "InProgress").length;
+
+  return (
+    <>
+      <PageHeader eyebrow="Suporte MedSync" title="Painel" description="Pedidos de ajuda de todas as clínicas." />
+      {error && <ErrorBanner message={error} />}
+      {loading ? (
+        <LoadingState label="Carregando a fila de ajuda..." />
+      ) : (
+        <>
           <section className="grid gap-4 sm:grid-cols-2">
-            <MetricCard label="Consultas" value={appointments.length} detail="visao operacional" icon={<CalendarCheck2 size={20} />} tone="success" />
-            <MetricCard label="CNPJs" value={1} detail="homologacao seed" icon={<Building2 size={20} />} tone="info" />
+            <MetricCard label="Novos" value={newCount} detail="aguardando primeira resposta" icon={<Clock3 size={20} />} tone="warning" />
+            <MetricCard label="Em atendimento" value={inProgress} detail="com o suporte" icon={<ListChecks size={20} />} tone="info" />
           </section>
-          <p className="mt-3 text-xs text-slate-400">
-            Fluxo pessoa fisica (CNPJ tecnico) e exportacao de relatorios aprovados ainda nao estao disponiveis nesta versao.
-          </p>
+          <Card className="mt-7 overflow-hidden">
+            <SectionHeader
+              title="Pedidos em aberto"
+              description="Os mais recentes primeiro"
+              action={(
+                <Link href="/ajuda" className="flex items-center gap-1.5 text-xs font-bold text-teal-600">
+                  Ver todos <ArrowRight size={14} />
+                </Link>
+              )}
+            />
+            {open.length === 0 ? (
+              <div className="p-6">
+                <EmptyState icon={<CheckCircle2 size={22} />} title="Fila em dia" description="Nenhum pedido de ajuda em aberto." />
+              </div>
+            ) : (
+              <div className="divide-y divide-slate-100">
+                {open.slice(0, 5).map((request) => (
+                  <div key={request.id} className="flex items-center justify-between gap-4 px-6 py-4 text-sm">
+                    <div className="min-w-0">
+                      <p className="truncate font-bold text-ink">{request.subject}</p>
+                      <p className="mt-1 truncate text-xs text-slate-500">{request.requesterName} · {formatDateTime(request.createdAt)}</p>
+                    </div>
+                    <Badge tone={request.status === "New" ? "warning" : "info"}>{request.status === "New" ? "Novo" : "Em atendimento"}</Badge>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
         </>
       )}
     </>

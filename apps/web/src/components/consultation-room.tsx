@@ -54,10 +54,7 @@ export function ConsultationRoom({ appointmentId }: { appointmentId: string }) {
   const exitingRef = useRef(false);
   const serverUrl = process.env.NEXT_PUBLIC_LIVEKIT_URL;
   const session = getSession();
-  const isDoctor =
-    session?.user.roles.includes("Doctor") ||
-    session?.user.roles.includes("MedicalDirector") ||
-    session?.user.roles.includes("OccupationalHealthAdmin");
+  const isDoctor = session?.user.roles.includes("Doctor");
   const canEditClinicalRecord = session?.user.roles.includes("Doctor") ?? false;
   const isPatient = session?.user.roles.includes("Patient");
 
@@ -83,10 +80,7 @@ export function ConsultationRoom({ appointmentId }: { appointmentId: string }) {
           return;
         }
 
-        const canStart =
-          currentSession.user.roles.includes("Doctor") ||
-          currentSession.user.roles.includes("MedicalDirector") ||
-          currentSession.user.roles.includes("OccupationalHealthAdmin");
+        const canStart = currentSession.user.roles.includes("Doctor");
         let room;
         if (canStart) {
           room = await api.startConsultation(appointmentId);

@@ -4,50 +4,38 @@ import { loginByUi, sharedPassword, users } from "./fixtures";
 test.describe("gestao de equipe e acessos", () => {
   test.skip(!sharedPassword, "defina MEDSYNC_E2E_PASSWORD para executar login E2E");
 
-  test("admin plataforma acessa equipe e acessos sem permissao clinica indevida", async ({ page }) => {
-    await loginByUi(page, users.platformAdmin);
+  test("medico ADM MedSync gerencia so a equipe MedSync", async ({ page }) => {
+    await loginByUi(page, users.medicalAdmin);
+    await page.getByRole("link", { name: /equipe medsync/i }).click();
+
+    await expect(page.getByRole("heading", { name: /equipe e acessos/i })).toBeVisible();
+    await expect(page.getByText(/não recebem acesso a prontuário/i)).toBeVisible();
+    await page.getByRole("button", { name: /novo acesso/i }).click();
+    const roleSelect = page.getByLabel("Perfil", { exact: true });
+    await expect(roleSelect).toContainText(/suporte medsync/i);
+    await expect(roleSelect).toContainText(/dpo medsync/i);
+    await expect(roleSelect).toContainText(/médico adm medsync/i);
+    await expect(roleSelect).not.toContainText(/adm da clínica/i);
+  });
+
+  test("suporte e DPO nao gerenciam acessos", async ({ page }) => {
+    for (const email of [users.support, users.dpo]) {
+      await loginByUi(page, email);
+      await expect(page.getByRole("link", { name: /equipe/i })).toHaveCount(0);
+    }
+  });
+
+  test("ADM da clinica cria apenas ADM da propria clinica", async ({ page }) => {
+    await loginByUi(page, users.clinicAdmin);
     await page.getByRole("link", { name: /equipe e acessos/i }).click();
 
     await expect(page.getByRole("heading", { name: /equipe e acessos/i })).toBeVisible();
-    await expect(page.getByRole("button", { name: /novo acesso/i })).toBeVisible();
-    await expect(page.getByText(/menor privilegio/i)).toBeVisible();
-    await expect(page.getByText(/nao recebem acesso a prontuario/i)).toBeVisible();
-    await expect(page.getByText(/diagnostico, observacao clinica ou conteudo de chamada/i)).toBeVisible();
+    await expect(page.locator("main")).not.toContainText(/suporte medsync/i);
+    await expect(page.locator("main")).not.toContainText(/dpo medsync/i);
+    await expect(page.locator("main")).not.toContainText(/clinica2\.admin/i);
     await page.getByRole("button", { name: /novo acesso/i }).click();
-    await expect(page.getByLabel("Perfil", { exact: true })).toContainText(/suporte medsync/i);
-    await expect(page.getByLabel("Perfil", { exact: true })).toContainText(/financeiro medsync/i);
-    await expect(page.getByLabel("Perfil", { exact: true })).not.toContainText(/financeiro empresa/i);
-    await expect(page.getByLabel("Perfil", { exact: true })).not.toContainText(/auditor empresa/i);
-  });
-
-  test("auditor empresa nao cria acesso operacional", async ({ page }) => {
-    await loginByUi(page, users.companyAuditor);
-
-    await expect(page.getByRole("link", { name: /equipe e acessos/i })).toHaveCount(0);
-  });
-
-  test("empresa admin cria apenas perfis empresariais", async ({ page }) => {
-    await loginByUi(page, users.companyAdmin);
-    await page.getByRole("link", { name: /equipe e acessos/i }).click();
-
-    await expect(page.getByRole("heading", { name: /equipe e acessos/i })).toBeVisible();
-    await expect(page.locator("main")).not.toContainText(/medico do trabalho/i);
-    await expect(page.locator("main")).not.toContainText(/suporte/i);
-    await expect(page.locator("main")).not.toContainText(/financeiro medsync/i);
-    await expect(page.locator("main")).not.toContainText(/auditor medsync/i);
-    await expect(page.locator("main")).not.toContainText(/dpo/i);
-    await expect(page.locator("main")).not.toContainText(/admin plataforma/i);
-    await expect(page.locator("main")).not.toContainText(/empresa alfa/i);
-    await expect(page.locator("main")).not.toContainText(/empresa beta/i);
-    await page.getByRole("button", { name: /novo acesso/i }).click();
-    await expect(page.getByLabel("Perfil", { exact: true })).toContainText(/empresa admin/i);
-    await expect(page.getByLabel("Perfil", { exact: true })).toContainText(/financeiro empresa/i);
-    await expect(page.getByLabel("Perfil", { exact: true })).toContainText(/auditor empresa/i);
-    await expect(page.getByLabel("Perfil", { exact: true })).not.toContainText(/financeiro medsync/i);
-    await expect(page.getByLabel("Perfil", { exact: true })).not.toContainText(/suporte medsync/i);
-    await expect(page.getByLabel("Perfil", { exact: true })).not.toContainText(/auditor medsync/i);
-    await expect(page.getByLabel("Perfil", { exact: true })).not.toContainText(/dpo/i);
-    await expect(page.getByLabel("Perfil", { exact: true })).not.toContainText(/medico do trabalho/i);
-    await expect(page.getByLabel("Perfil", { exact: true })).not.toContainText(/admin plataforma/i);
+    const roleSelect = page.getByLabel("Perfil", { exact: true });
+    await expect(roleSelect).toContainText(/adm da clínica/i);
+    await expect(roleSelect).not.toContainText(/medsync/i);
   });
 });

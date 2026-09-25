@@ -24,7 +24,7 @@ test.describe("onboarding assistido de clínica", () => {
     await expect(page.getByText(/aguardando ativa[çc][ãa]o/i)).toBeVisible();
 
     await page.getByRole("button", { name: /sair da conta/i }).click();
-    await loginByUi(page, users.platformAdmin);
+    await loginByUi(page, users.medicalAdmin);
     await page.getByRole("navigation").getByRole("link", { name: /^clínicas$/i }).click();
     const row = page.locator("article").filter({ hasText: clinicName });
     await expect(row.getByText("Em análise", { exact: true })).toBeVisible();

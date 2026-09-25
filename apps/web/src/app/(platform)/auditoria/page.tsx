@@ -13,10 +13,7 @@ const resultLabels: Record<string, string> = {
 
 export default function AuditPage() {
   const roles = getSession()?.user.roles ?? [];
-  const isCompanyAuditor = roles.includes("CompanyAuditor");
-  const isGlobalAuditor = roles.some((role) =>
-    ["PlatformAuditor", "DataProtectionOfficer", "PrivacyAuditor"].includes(role),
-  );
+  const isGlobalAuditor = roles.includes("DataProtectionOfficer");
   const [events, setEvents] = useState<AuditEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -63,12 +60,12 @@ export default function AuditPage() {
   return (
     <>
       <PageHeader
-        eyebrow={isCompanyAuditor ? "Auditoria do CNPJ" : "Rastreabilidade"}
-        title={isCompanyAuditor ? "Auditoria operacional" : "Auditoria da plataforma"}
+        eyebrow="Rastreabilidade"
+        title={isGlobalAuditor ? "Auditoria da plataforma" : "Auditoria da clínica"}
         description={
-          isCompanyAuditor
-            ? "Eventos administrativos, acessos e tentativas negadas do escopo empresarial. Sem prontuario, diagnostico ou conteudo de chamada."
-            : "Trilha de eventos para seguranca, suporte e privacidade. Acesso global exige finalidade, minimizacao e revisao formal."
+          isGlobalAuditor
+            ? "Trilha de eventos de todas as clínicas, só com metadados. Acesso global exige finalidade, minimização e revisão formal."
+            : "Acessos, alterações e tentativas negadas na sua clínica. Sem prontuário, diagnóstico ou conteúdo de chamada."
         }
       />
       {error && <ErrorBanner message={error} />}

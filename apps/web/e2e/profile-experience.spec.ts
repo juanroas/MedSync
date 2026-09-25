@@ -12,37 +12,45 @@ test.describe("experiencia por perfil", () => {
     await expect(page.getByRole("link", { name: /nova consulta/i })).toHaveCount(0);
   });
 
-  test("financeiro empresa tem tela financeira sem aba consultas", async ({ page }) => {
-    await loginByUi(page, users.companyFinance);
+  test("ADM da clinica opera agenda sem conteudo clinico", async ({ page }) => {
+    await loginByUi(page, users.clinicAdmin);
 
-    await expect(page.getByRole("heading", { name: /financeiro empresa/i })).toBeVisible();
-    await expect(page.getByText(/faturas e uso agregado/i)).toBeVisible();
-    await expect(page.getByText(/sem prontuario, diagnostico ou sala/i)).toBeVisible();
-    await expect(page.getByRole("heading", { name: /portal empresa/i })).toHaveCount(0);
-    await expect(page.getByRole("link", { name: /^consultas$/i })).toHaveCount(0);
+    await expect(page.getByRole("heading", { name: /central de operacao/i })).toBeVisible();
+    await expect(page.getByRole("link", { name: /nova consulta/i })).toBeVisible();
+    const navigation = page.getByRole("navigation");
+    await expect(navigation.getByRole("link", { name: /^consultas$/i })).toBeVisible();
+    await expect(navigation.getByRole("link", { name: /^clínicas$/i })).toHaveCount(0);
   });
 
-  test("admin plataforma ve relatorios e nao cria agenda", async ({ page }) => {
-    await loginByUi(page, users.platformAdmin);
+  test("medico ADM ve clinicas aguardando analise e nao cria agenda", async ({ page }) => {
+    await loginByUi(page, users.medicalAdmin);
 
-    await expect(page.getByRole("heading", { name: /relatorios da plataforma/i })).toBeVisible();
-    await expect(page.getByText(/este perfil nao cria agenda/i)).toBeVisible();
+    await expect(page.getByText(/clínicas aguardando análise/i)).toBeVisible();
     await expect(page.getByRole("link", { name: /nova consulta/i })).toHaveCount(0);
-    await expect(page.getByRole("link", { name: /auditoria/i })).toHaveCount(0);
-    await expect(page.getByRole("link", { name: /equipe e acessos/i })).toBeVisible();
+    const navigation = page.getByRole("navigation");
+    await expect(navigation.getByRole("link", { name: /^clínicas$/i })).toBeVisible();
+    await expect(navigation.getByRole("link", { name: /^consultas$/i })).toHaveCount(0);
+    await expect(navigation.getByRole("link", { name: /^auditoria$/i })).toHaveCount(0);
   });
 
-  test("auditor empresa enxerga relatorios e auditoria sem modulos assistenciais individuais", async ({ page }) => {
-    await loginByUi(page, users.companyAuditor);
+  test("suporte ve a fila de ajuda e nao agenda", async ({ page }) => {
+    await loginByUi(page, users.support);
 
-    await expect(page.getByRole("heading", { name: /visao operacional autorizada/i })).toBeVisible();
-    await expect(page.getByText(/sem lista individual clinica/i)).toBeVisible();
+    await expect(page.getByText(/pedidos de ajuda de todas as clínicas/i)).toBeVisible();
     const navigation = page.getByRole("navigation");
     await expect(navigation.getByRole("link", { name: /^consultas$/i })).toHaveCount(0);
     await expect(navigation.getByRole("link", { name: /pacientes/i })).toHaveCount(0);
-    await expect(navigation.getByRole("link", { name: /^medicos$/i })).toHaveCount(0);
-    await expect(navigation.getByRole("link", { name: /^relatorios$/i })).toBeVisible();
+  });
+
+  test("DPO ve privacidade e auditoria sem modulos assistenciais", async ({ page }) => {
+    await loginByUi(page, users.dpo);
+
+    await expect(page.getByRole("heading", { name: /dpo medsync/i })).toBeVisible();
+    const navigation = page.getByRole("navigation");
+    await expect(navigation.getByRole("link", { name: /^privacidade$/i })).toBeVisible();
     await expect(navigation.getByRole("link", { name: /^auditoria$/i })).toBeVisible();
+    await expect(navigation.getByRole("link", { name: /^consultas$/i })).toHaveCount(0);
+    await expect(navigation.getByRole("link", { name: /pacientes/i })).toHaveCount(0);
   });
 
   test("paciente e medico usam nomes de jornada, nao modulos administrativos", async ({ page }) => {
@@ -72,13 +80,5 @@ test.describe("experiencia por perfil", () => {
     await expect(
       page.getByText(/aguardando sala/i).or(page.getByRole("link", { name: /^entrar$/i })),
     ).toBeVisible();
-  });
-
-  test("card LGPD do portal empresa fica legivel", async ({ page }) => {
-    await loginByUi(page, users.companyAdmin);
-
-    const privacyCard = page.getByText(/dados clinicos individuais nao sao exibidos/i);
-    await expect(privacyCard).toBeVisible();
-    await expect(page.getByText(/empresas acessam apenas dados administrativos e agregados/i)).toBeVisible();
   });
 });

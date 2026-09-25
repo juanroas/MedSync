@@ -30,7 +30,7 @@ Qualquer PR que adicione tela, item de menu ou botão que navega **atualiza este
 |---|---|---|
 | Sem sessão em rota da plataforma | `/login` | `components/app-shell.tsx` (`api.me()` falha) |
 | `mustChangePassword` | `/alterar-senha` | `app-shell.tsx`, `login/page.tsx` |
-| Empresa com CNPJ pendente | `/dashboard` com banner + CTA "Falar com o suporte" → `/ajuda?subject=…` | `CompanyPortalHome` em `dashboard/page.tsx` |
+| Clínica em análise (`clinicActivationStatus` ≠ Active) | `/dashboard` do ADM da clínica com banner + CTA "Falar com o suporte" → `/ajuda?subject=…`; "Nova consulta" some | `ClinicPendingBanner` em `dashboard/page.tsx` |
 
 ## 3. Menu por perfil (menu = lugares, nunca ações)
 
@@ -38,9 +38,13 @@ Qualquer PR que adicione tela, item de menu ou botão que navega **atualiza este
 |---|---|
 | Paciente | Painel · Minhas consultas · Meu cadastro · Ajuda · Privacidade |
 | Médico | Painel · Agenda · Pacientes vinculados · Meu perfil · Ajuda |
-| Suporte | Painel · Meus dados · Empresas · Elegibilidade · Consultas · Pacientes · Medicos · Ajuda (fila) · Privacidade |
-| Empresa (admin) | Painel · Meus dados · Elegibilidade · Relatorios · Equipe e acessos · Ajuda |
-| Admin MedSync | Painel · Meus dados · Empresas · Elegibilidade · Relatorios · Equipe e acessos · Ajuda · Privacidade |
+| ADM da clínica | Painel · Meus dados · Consultas · Pacientes · Médicos · Equipe e acessos · Auditoria (da clínica) · Ajuda |
+| Médico ADM MedSync | Painel · Meus dados · Clínicas · Equipe MedSync · Ajuda (fila) |
+| Suporte | Painel · Meus dados · Clínicas · Ajuda (fila) |
+| DPO MedSync | Painel · Meus dados · Auditoria (todas as clínicas) · Ajuda · Privacidade (fila) |
+
+Os seis perfis são os do ADR-0003. A equipe MedSync (Médico ADM, Suporte, DPO) mora na clínica plataforma
+"MedSync Operação" e enxerga as filas de todas as clínicas.
 
 Definição única em `navigation` + `navigationLabel()` de `components/app-shell.tsx`. O menu não tem mais
 o bloco fixo "Nova consulta" — a ação vive no header de `/consultas` e no Painel de quem agenda.
@@ -50,24 +54,22 @@ o bloco fixo "Nova consulta" — a ação vive no header de `/consultas` e no Pa
 | Tela | Quem | Ação principal (header ou formulário) | Observação |
 |---|---|---|---|
 | `/dashboard` Paciente | Paciente | Cartão "Próximo atendimento": Solicitar consulta → vira Acompanhar status / Entrar na sala | o vazio da lista só explica em texto |
-| `/dashboard` Central de operação | Suporte, Recepção, Clínica | **Nova consulta** | "Ver auditoria" só para quem tem Auditoria no menu |
-| `/dashboard` demais perfis | Médico, Empresa, Financeiro, Auditor, DPO | nenhuma (leitura) | links "Ver todas/Ver agenda" dentro de painéis são permitidos |
+| `/dashboard` Central de operação | ADM da clínica | **Nova consulta** (some enquanto a clínica está em análise) | "Ver auditoria" só para quem tem Auditoria no menu |
+| `/dashboard` demais perfis | Médico, Médico ADM (clínicas em análise), Suporte (pedidos abertos), DPO | nenhuma (leitura) | links "Ver todas/Ver agenda" dentro de painéis são permitidos |
 | `/consultas` | Paciente / quem agenda | **Solicitar consulta** / **Agendar consulta** | vazio sem botão (o header já tem) |
 | `/consultas` | Médico | seção "Minha disponibilidade" (Adicionar horário) | lista de consultas é leitura |
-| `/consultas/nova` | Paciente / quem agenda | **Solicitar** / **Confirmar agendamento** | preço some se o paciente tem benefício ativo |
-| `/ajuda` | Todos | **Enviar para o suporte** | Suporte vê a fila e atualiza status por item |
-| `/privacidade` | Paciente, DPO, Suporte… | **Registrar solicitação** | só pedidos formais de titular (LGPD); dúvida geral vai para Ajuda |
-| `/empresas` | Suporte, Admin | **Cadastrar empresa** (onboarding assistido) | texto explica a diferença para o autocadastro |
+| `/consultas/nova` | Paciente / ADM da clínica | **Solicitar** / **Confirmar agendamento** | exige clínica ativa |
+| `/ajuda` | Todos menos Suporte | **Enviar para o suporte** | Suporte e Médico ADM veem a fila de todas as clínicas; o Suporte não tem o formulário (não abre pedido para si) |
+| `/privacidade` | Paciente, DPO | **Registrar solicitação** | só pedidos formais de titular (LGPD); o DPO registra pedidos recebidos por outros canais e atualiza a fila |
+| `/clinicas` | Suporte, Médico ADM | **Cadastrar clínica** (onboarding assistido) | só o Médico ADM ativa/suspende e define plano, por linha |
+| `/acessos` | ADM da clínica, Médico ADM | **Novo acesso** | ADM cria ADM da clínica; Médico ADM cria Médico ADM/Suporte/DPO; ninguém desabilita o próprio acesso |
 
 ## 5. Pendências conhecidas (backlog de fluxo)
 
-1. **Cadastro pede preço e limite do plano** (`app/cadastro/page.tsx`): a clínica define o próprio valor mensal no
-   autocadastro, o que contradiz "valores devem ser predefinidos". Proposta: cadastro só com clínica + CNPJ + acesso;
-   plano atribuído pela equipe MedSync na ativação. Exige mudar `RegisterClinic` (`ApiEndpoints.cs`), que hoje valida
-   `MonthlyFee > 0` — **decisão de produto pendente**.
-2. **Homes quase vazias de Auditor/DPO/Admin** (`PlatformAuditorHome`, `DpoHome`, `PlatformOverviewHome`) são só um
-   texto + "Abrir X", repetindo o item de menu. Proposta: mostrar um resumo real ou redirecionar o Painel desses
-   perfis para a tela principal deles.
+1. ~~**Cadastro pede preço e limite do plano**~~ — resolvido na Fase 0 (entrega A): o plano é definido pelo Médico
+   ADM na ativação em `/clinicas`.
+2. **Home do DPO** (`DpoHome`) ainda é só texto + "Abrir X", repetindo o menu. Médico ADM e Suporte já mostram a
+   fila deles (clínicas em análise / pedidos abertos). Proposta: resumo real da fila de privacidade.
 3. **Login Google**: botão desabilitado com "Em breve" até existirem credenciais OAuth e o endpoint `/auth/google`.
 
 ### Resultado da auditoria logada (23/09/2026)

@@ -1,38 +1,43 @@
+// ADR-0003: six profiles. The legacy values below still exist only for the company-module screens that
+// Delivery C deletes; no account carries them after the ConsolidateRoles migration.
 export type ClinicRole =
   | "Patient"
   | "Doctor"
-  | "Receptionist"
-  | "Finance"
   | "ClinicAdmin"
   | "MedicalDirector"
+  | "Support"
+  | "DataProtectionOfficer"
+  | LegacyClinicRole;
+
+type LegacyClinicRole =
+  | "Receptionist"
+  | "Finance"
   | "PrivacyAuditor"
   | "CompanyAdmin"
   | "CompanyFinance"
   | "PlatformFinance"
-  | "Support"
   | "CompanyAuditor"
   | "PlatformAuditor"
-  | "DataProtectionOfficer"
   | "PlatformAdmin"
   | "OccupationalHealthAdmin";
 
 export const ROLE_LABELS: Record<ClinicRole, string> = {
   Patient: "Paciente",
-  Doctor: "Medico",
-  Receptionist: "Recepcao",
-  Finance: "Financeiro (legado)",
-  ClinicAdmin: "Admin da clinica",
-  MedicalDirector: "Diretor medico",
-  PrivacyAuditor: "Auditor de privacidade (legado)",
-  CompanyAdmin: "Empresa admin",
-  CompanyFinance: "Financeiro empresa",
-  PlatformFinance: "Financeiro MedSync",
+  Doctor: "Médico",
+  ClinicAdmin: "ADM da clínica",
+  MedicalDirector: "Médico ADM MedSync",
   Support: "Suporte MedSync",
-  CompanyAuditor: "Auditor empresa",
-  PlatformAuditor: "Auditor MedSync",
-  DataProtectionOfficer: "DPO/Privacidade",
-  PlatformAdmin: "Admin MedSync",
-  OccupationalHealthAdmin: "Medico do trabalho",
+  DataProtectionOfficer: "DPO MedSync",
+  Receptionist: "Recepção (legado)",
+  Finance: "Financeiro (legado)",
+  PrivacyAuditor: "Auditor de privacidade (legado)",
+  CompanyAdmin: "Empresa (legado)",
+  CompanyFinance: "Financeiro empresa (legado)",
+  PlatformFinance: "Financeiro MedSync (legado)",
+  CompanyAuditor: "Auditor empresa (legado)",
+  PlatformAuditor: "Auditor MedSync (legado)",
+  PlatformAdmin: "Admin MedSync (legado)",
+  OccupationalHealthAdmin: "Médico do trabalho (legado)",
 };
 
 export type User = {

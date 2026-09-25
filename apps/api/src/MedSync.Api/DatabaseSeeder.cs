@@ -1,104 +1,89 @@
 using MedSync.Application;
 using MedSync.Domain;
 using MedSync.Infrastructure;
+using MedSync.Infrastructure.Migrations;
 using Microsoft.EntityFrameworkCore;
 
 namespace MedSync.Api;
 
 public static class DatabaseSeeder
 {
-    private static readonly DemoTenant[] DemoTenants =
+    private static readonly Guid PlatformClinicId = Guid.Parse(ConsolidateRoles.PlatformClinicId);
+
+    private static readonly DemoAccount[] PlatformAccounts =
+    [
+        new(Guid.Parse("10000000-0000-0000-0000-000000000003"), "Dr. Admin MedSync", "admin@medsync.dev", ClinicRole.MedicalDirector),
+        new(Guid.Parse("10000000-0000-0000-0000-000000000007"), "Sofia Suporte", "suporte@medsync.dev", ClinicRole.Support),
+        new(Guid.Parse("10000000-0000-0000-0000-000000000010"), "DPO MedSync", "dpo@medsync.dev", ClinicRole.DataProtectionOfficer)
+    ];
+
+    private static readonly DemoClinic[] DemoClinics =
     [
         new(
             ClinicId: Guid.Parse("01000000-0000-0000-0000-000000000001"),
-            ClinicName: "MedSync Medical",
-            ClinicSlug: "medsync-medical",
+            Name: "Clínica Demo",
+            Slug: "clinica-demo",
+            LegalName: "Clínica Demo MedSync Ltda",
+            TaxId: "12345678000190",
+            PlanName: "Plano Demo",
+            MonthlyFee: 199.90m,
             DoctorId: Guid.Parse("20000000-0000-0000-0000-000000000001"),
             PatientId: Guid.Parse("30000000-0000-0000-0000-000000000001"),
             AppointmentId: Guid.Parse("40000000-0000-0000-0000-000000000001"),
-            CompanyId: Guid.Parse("50000000-0000-0000-0000-000000000001"),
-            BenefitPlanId: Guid.Parse("60000000-0000-0000-0000-000000000001"),
-            CompanyEmployeeId: Guid.Parse("70000000-0000-0000-0000-000000000001"),
-            CompanyContractId: Guid.Parse("80000000-0000-0000-0000-000000000001"),
-            EligibilityId: Guid.Parse("90000000-0000-0000-0000-000000000001"),
-            CompanyLegalName: "Empresa Demo MedSync Ltda",
-            CompanyTradeName: "Empresa Demo",
-            CompanyTaxId: "12345678000190",
-            PlanName: "Plano B2B Demo",
-            PlanFee: 199.90m,
-            PlanLimit: 50,
-            EmployeeCode: "BEN-001",
             PatientCpf: "12345678909",
+            HasExtraPatients: true,
             Accounts:
             [
                 new(Guid.Parse("10000000-0000-0000-0000-000000000001"), "Dra. Marina Costa", "medico@medsync.dev", ClinicRole.Doctor),
                 new(Guid.Parse("10000000-0000-0000-0000-000000000002"), "Carlos Oliveira", "paciente@medsync.dev", ClinicRole.Patient),
-                new(Guid.Parse("10000000-0000-0000-0000-000000000003"), "Admin Plataforma", "admin@medsync.dev", ClinicRole.PlatformAdmin),
-                new(Guid.Parse("10000000-0000-0000-0000-000000000004"), "Ana Empresa", "empresa.admin@medsync.dev", ClinicRole.CompanyAdmin),
-                new(Guid.Parse("10000000-0000-0000-0000-000000000005"), "Felipe Financeiro Empresa", "empresa.financeiro@medsync.dev", ClinicRole.CompanyFinance),
-                new(Guid.Parse("10000000-0000-0000-0000-000000000006"), "Paula Financeiro MedSync", "plataforma.financeiro@medsync.dev", ClinicRole.PlatformFinance),
-                new(Guid.Parse("10000000-0000-0000-0000-000000000007"), "Sofia Suporte", "suporte@medsync.dev", ClinicRole.Support),
-                new(Guid.Parse("10000000-0000-0000-0000-000000000008"), "Bruno Auditor Empresa", "empresa.auditor@medsync.dev", ClinicRole.CompanyAuditor),
-                new(Guid.Parse("10000000-0000-0000-0000-000000000009"), "Clara Auditor MedSync", "plataforma.auditor@medsync.dev", ClinicRole.PlatformAuditor),
-                new(Guid.Parse("10000000-0000-0000-0000-000000000010"), "DPO MedSync", "dpo@medsync.dev", ClinicRole.DataProtectionOfficer),
-                new(Guid.Parse("10000000-0000-0000-0000-000000000011"), "Dra. Helena Ocupacional", "medico.trabalho@medsync.dev", ClinicRole.OccupationalHealthAdmin)
+                new(Guid.Parse("10000000-0000-0000-0000-000000000012"), "Ana Clínica", "clinica.admin@medsync.dev", ClinicRole.ClinicAdmin)
             ]),
         new(
             ClinicId: Guid.Parse("01000000-0000-0000-0000-000000000002"),
-            ClinicName: "Empresa Alfa - Homologacao",
-            ClinicSlug: "empresa-alfa-homologacao",
+            Name: "Clínica Alfa",
+            Slug: "clinica-alfa",
+            LegalName: "Clínica Alfa Saúde Ltda",
+            TaxId: "22345678000191",
+            PlanName: "Plano Alfa",
+            MonthlyFee: 349.90m,
             DoctorId: Guid.Parse("20000000-0000-0000-0000-000000000002"),
             PatientId: Guid.Parse("30000000-0000-0000-0000-000000000002"),
             AppointmentId: Guid.Parse("40000000-0000-0000-0000-000000000002"),
-            CompanyId: Guid.Parse("50000000-0000-0000-0000-000000000002"),
-            BenefitPlanId: Guid.Parse("60000000-0000-0000-0000-000000000002"),
-            CompanyEmployeeId: Guid.Parse("70000000-0000-0000-0000-000000000002"),
-            CompanyContractId: Guid.Parse("80000000-0000-0000-0000-000000000002"),
-            EligibilityId: Guid.Parse("90000000-0000-0000-0000-000000000002"),
-            CompanyLegalName: "Empresa Alfa Tecnologia Ltda",
-            CompanyTradeName: "Empresa Alfa",
-            CompanyTaxId: "22345678000191",
-            PlanName: "Plano Alfa Cuidado Digital",
-            PlanFee: 349.90m,
-            PlanLimit: 120,
-            EmployeeCode: "ALFA-001",
             PatientCpf: "98765432100",
+            HasExtraPatients: false,
             Accounts:
             [
                 new(Guid.Parse("11000000-0000-0000-0000-000000000001"), "Dr. Rafael Lima", "medico.empresa2@medsync.dev", ClinicRole.Doctor),
                 new(Guid.Parse("11000000-0000-0000-0000-000000000002"), "Patricia Alfa", "paciente.empresa2@medsync.dev", ClinicRole.Patient),
-                new(Guid.Parse("11000000-0000-0000-0000-000000000003"), "Aline Admin Alfa", "empresa2.admin@medsync.dev", ClinicRole.CompanyAdmin),
-                new(Guid.Parse("11000000-0000-0000-0000-000000000004"), "Fabio Financeiro Alfa", "empresa2.financeiro@medsync.dev", ClinicRole.CompanyFinance),
-                new(Guid.Parse("11000000-0000-0000-0000-000000000005"), "Bianca Auditoria Alfa", "empresa2.auditor@medsync.dev", ClinicRole.CompanyAuditor)
+                new(Guid.Parse("11000000-0000-0000-0000-000000000006"), "Aline Clínica Alfa", "clinica2.admin@medsync.dev", ClinicRole.ClinicAdmin)
             ]),
         new(
             ClinicId: Guid.Parse("01000000-0000-0000-0000-000000000003"),
-            ClinicName: "Empresa Beta - Homologacao",
-            ClinicSlug: "empresa-beta-homologacao",
+            Name: "Clínica Beta",
+            Slug: "clinica-beta",
+            LegalName: "Clínica Beta Serviços Médicos S.A.",
+            TaxId: "32345678000192",
+            PlanName: "Plano Beta",
+            MonthlyFee: 699.90m,
             DoctorId: Guid.Parse("20000000-0000-0000-0000-000000000003"),
             PatientId: Guid.Parse("30000000-0000-0000-0000-000000000003"),
             AppointmentId: Guid.Parse("40000000-0000-0000-0000-000000000003"),
-            CompanyId: Guid.Parse("50000000-0000-0000-0000-000000000003"),
-            BenefitPlanId: Guid.Parse("60000000-0000-0000-0000-000000000003"),
-            CompanyEmployeeId: Guid.Parse("70000000-0000-0000-0000-000000000003"),
-            CompanyContractId: Guid.Parse("80000000-0000-0000-0000-000000000003"),
-            EligibilityId: Guid.Parse("90000000-0000-0000-0000-000000000003"),
-            CompanyLegalName: "Empresa Beta Servicos S.A.",
-            CompanyTradeName: "Empresa Beta",
-            CompanyTaxId: "32345678000192",
-            PlanName: "Plano Beta Assistencial",
-            PlanFee: 699.90m,
-            PlanLimit: 300,
-            EmployeeCode: "BETA-001",
             PatientCpf: "29537995593",
+            HasExtraPatients: false,
             Accounts:
             [
                 new(Guid.Parse("12000000-0000-0000-0000-000000000001"), "Dra. Renata Souza", "medico.empresa3@medsync.dev", ClinicRole.Doctor),
                 new(Guid.Parse("12000000-0000-0000-0000-000000000002"), "Joao Beta", "paciente.empresa3@medsync.dev", ClinicRole.Patient),
-                new(Guid.Parse("12000000-0000-0000-0000-000000000003"), "Marcos Admin Beta", "empresa3.admin@medsync.dev", ClinicRole.CompanyAdmin),
-                new(Guid.Parse("12000000-0000-0000-0000-000000000004"), "Luiza Financeiro Beta", "empresa3.financeiro@medsync.dev", ClinicRole.CompanyFinance),
-                new(Guid.Parse("12000000-0000-0000-0000-000000000005"), "Caio Auditoria Beta", "empresa3.auditor@medsync.dev", ClinicRole.CompanyAuditor)
+                new(Guid.Parse("12000000-0000-0000-0000-000000000006"), "Marcos Clínica Beta", "clinica3.admin@medsync.dev", ClinicRole.ClinicAdmin)
             ])
+    ];
+
+    private static readonly ExtraPatient[] ExtraPatients =
+    [
+        new(Guid.Parse("13000000-0000-0000-0000-000000000001"), Guid.Parse("33000000-0000-0000-0000-000000000001"), "Carla MedSync", "paciente2@medsync.dev", "52998224725"),
+        new(Guid.Parse("13000000-0000-0000-0000-000000000002"), Guid.Parse("33000000-0000-0000-0000-000000000002"), "Roberto MedSync", "paciente3@medsync.dev", "11144477735"),
+        new(Guid.Parse("13000000-0000-0000-0000-000000000003"), Guid.Parse("33000000-0000-0000-0000-000000000003"), "Daniel Demo", "paciente.demo@medsync.dev", "93541134780"),
+        new(Guid.Parse("13000000-0000-0000-0000-000000000004"), Guid.Parse("33000000-0000-0000-0000-000000000004"), "Mariana Demo", "paciente.demo2@medsync.dev", "85351346893")
     ];
 
     public static async Task SeedAsync(
@@ -107,66 +92,87 @@ public static class DatabaseSeeder
         string demoPassword,
         CancellationToken cancellationToken = default)
     {
-        foreach (var tenant in DemoTenants)
-        {
-            await SeedTenantAsync(db, passwords, demoPassword, tenant, cancellationToken);
-        }
+        await SeedPlatformAsync(db, passwords, demoPassword, cancellationToken);
+        foreach (var clinic in DemoClinics)
+            await SeedClinicAsync(db, passwords, demoPassword, clinic, cancellationToken);
 
         await db.SaveChangesAsync(cancellationToken);
     }
 
-    private static async Task SeedTenantAsync(
+    private static async Task SeedPlatformAsync(
         MedSyncDbContext db,
         IPasswordService passwords,
         string demoPassword,
-        DemoTenant tenant,
         CancellationToken cancellationToken)
     {
-        var clinic = await EnsureClinicAsync(db, tenant, cancellationToken);
-        var users = new Dictionary<ClinicRole, User>();
-
-        foreach (var account in tenant.Accounts)
+        var platform = await db.Clinics.SingleOrDefaultAsync(x => x.Id == PlatformClinicId, cancellationToken);
+        if (platform is null)
         {
-            var user = await EnsureUserAsync(db, passwords, demoPassword, account, cancellationToken);
-            users.TryAdd(account.Role, user);
-            await EnsureMembershipAsync(db, clinic.Id, user.Id, account.Role, cancellationToken);
+            platform = new Clinic { Id = PlatformClinicId, Name = "MedSync Operação", Slug = "medsync-operacao" };
+            db.Clinics.Add(platform);
         }
 
-        var doctor = await EnsureDoctorAsync(db, tenant, users[ClinicRole.Doctor], cancellationToken);
-        var patient = await EnsurePatientAsync(db, tenant, users[ClinicRole.Patient], cancellationToken);
-        await EnsureAppointmentAsync(db, tenant, doctor.Id, patient.Id, cancellationToken);
-        await EnsureB2BFoundationAsync(db, tenant, patient.Id, cancellationToken);
-        if (tenant.ClinicSlug == "medsync-medical")
-            await EnsureMedSyncPresentationPatientsAsync(db, passwords, demoPassword, tenant, cancellationToken);
+        platform.IsPlatform = true;
+        platform.IsActive = true;
+        platform.ActivationStatus = ClinicActivationStatus.Active;
+        platform.ActivatedAt ??= DateTime.UtcNow;
+
+        foreach (var account in PlatformAccounts)
+        {
+            var user = await EnsureUserAsync(db, passwords, demoPassword, account, cancellationToken);
+            await EnsureMembershipAsync(db, PlatformClinicId, user.Id, account.Role, cancellationToken);
+        }
     }
 
-    private static async Task<Clinic> EnsureClinicAsync(
+    private static async Task SeedClinicAsync(
         MedSyncDbContext db,
-        DemoTenant tenant,
+        IPasswordService passwords,
+        string demoPassword,
+        DemoClinic demo,
         CancellationToken cancellationToken)
     {
-        var clinic = await db.Clinics.SingleOrDefaultAsync(x => x.Id == tenant.ClinicId, cancellationToken);
+        var clinic = await db.Clinics.SingleOrDefaultAsync(x => x.Id == demo.ClinicId, cancellationToken);
         if (clinic is null)
         {
-            clinic = new Clinic
-            {
-                Id = tenant.ClinicId,
-                Name = tenant.ClinicName,
-                Slug = tenant.ClinicSlug
-            };
+            clinic = new Clinic { Id = demo.ClinicId, Name = demo.Name, Slug = demo.Slug };
             db.Clinics.Add(clinic);
         }
 
-        clinic.Name = tenant.ClinicName;
-        clinic.Slug = tenant.ClinicSlug;
+        clinic.Name = demo.Name;
+        clinic.Slug = demo.Slug;
         clinic.IsActive = true;
-        clinic.LegalName = tenant.CompanyLegalName;
-        clinic.TaxId = tenant.CompanyTaxId;
+        clinic.IsPlatform = false;
+        clinic.LegalName = demo.LegalName;
+        clinic.TaxId = demo.TaxId;
         clinic.ActivationStatus = ClinicActivationStatus.Active;
         clinic.ActivatedAt ??= DateTime.UtcNow;
-        clinic.PlanName = tenant.PlanName;
-        clinic.MonthlyFee = tenant.PlanFee;
-        return clinic;
+        clinic.PlanName = demo.PlanName;
+        clinic.MonthlyFee = demo.MonthlyFee;
+
+        var users = new Dictionary<ClinicRole, User>();
+        foreach (var account in demo.Accounts)
+        {
+            var user = await EnsureUserAsync(db, passwords, demoPassword, account, cancellationToken);
+            users.TryAdd(account.Role, user);
+            await EnsureMembershipAsync(db, demo.ClinicId, user.Id, account.Role, cancellationToken);
+        }
+
+        var doctor = await EnsureDoctorAsync(db, demo, users[ClinicRole.Doctor], cancellationToken);
+        var patient = await EnsurePatientAsync(
+            db, demo.ClinicId, demo.PatientId, users[ClinicRole.Patient], demo.PatientCpf, new DateOnly(1990, 5, 14), "(11) 99999-0202", cancellationToken);
+        await EnsureAppointmentAsync(db, demo, doctor.Id, patient.Id, cancellationToken);
+
+        if (!demo.HasExtraPatients)
+            return;
+
+        foreach (var extra in ExtraPatients)
+        {
+            var user = await EnsureUserAsync(
+                db, passwords, demoPassword, new DemoAccount(extra.UserId, extra.Name, extra.Email, ClinicRole.Patient), cancellationToken);
+            await EnsureMembershipAsync(db, demo.ClinicId, user.Id, ClinicRole.Patient, cancellationToken);
+            await EnsurePatientAsync(
+                db, demo.ClinicId, extra.PatientId, user, extra.Cpf, new DateOnly(1988, 8, 8), "(11) 99999-0303", cancellationToken);
+        }
     }
 
     private static async Task<User> EnsureUserAsync(
@@ -177,9 +183,8 @@ public static class DatabaseSeeder
         CancellationToken cancellationToken)
     {
         var email = account.Email.ToLowerInvariant();
-        var user = await db.Users.SingleOrDefaultAsync(
-            x => x.Id == account.Id || x.Email == email,
-            cancellationToken);
+        var user = db.Users.Local.FirstOrDefault(x => x.Id == account.Id || x.Email == email)
+            ?? await db.Users.SingleOrDefaultAsync(x => x.Id == account.Id || x.Email == email, cancellationToken);
         if (user is not null)
         {
             user.Name = account.Name;
@@ -206,7 +211,8 @@ public static class DatabaseSeeder
         ClinicRole role,
         CancellationToken cancellationToken)
     {
-        if (await db.ClinicMemberships.AnyAsync(
+        if (db.ClinicMemberships.Local.Any(x => x.ClinicId == clinicId && x.UserId == userId && x.Role == role) ||
+            await db.ClinicMemberships.AnyAsync(
                 x => x.ClinicId == clinicId && x.UserId == userId && x.Role == role,
                 cancellationToken))
             return;
@@ -221,21 +227,21 @@ public static class DatabaseSeeder
 
     private static async Task<Doctor> EnsureDoctorAsync(
         MedSyncDbContext db,
-        DemoTenant tenant,
+        DemoClinic demo,
         User doctorUser,
         CancellationToken cancellationToken)
     {
-        var doctor = await db.Doctors.SingleOrDefaultAsync(x => x.Id == tenant.DoctorId, cancellationToken);
+        var doctor = await db.Doctors.SingleOrDefaultAsync(x => x.Id == demo.DoctorId, cancellationToken);
         if (doctor is null)
         {
             doctor = new Doctor
             {
-                Id = tenant.DoctorId,
-                ClinicId = tenant.ClinicId,
+                Id = demo.DoctorId,
+                ClinicId = demo.ClinicId,
                 UserId = doctorUser.Id,
                 Name = doctorUser.Name,
                 Email = doctorUser.Email,
-                Crm = $"CRM-SP {tenant.DoctorId.ToString("N")[..6]}",
+                Crm = $"CRM-SP {demo.DoctorId.ToString("N")[..6]}",
                 CrmUf = "SP",
                 Specialty = "Clinica geral",
                 Phone = "(11) 99999-0101"
@@ -244,7 +250,7 @@ public static class DatabaseSeeder
             return doctor;
         }
 
-        doctor.ClinicId = tenant.ClinicId;
+        doctor.ClinicId = demo.ClinicId;
         doctor.UserId = doctorUser.Id;
         doctor.Name = doctorUser.Name;
         doctor.Email = doctorUser.Email;
@@ -255,52 +261,56 @@ public static class DatabaseSeeder
 
     private static async Task<Patient> EnsurePatientAsync(
         MedSyncDbContext db,
-        DemoTenant tenant,
+        Guid clinicId,
+        Guid patientId,
         User patientUser,
+        string cpf,
+        DateOnly birthDate,
+        string phone,
         CancellationToken cancellationToken)
     {
-        var patient = await db.Patients.SingleOrDefaultAsync(x => x.Id == tenant.PatientId, cancellationToken);
+        var patient = await db.Patients.SingleOrDefaultAsync(x => x.Id == patientId, cancellationToken);
         if (patient is null)
         {
             patient = new Patient
             {
-                Id = tenant.PatientId,
-                ClinicId = tenant.ClinicId,
+                Id = patientId,
+                ClinicId = clinicId,
                 UserId = patientUser.Id,
                 Name = patientUser.Name,
                 Email = patientUser.Email,
-                Cpf = tenant.PatientCpf,
-                BirthDate = new DateOnly(1990, 5, 14),
-                Phone = "(11) 99999-0202"
+                Cpf = cpf,
+                BirthDate = birthDate,
+                Phone = phone
             };
             db.Patients.Add(patient);
             return patient;
         }
 
-        patient.ClinicId = tenant.ClinicId;
+        patient.ClinicId = clinicId;
         patient.UserId = patientUser.Id;
         patient.Name = patientUser.Name;
         patient.Email = patientUser.Email;
-        patient.Cpf = tenant.PatientCpf;
+        patient.Cpf = cpf;
         return patient;
     }
 
     private static async Task EnsureAppointmentAsync(
         MedSyncDbContext db,
-        DemoTenant tenant,
+        DemoClinic demo,
         Guid doctorId,
         Guid patientId,
         CancellationToken cancellationToken)
     {
         var appointment = await db.Appointments.SingleOrDefaultAsync(
-            x => x.Id == tenant.AppointmentId,
+            x => x.Id == demo.AppointmentId,
             cancellationToken);
         if (appointment is null)
         {
             db.Appointments.Add(new Appointment
             {
-                Id = tenant.AppointmentId,
-                ClinicId = tenant.ClinicId,
+                Id = demo.AppointmentId,
+                ClinicId = demo.ClinicId,
                 DoctorId = doctorId,
                 PatientId = patientId,
                 ScheduledAt = NextDemoAppointmentUtc(),
@@ -310,7 +320,7 @@ public static class DatabaseSeeder
             return;
         }
 
-        appointment.ClinicId = tenant.ClinicId;
+        appointment.ClinicId = demo.ClinicId;
         appointment.DoctorId = doctorId;
         appointment.PatientId = patientId;
         appointment.ScheduledAt = NextDemoAppointmentUtc();
@@ -338,350 +348,19 @@ public static class DatabaseSeeder
         }
     }
 
-    private static async Task EnsureB2BFoundationAsync(
-        MedSyncDbContext db,
-        DemoTenant tenant,
-        Guid patientId,
-        CancellationToken cancellationToken)
-    {
-        var company = await db.Companies.SingleOrDefaultAsync(x => x.Id == tenant.CompanyId, cancellationToken);
-        if (company is null)
-        {
-            company = new Company
-            {
-                Id = tenant.CompanyId,
-                ClinicId = tenant.ClinicId,
-                LegalName = tenant.CompanyLegalName,
-                TradeName = tenant.CompanyTradeName,
-                TaxId = tenant.CompanyTaxId
-            };
-            db.Companies.Add(company);
-        }
-        else
-        {
-            company.ClinicId = tenant.ClinicId;
-            company.LegalName = tenant.CompanyLegalName;
-            company.TradeName = tenant.CompanyTradeName;
-            company.TaxId = tenant.CompanyTaxId;
-            company.IsActive = true;
-        }
-
-        var plan = await db.BenefitPlans.SingleOrDefaultAsync(x => x.Id == tenant.BenefitPlanId, cancellationToken);
-        if (plan is null)
-        {
-            plan = new BenefitPlan
-            {
-                Id = tenant.BenefitPlanId,
-                ClinicId = tenant.ClinicId,
-                Name = tenant.PlanName,
-                Description = "Plano de homologacao para consultas digitais.",
-                MonthlyFee = tenant.PlanFee,
-                MonthlyConsultationLimit = tenant.PlanLimit
-            };
-            db.BenefitPlans.Add(plan);
-        }
-        else
-        {
-            plan.ClinicId = tenant.ClinicId;
-            plan.Name = tenant.PlanName;
-            plan.MonthlyFee = tenant.PlanFee;
-            plan.MonthlyConsultationLimit = tenant.PlanLimit;
-            plan.IsActive = true;
-        }
-
-        var contract = await db.CompanyContracts.SingleOrDefaultAsync(x => x.Id == tenant.CompanyContractId, cancellationToken);
-        if (contract is null)
-        {
-            db.CompanyContracts.Add(new CompanyContract
-            {
-                Id = tenant.CompanyContractId,
-                ClinicId = tenant.ClinicId,
-                CompanyId = tenant.CompanyId,
-                BenefitPlanId = tenant.BenefitPlanId,
-                Status = CompanyContractStatus.Active,
-                StartsAt = DateOnly.FromDateTime(DateTime.UtcNow.Date)
-            });
-        }
-        else
-        {
-            contract.ClinicId = tenant.ClinicId;
-            contract.CompanyId = tenant.CompanyId;
-            contract.BenefitPlanId = tenant.BenefitPlanId;
-            contract.Status = CompanyContractStatus.Active;
-        }
-
-        var employee = await db.CompanyEmployees.SingleOrDefaultAsync(x => x.Id == tenant.CompanyEmployeeId, cancellationToken);
-        if (employee is null)
-        {
-            db.CompanyEmployees.Add(new CompanyEmployee
-            {
-                Id = tenant.CompanyEmployeeId,
-                ClinicId = tenant.ClinicId,
-                CompanyId = tenant.CompanyId,
-                PatientId = patientId,
-                Name = tenant.Accounts.Single(x => x.Role == ClinicRole.Patient).Name,
-                Email = tenant.Accounts.Single(x => x.Role == ClinicRole.Patient).Email,
-                EmployeeCode = tenant.EmployeeCode
-            });
-        }
-        else
-        {
-            employee.ClinicId = tenant.ClinicId;
-            employee.CompanyId = tenant.CompanyId;
-            employee.PatientId = patientId;
-            employee.Name = tenant.Accounts.Single(x => x.Role == ClinicRole.Patient).Name;
-            employee.Email = tenant.Accounts.Single(x => x.Role == ClinicRole.Patient).Email;
-            employee.EmployeeCode = tenant.EmployeeCode;
-            employee.IsActive = true;
-        }
-
-        var eligibility = await db.EmployeeEligibilities.SingleOrDefaultAsync(x => x.Id == tenant.EligibilityId, cancellationToken);
-        if (eligibility is null)
-        {
-            db.EmployeeEligibilities.Add(new EmployeeEligibility
-            {
-                Id = tenant.EligibilityId,
-                ClinicId = tenant.ClinicId,
-                CompanyEmployeeId = tenant.CompanyEmployeeId,
-                BenefitPlanId = tenant.BenefitPlanId,
-                IsEligible = true,
-                EligibleFrom = DateOnly.FromDateTime(DateTime.UtcNow.Date),
-                Reason = "Seed de homologacao B2B"
-            });
-        }
-        else
-        {
-            eligibility.ClinicId = tenant.ClinicId;
-            eligibility.CompanyEmployeeId = tenant.CompanyEmployeeId;
-            eligibility.BenefitPlanId = tenant.BenefitPlanId;
-            eligibility.IsEligible = true;
-            eligibility.Reason = "Seed de homologacao B2B";
-        }
-
-        await EnsurePresentationBeneficiariesAsync(db, tenant, cancellationToken);
-    }
-
-    private static async Task EnsurePresentationBeneficiariesAsync(
-        MedSyncDbContext db,
-        DemoTenant tenant,
-        CancellationToken cancellationToken)
-    {
-        var prefix = tenant.EmployeeCode.Contains('-')
-            ? tenant.EmployeeCode.Split('-', 2)[0]
-            : tenant.EmployeeCode;
-        var slug = tenant.ClinicSlug.Replace("-homologacao", string.Empty, StringComparison.OrdinalIgnoreCase);
-        var today = DateOnly.FromDateTime(DateTime.UtcNow.Date);
-
-        for (var index = 2; index <= 5; index++)
-        {
-            var employeeCode = $"{prefix}-{index:000}";
-            var employee = await db.CompanyEmployees
-                .Include(x => x.EligibilityRecords)
-                .SingleOrDefaultAsync(
-                    x => x.CompanyId == tenant.CompanyId && x.EmployeeCode == employeeCode,
-                    cancellationToken);
-            if (employee is null)
-            {
-                employee = new CompanyEmployee
-                {
-                    ClinicId = tenant.ClinicId,
-                    CompanyId = tenant.CompanyId,
-                    Name = $"{tenant.CompanyTradeName} Beneficiario {index}",
-                    Email = $"beneficiario.{slug}.{index:000}@medsync.dev",
-                    EmployeeCode = employeeCode
-                };
-                db.CompanyEmployees.Add(employee);
-            }
-            else
-            {
-                employee.ClinicId = tenant.ClinicId;
-                employee.CompanyId = tenant.CompanyId;
-                employee.Name = $"{tenant.CompanyTradeName} Beneficiario {index}";
-                employee.Email = $"beneficiario.{slug}.{index:000}@medsync.dev";
-                employee.IsActive = true;
-            }
-
-            var eligibility = employee.EligibilityRecords
-                .OrderByDescending(x => x.EligibleFrom)
-                .FirstOrDefault(x => x.BenefitPlanId == tenant.BenefitPlanId);
-            if (eligibility is null)
-            {
-                db.EmployeeEligibilities.Add(new EmployeeEligibility
-                {
-                    ClinicId = tenant.ClinicId,
-                    CompanyEmployee = employee,
-                    BenefitPlanId = tenant.BenefitPlanId,
-                    IsEligible = true,
-                    EligibleFrom = today,
-                    Reason = "Seed de homologacao para relatorios agregados"
-                });
-            }
-            else
-            {
-                eligibility.ClinicId = tenant.ClinicId;
-                eligibility.IsEligible = true;
-                eligibility.EligibleUntil = null;
-                eligibility.Reason = "Seed de homologacao para relatorios agregados";
-            }
-        }
-    }
-
-    private static async Task EnsureMedSyncPresentationPatientsAsync(
-        MedSyncDbContext db,
-        IPasswordService passwords,
-        string demoPassword,
-        DemoTenant tenant,
-        CancellationToken cancellationToken)
-    {
-        var today = DateOnly.FromDateTime(DateTime.UtcNow.Date);
-        var directPatients = new[]
-        {
-            new PresentationPatient(
-                Guid.Parse("13000000-0000-0000-0000-000000000001"),
-                Guid.Parse("33000000-0000-0000-0000-000000000001"),
-                Guid.Parse("73000000-0000-0000-0000-000000000001"),
-                Guid.Parse("93000000-0000-0000-0000-000000000001"),
-                "Carla MedSync",
-                "paciente2@medsync.dev",
-                "52998224725",
-                "TEC-002"),
-            new PresentationPatient(
-                Guid.Parse("13000000-0000-0000-0000-000000000002"),
-                Guid.Parse("33000000-0000-0000-0000-000000000002"),
-                Guid.Parse("73000000-0000-0000-0000-000000000002"),
-                Guid.Parse("93000000-0000-0000-0000-000000000002"),
-                "Roberto MedSync",
-                "paciente3@medsync.dev",
-                "11144477735",
-                "TEC-003"),
-            new PresentationPatient(
-                Guid.Parse("13000000-0000-0000-0000-000000000003"),
-                Guid.Parse("33000000-0000-0000-0000-000000000003"),
-                Guid.Parse("73000000-0000-0000-0000-000000000003"),
-                Guid.Parse("93000000-0000-0000-0000-000000000003"),
-                "Daniel Demo",
-                "paciente.demo@medsync.dev",
-                "93541134780",
-                "DEMO-002"),
-            new PresentationPatient(
-                Guid.Parse("13000000-0000-0000-0000-000000000004"),
-                Guid.Parse("33000000-0000-0000-0000-000000000004"),
-                Guid.Parse("73000000-0000-0000-0000-000000000004"),
-                Guid.Parse("93000000-0000-0000-0000-000000000004"),
-                "Mariana Demo",
-                "paciente.demo2@medsync.dev",
-                "85351346893",
-                "DEMO-003")
-        };
-
-        foreach (var account in directPatients)
-        {
-            var user = await EnsureUserAsync(
-                db,
-                passwords,
-                demoPassword,
-                new DemoAccount(account.UserId, account.Name, account.Email, ClinicRole.Patient),
-                cancellationToken);
-            await EnsureMembershipAsync(db, tenant.ClinicId, user.Id, ClinicRole.Patient, cancellationToken);
-
-            var patient = await db.Patients.SingleOrDefaultAsync(x => x.Id == account.PatientId, cancellationToken);
-            if (patient is null)
-            {
-                patient = new Patient
-                {
-                    Id = account.PatientId,
-                    ClinicId = tenant.ClinicId,
-                    UserId = user.Id,
-                    Name = account.Name,
-                    Email = account.Email,
-                    Cpf = account.Cpf,
-                    BirthDate = new DateOnly(1988, 8, 8),
-                    Phone = "(11) 99999-0303"
-                };
-                db.Patients.Add(patient);
-            }
-            else
-            {
-                patient.ClinicId = tenant.ClinicId;
-                patient.UserId = user.Id;
-                patient.Name = account.Name;
-                patient.Email = account.Email;
-                patient.Cpf = account.Cpf;
-                patient.Phone = "(11) 99999-0303";
-            }
-
-            var employee = await db.CompanyEmployees.SingleOrDefaultAsync(x => x.Id == account.CompanyEmployeeId, cancellationToken);
-            if (employee is null)
-            {
-                employee = new CompanyEmployee
-                {
-                    Id = account.CompanyEmployeeId,
-                    ClinicId = tenant.ClinicId,
-                    CompanyId = tenant.CompanyId,
-                    PatientId = patient.Id,
-                    Name = account.Name,
-                    Email = account.Email,
-                    EmployeeCode = account.EmployeeCode
-                };
-                db.CompanyEmployees.Add(employee);
-            }
-            else
-            {
-                employee.ClinicId = tenant.ClinicId;
-                employee.CompanyId = tenant.CompanyId;
-                employee.PatientId = patient.Id;
-                employee.Name = account.Name;
-                employee.Email = account.Email;
-                employee.EmployeeCode = account.EmployeeCode;
-                employee.IsActive = true;
-            }
-
-            var eligibility = await db.EmployeeEligibilities.SingleOrDefaultAsync(x => x.Id == account.EligibilityId, cancellationToken);
-            if (eligibility is null)
-            {
-                db.EmployeeEligibilities.Add(new EmployeeEligibility
-                {
-                    Id = account.EligibilityId,
-                    ClinicId = tenant.ClinicId,
-                    CompanyEmployee = employee,
-                    BenefitPlanId = tenant.BenefitPlanId,
-                    IsEligible = true,
-                    EligibleFrom = today,
-                    Reason = "Seed de homologacao para CNPJ tecnico e Empresa Demo"
-                });
-            }
-            else
-            {
-                eligibility.ClinicId = tenant.ClinicId;
-                eligibility.CompanyEmployeeId = employee.Id;
-                eligibility.BenefitPlanId = tenant.BenefitPlanId;
-                eligibility.IsEligible = true;
-                eligibility.EligibleUntil = null;
-                eligibility.Reason = "Seed de homologacao para CNPJ tecnico e Empresa Demo";
-            }
-        }
-    }
-
-    private sealed record DemoTenant(
+    private sealed record DemoClinic(
         Guid ClinicId,
-        string ClinicName,
-        string ClinicSlug,
+        string Name,
+        string Slug,
+        string LegalName,
+        string TaxId,
+        string PlanName,
+        decimal MonthlyFee,
         Guid DoctorId,
         Guid PatientId,
         Guid AppointmentId,
-        Guid CompanyId,
-        Guid BenefitPlanId,
-        Guid CompanyEmployeeId,
-        Guid CompanyContractId,
-        Guid EligibilityId,
-        string CompanyLegalName,
-        string CompanyTradeName,
-        string CompanyTaxId,
-        string PlanName,
-        decimal PlanFee,
-        int PlanLimit,
-        string EmployeeCode,
         string PatientCpf,
+        bool HasExtraPatients,
         DemoAccount[] Accounts);
 
     private sealed record DemoAccount(
@@ -690,13 +369,10 @@ public static class DatabaseSeeder
         string Email,
         ClinicRole Role);
 
-    private sealed record PresentationPatient(
+    private sealed record ExtraPatient(
         Guid UserId,
         Guid PatientId,
-        Guid CompanyEmployeeId,
-        Guid EligibilityId,
         string Name,
         string Email,
-        string Cpf,
-        string EmployeeCode);
+        string Cpf);
 }

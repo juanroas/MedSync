@@ -50,9 +50,7 @@ export default function PrivacyPage() {
   const session = getSession();
   const roles = session?.user.roles ?? [];
   const isPatientOnly = roles.includes("Patient") && roles.every((role) => role === "Patient");
-  const canUpdate = roles.some((role) =>
-    ["PrivacyAuditor", "PlatformAuditor", "DataProtectionOfficer", "PlatformAdmin"].includes(role),
-  );
+  const canUpdate = roles.includes("DataProtectionOfficer");
 
   const [requests, setRequests] = useState<PrivacyRequest[]>([]);
   const [loading, setLoading] = useState(true);

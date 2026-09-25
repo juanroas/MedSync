@@ -9,9 +9,15 @@ namespace MedSync.Api;
 public sealed record RequestContext(
     Guid UserId,
     Guid ClinicId,
-    IReadOnlySet<ClinicRole> Roles)
+    IReadOnlySet<ClinicRole> Roles,
+    bool IsPlatformStaff = false)
 {
     public bool HasAny(params ClinicRole[] roles) => roles.Any(Roles.Contains);
+
+    // Platform roles only count when the session belongs to the MedSync platform clinic.
+    public bool IsMedicalAdmin => IsPlatformStaff && HasAny(ClinicRole.MedicalDirector);
+    public bool IsSupport => IsPlatformStaff && HasAny(ClinicRole.Support);
+    public bool IsDpo => IsPlatformStaff && HasAny(ClinicRole.DataProtectionOfficer);
 
     public static RequestContext From(ClaimsPrincipal principal)
     {
@@ -19,62 +25,23 @@ public sealed record RequestContext(
             ?? throw new UnauthorizedAccessException("Usuário não identificado."));
         var clinicId = Guid.Parse(principal.FindFirstValue("clinic_id")
             ?? throw new UnauthorizedAccessException("Clínica não identificada."));
+        // Unknown role names (e.g. removed roles in an old session token) are ignored instead of failing the request.
         var roles = principal.FindAll(ClaimTypes.Role)
-            .Select(x => Enum.Parse<ClinicRole>(x.Value))
+            .Select(x => Enum.TryParse<ClinicRole>(x.Value, out var role) ? role : (ClinicRole?)null)
+            .OfType<ClinicRole>()
             .ToHashSet();
-        return new RequestContext(userId, clinicId, roles);
+        var isPlatformStaff = principal.FindFirstValue("platform") == "true";
+        return new RequestContext(userId, clinicId, roles, isPlatformStaff);
     }
 }
 
 public static class AccessRules
 {
-    public static readonly ClinicRole[] ManagePatients =
-    [
-        ClinicRole.Receptionist,
-        ClinicRole.ClinicAdmin,
-        ClinicRole.MedicalDirector,
-        ClinicRole.Support,
-        ClinicRole.PlatformAdmin
-    ];
-
-    public static readonly ClinicRole[] ViewPatients =
-    [
-        ClinicRole.Receptionist,
-        ClinicRole.ClinicAdmin,
-        ClinicRole.MedicalDirector,
-        ClinicRole.Support,
-        ClinicRole.PlatformAdmin,
-        ClinicRole.CompanyAuditor,
-        ClinicRole.PlatformAuditor,
-        ClinicRole.OccupationalHealthAdmin
-    ];
-
-    public static readonly ClinicRole[] ManageDoctors =
-    [
-        ClinicRole.ClinicAdmin,
-        ClinicRole.MedicalDirector,
-        ClinicRole.PlatformAdmin
-    ];
-
-    public static readonly ClinicRole[] ManageAppointments =
-    [
-        ClinicRole.Receptionist,
-        ClinicRole.ClinicAdmin,
-        ClinicRole.MedicalDirector,
-        ClinicRole.Support,
-        ClinicRole.OccupationalHealthAdmin
-    ];
-
-    public static readonly ClinicRole[] ViewAllAppointments =
-    [
-        ClinicRole.Receptionist,
-        ClinicRole.Finance,
-        ClinicRole.ClinicAdmin,
-        ClinicRole.MedicalDirector,
-        ClinicRole.Support,
-        ClinicRole.PlatformAdmin,
-        ClinicRole.OccupationalHealthAdmin
-    ];
+    public static readonly ClinicRole[] ManagePatients = [ClinicRole.ClinicAdmin];
+    public static readonly ClinicRole[] ViewPatients = [ClinicRole.ClinicAdmin];
+    public static readonly ClinicRole[] ManageDoctors = [ClinicRole.ClinicAdmin];
+    public static readonly ClinicRole[] ManageAppointments = [ClinicRole.ClinicAdmin];
+    public static readonly ClinicRole[] ViewAllAppointments = [ClinicRole.ClinicAdmin];
 }
 
 public static class PasswordPolicy

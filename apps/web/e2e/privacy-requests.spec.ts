@@ -5,7 +5,7 @@ test.describe("privacidade e direitos do titular", () => {
   test.skip(!sharedPassword, "defina MEDSYNC_E2E_PASSWORD para executar login E2E");
 
   test("paciente registra solicitacao e DPO atualiza status minimizado", async ({ page, request }) => {
-    await loginByApi(request, users.companyFinance);
+    await loginByApi(request, users.clinicAdmin);
     const forbidden = await request.get(`${baseApiURL}/privacy/requests`);
     expect(forbidden.status()).toBe(403);
 
@@ -36,7 +36,7 @@ test.describe("privacidade e direitos do titular", () => {
     await expect(page.getByText(/status de privacidade atualizado com auditoria/i)).toBeVisible();
     await expect(item.locator("span").filter({ hasText: /^Em analise$/ }).first()).toBeVisible();
 
-    await loginByUi(page, users.companyFinance);
+    await loginByUi(page, users.clinicAdmin);
     await expect(page.getByRole("link", { name: /privacidade/i })).toHaveCount(0);
   });
 });

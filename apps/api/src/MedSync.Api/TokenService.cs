@@ -31,6 +31,7 @@ public sealed class TokenService(IConfiguration configuration) : ITokenService
             new Claim(ClaimTypes.Name, user.Name),
             new Claim("clinic_id", clinic.Id.ToString()),
             new Claim("clinic_name", clinic.Name),
+            new Claim("platform", clinic.IsPlatform ? "true" : "false"),
             new Claim("must_change_password", user.MustChangePassword.ToString().ToLowerInvariant())
         };
         claims.AddRange(roles.Select(role => new Claim(ClaimTypes.Role, role.ToString())));

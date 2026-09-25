@@ -6,9 +6,7 @@ import { api, clearSession, getSession, saveSession } from "@/services/api";
 import {
   Building2,
   CalendarDays,
-  ChartNoAxesColumn,
   ChevronRight,
-  ClipboardCheck,
   LayoutDashboard,
   LifeBuoy,
   ListChecks,
@@ -33,99 +31,14 @@ const navigation: Array<{
 }> = [
   { href: "/dashboard", label: "Painel", icon: LayoutDashboard },
   { href: "/perfil", label: "Meus dados", icon: UserRoundCog },
-  {
-    href: "/clinicas",
-    label: "Clínicas",
-    icon: Building2,
-    roles: ["Support", "PlatformAdmin"],
-  },
-  {
-    href: "/elegibilidade",
-    label: "Elegibilidade",
-    icon: ClipboardCheck,
-    roles: ["CompanyAdmin", "Support"],
-  },
-  {
-    href: "/relatorios",
-    label: "Relatorios",
-    icon: ChartNoAxesColumn,
-    roles: [
-      "CompanyAdmin",
-      "CompanyFinance",
-      "CompanyAuditor",
-      "PlatformAdmin",
-      "PlatformFinance",
-    ],
-  },
-  {
-    href: "/consultas",
-    label: "Consultas",
-    icon: CalendarDays,
-    roles: ["Patient", "Doctor", "MedicalDirector", "OccupationalHealthAdmin", "Support"],
-  },
-  {
-    href: "/patients",
-    label: "Pacientes",
-    icon: Users,
-    roles: [
-      "Doctor",
-      "Patient",
-      "Receptionist",
-      "ClinicAdmin",
-      "MedicalDirector",
-      "Support",
-      "OccupationalHealthAdmin",
-    ],
-  },
-  {
-    href: "/doctors",
-    label: "Medicos",
-    icon: Stethoscope,
-    roles: [
-      "Doctor",
-      "Receptionist",
-      "ClinicAdmin",
-      "MedicalDirector",
-      "Support",
-      "OccupationalHealthAdmin",
-    ],
-  },
-  {
-    href: "/acessos",
-    label: "Equipe e acessos",
-    icon: UserCog,
-    roles: ["ClinicAdmin", "CompanyAdmin", "PlatformAdmin"],
-  },
-  {
-    href: "/auditoria",
-    label: "Auditoria",
-    icon: ListChecks,
-    roles: [
-      "ClinicAdmin",
-      "PrivacyAuditor",
-      "CompanyAuditor",
-      "PlatformAuditor",
-      "DataProtectionOfficer",
-    ],
-  },
-  {
-    href: "/ajuda",
-    label: "Ajuda",
-    icon: LifeBuoy,
-  },
-  {
-    href: "/privacidade",
-    label: "Privacidade",
-    icon: ShieldCheck,
-    roles: [
-      "Patient",
-      "Support",
-      "PrivacyAuditor",
-      "PlatformAuditor",
-      "DataProtectionOfficer",
-      "PlatformAdmin",
-    ],
-  },
+  { href: "/clinicas", label: "Clínicas", icon: Building2, roles: ["MedicalDirector", "Support"] },
+  { href: "/consultas", label: "Consultas", icon: CalendarDays, roles: ["Patient", "Doctor", "ClinicAdmin"] },
+  { href: "/patients", label: "Pacientes", icon: Users, roles: ["Doctor", "Patient", "ClinicAdmin"] },
+  { href: "/doctors", label: "Médicos", icon: Stethoscope, roles: ["Doctor", "ClinicAdmin"] },
+  { href: "/acessos", label: "Equipe e acessos", icon: UserCog, roles: ["ClinicAdmin", "MedicalDirector"] },
+  { href: "/auditoria", label: "Auditoria", icon: ListChecks, roles: ["ClinicAdmin", "DataProtectionOfficer"] },
+  { href: "/ajuda", label: "Ajuda", icon: LifeBuoy },
+  { href: "/privacidade", label: "Privacidade", icon: ShieldCheck, roles: ["Patient", "DataProtectionOfficer"] },
 ];
 
 export function AppShell({ children }: { children: React.ReactNode }) {
@@ -159,23 +72,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     return <div className="min-h-screen bg-mist" />;
   }
 
-  const isPlatformAdminProfile = user.roles.includes("PlatformAdmin");
   const isPatientOnly = user.roles.includes("Patient") && !user.roles.some((role) => role !== "Patient");
   const isDoctorOnly = user.roles.includes("Doctor") && !user.roles.some((role) => role !== "Doctor");
   const visibleNavigation = navigation.filter((item) => {
     if ((isPatientOnly || isDoctorOnly) && item.href === "/perfil") {
-      return false;
-    }
-    const platformAdminAllowed =
-      item.href === "/dashboard" ||
-      item.href === "/perfil" ||
-      item.href === "/clinicas" ||
-      item.href === "/acessos" ||
-      item.href === "/elegibilidade" ||
-      item.href === "/privacidade" ||
-      item.href === "/ajuda" ||
-      item.href === "/relatorios";
-    if (isPlatformAdminProfile && !platformAdminAllowed) {
       return false;
     }
     return !item.roles || item.roles.some((role) => user.roles.includes(role));
@@ -204,7 +104,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
         <div className="mx-2 mt-8 rounded-lg border border-teal-100 bg-teal-50 px-4 py-3">
           <p className="text-xs font-bold uppercase tracking-[0.08em] text-teal-700">MedSync</p>
-          <p className="mt-1 text-sm text-teal-900/70">Cuidado digital B2B</p>
+          <p className="mt-1 text-sm text-teal-900/70">Médicos e clínicas</p>
         </div>
 
         <nav className="mt-6 space-y-1.5">
@@ -278,16 +178,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 function navigationLabel(href: string, label: string, roles: ClinicRole[]) {
   const isPatient = roles.includes("Patient") && !roles.some((role) => role !== "Patient");
   const isDoctor = roles.includes("Doctor") && !roles.some((role) => role !== "Doctor");
-  const isCompanyFinance = roles.includes("CompanyFinance");
-  const isCompanyAuditor = roles.includes("CompanyAuditor");
 
   if (isPatient && href === "/consultas") return "Minhas consultas";
   if (isPatient && href === "/patients") return "Meu cadastro";
   if (isDoctor && href === "/consultas") return "Agenda";
   if (isDoctor && href === "/patients") return "Pacientes vinculados";
   if (isDoctor && href === "/doctors") return "Meu perfil";
-  if (isCompanyFinance && href === "/dashboard") return "Financeiro";
-  if (isCompanyAuditor && href === "/dashboard") return "Visao geral";
+  if (roles.includes("MedicalDirector") && href === "/acessos") return "Equipe MedSync";
   return label;
 }
 
@@ -295,12 +192,9 @@ function workspaceLabel(roles: ClinicRole[]) {
   const isPatient = roles.includes("Patient") && !roles.some((role) => role !== "Patient");
   const isDoctor = roles.includes("Doctor") && !roles.some((role) => role !== "Doctor");
   if (isPatient) return "Portal do paciente";
-  if (isDoctor) return "Portal medico";
-  if (roles.some((role) => ["CompanyAdmin", "CompanyFinance", "CompanyAuditor"].includes(role))) {
-    return "Portal da empresa";
-  }
-  if (roles.includes("DataProtectionOfficer")) return "Privacidade MedSync";
-  if (roles.some((role) => ["PlatformAdmin", "PlatformFinance", "PlatformAuditor", "Support"].includes(role))) {
+  if (isDoctor) return "Portal médico";
+  if (roles.includes("ClinicAdmin")) return "Portal da clínica";
+  if (roles.some((role) => ["MedicalDirector", "Support", "DataProtectionOfficer"].includes(role))) {
     return "Central MedSync";
   }
   return "Ambiente MedSync";

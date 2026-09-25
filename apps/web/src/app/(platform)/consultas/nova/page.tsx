@@ -10,7 +10,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
-const operationalRoles = ["Receptionist", "ClinicAdmin", "MedicalDirector", "Support", "OccupationalHealthAdmin"];
+const operationalRoles = ["ClinicAdmin"];
 
 export default function NewAppointmentPage() {
   const router = useRouter();
