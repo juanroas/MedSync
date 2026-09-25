@@ -27,9 +27,9 @@ export default function GlobalError({
           <AlertTriangle size={26} />
         </span>
         <p className="text-xs font-bold uppercase tracking-[0.08em] text-red-600">Algo deu errado</p>
-        <h1 className="mt-3 text-2xl font-bold text-ink">Nao foi possivel carregar esta tela.</h1>
+        <h1 className="mt-3 text-2xl font-bold text-ink">Não foi possível carregar esta tela.</h1>
         <p className="mt-3 text-sm leading-6 text-slate-500">
-          O erro ja foi registrado. Tente novamente ou volte mais tarde. Se o problema continuar,
+          O erro já foi registrado. Tente novamente ou volte mais tarde. Se o problema continuar,
           avise o suporte MedSync.
         </p>
         <button type="button" className={`${buttonClass} mt-8 inline-flex`} onClick={() => reset()}>

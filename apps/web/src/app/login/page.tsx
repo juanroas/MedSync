@@ -18,7 +18,7 @@ const demoAccounts = [
   { label: "Financeiro MedSync", email: "plataforma.financeiro@medsync.dev" },
   { label: "Empresa admin", email: "empresa.admin@medsync.dev" },
   { label: "Paciente", email: "paciente@medsync.dev" },
-  { label: "Medico", email: "medico@medsync.dev" },
+  { label: "Médico", email: "medico@medsync.dev" },
 ];
 
 // Atalho de demonstracao (seleciona o e-mail e mostra os perfis seed). So deve aparecer em
@@ -48,7 +48,7 @@ export default function LoginPage() {
       saveSession(result);
       router.push(result.user.mustChangePassword ? "/alterar-senha" : "/dashboard");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "E-mail ou senha invalidos.");
+      setError(err instanceof Error ? err.message : "E-mail ou senha inválidos.");
     } finally {
       setLoading(false);
     }
@@ -63,7 +63,7 @@ export default function LoginPage() {
       saveSession(session);
       router.push(session.user.mustChangePassword ? "/alterar-senha" : "/dashboard");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Codigo invalido ou expirado.");
+      setError(err instanceof Error ? err.message : "Código inválido ou expirado.");
     } finally {
       setLoading(false);
     }
@@ -77,14 +77,14 @@ export default function LoginPage() {
           <span className="mt-6 grid size-12 place-items-center rounded-xl bg-teal-50 text-teal-700 ring-1 ring-teal-100">
             <ShieldCheck size={22} />
           </span>
-          <h1 className="mt-6 text-h2 font-bold text-ink">Verificacao em duas etapas</h1>
+          <h1 className="mt-6 text-h2 font-bold text-ink">Verificação em duas etapas</h1>
           <p className="mt-2 text-caption text-slate-500">
-            Digite o codigo de 6 digitos do seu aplicativo autenticador.
+            Digite o código de 6 dígitos do seu aplicativo autenticador.
           </p>
           <form className="mt-6 space-y-5" onSubmit={handleMfaSubmit}>
             {error && <ErrorBanner message={error} />}
             <label className="block">
-              <span className="mb-2 block text-label font-semibold text-slate-700">Codigo</span>
+              <span className="mb-2 block text-label font-semibold text-slate-700">Código</span>
               <input
                 className={`${inputClass} text-center text-lg tracking-[0.4em]`}
                 inputMode="numeric"
@@ -125,9 +125,9 @@ export default function LoginPage() {
 
         <div className="mt-7 rounded-2xl border border-slate-200 bg-white p-8 shadow-card">
           <p className="text-xs font-bold uppercase tracking-[0.08em] text-teal-700">Acesso MedSync</p>
-          <h1 className="mt-2 text-h1 font-bold uppercase tracking-tight text-ink">Bem-vindo de volta</h1>
+          <h1 className="mt-2 text-h1 font-bold uppercase tracking-tight text-ink">Acesse sua conta</h1>
           <p className="mt-2 text-caption text-slate-500">
-            Pacientes, medicos, empresas e operacao entram pelo mesmo acesso, mas cada perfil enxerga apenas o escopo permitido.
+            Pacientes, médicos e clínicas entram pelo mesmo acesso, e cada perfil vê apenas o que lhe cabe.
           </p>
 
           <button
@@ -195,7 +195,7 @@ export default function LoginPage() {
                 </button>
               </span>
               <span className="mt-2 block text-caption font-medium text-slate-400">
-                Esqueceu a senha? Peca uma redefinicao ao administrador da sua clinica.
+                Esqueceu a senha? Peça uma nova ao administrador da sua clínica ou ao suporte MedSync.
               </span>
             </label>
             <button className={`${buttonClass} w-full`} disabled={loading}>
@@ -204,18 +204,18 @@ export default function LoginPage() {
           </form>
 
           <p className="mt-6 text-center text-caption text-slate-500">
-            Nova clinica?{" "}
+            Ainda não tem conta?{" "}
             <Link href="/cadastro" className="font-semibold text-teal-700 hover:underline">
               Criar conta
             </Link>
-            . Voce ja entra e configura enquanto validamos o CNPJ.
+            . Você já entra e configura tudo enquanto conferimos o cadastro.
           </p>
 
           {demoAccountsEnabled && (
             <div className="mt-7 rounded-lg border border-teal-100 bg-teal-50/70 p-4 text-caption text-slate-600">
-              <strong className="text-teal-900">Acesso de demonstracao:</strong>
+              <strong className="text-teal-900">Acesso de demonstração:</strong>
               <br />
-              selecione um perfil acima e use a senha de demonstracao fornecida pela equipe MedSync.
+              selecione um perfil acima e use a senha de demonstração fornecida pela equipe MedSync.
             </div>
           )}
         </div>

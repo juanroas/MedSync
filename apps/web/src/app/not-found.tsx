@@ -14,12 +14,12 @@ export default function NotFound() {
           <Compass size={26} />
         </span>
         <p className="text-xs font-bold uppercase tracking-[0.08em] text-teal-700">Erro 404</p>
-        <h1 className="mt-3 text-2xl font-bold text-ink">Esta pagina nao existe ou foi movida.</h1>
+        <h1 className="mt-3 text-2xl font-bold text-ink">Esta página não existe ou foi movida.</h1>
         <p className="mt-3 text-sm leading-6 text-slate-500">
-          Verifique o endereco ou volte para um ponto conhecido da plataforma.
+          Verifique o endereço ou volte para um ponto conhecido da plataforma.
         </p>
         <Link href="/" className={`${buttonClass} mt-8 inline-flex`}>
-          <ArrowLeft size={16} /> Voltar ao inicio
+          <ArrowLeft size={16} /> Voltar ao início
         </Link>
       </div>
     </main>

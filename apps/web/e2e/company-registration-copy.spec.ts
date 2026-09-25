@@ -5,10 +5,10 @@ test.describe("cadastro de clinica", () => {
     await page.goto("/cadastro");
 
     await expect(page.getByRole("heading", { name: /cadastrar cl[íi]nica/i })).toBeVisible();
-    await expect(page.getByLabel(/razao social/i)).toBeVisible();
+    await expect(page.getByLabel(/raz[ãa]o social/i)).toBeVisible();
     await expect(page.getByLabel(/cnpj/i)).toBeVisible();
     await expect(page.getByLabel(/plano contratado/i)).toBeVisible();
     await expect(page.getByLabel(/valor mensal/i)).toBeVisible();
-    await expect(page.getByRole("button", { name: /criar cl[íi]nica/i })).toBeVisible();
+    await expect(page.getByRole("button", { name: /criar conta/i })).toBeVisible();
   });
 });

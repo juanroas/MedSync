@@ -14,7 +14,7 @@ export default function RegisterCompanyPage() {
     clinicName: "",
     tradeName: "",
     taxId: "",
-    planName: "Plano empresarial inicial",
+    planName: "Plano inicial",
     monthlyFee: "499.90",
     monthlyConsultationLimit: "100",
     name: "",
@@ -47,28 +47,30 @@ export default function RegisterCompanyPage() {
   return (
     <main className="min-h-[100dvh] bg-mist px-6 py-8">
       <div className="mx-auto max-w-2xl">
-        <Logo />
-        <Link
-          href="/login"
-          className="mt-8 inline-flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-label font-semibold text-slate-600 transition hover:border-teal-200 hover:bg-teal-50 hover:text-teal-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-700"
-        >
-          <ArrowLeft size={16} /> Voltar ao login
-        </Link>
+        <div className="flex items-center justify-between gap-4">
+          <Logo />
+          <Link
+            href="/login"
+            className="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-label font-semibold text-slate-600 transition hover:border-teal-200 hover:bg-teal-50 hover:text-teal-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-700"
+          >
+            <ArrowLeft size={16} /> Voltar ao login
+          </Link>
+        </div>
         <form onSubmit={submit} className="mt-6 rounded-2xl border border-slate-200 bg-white p-8 shadow-card">
           <span className="grid size-12 place-items-center rounded-2xl bg-teal-50 text-teal-600">
             <Building2 size={22} />
           </span>
-          <h1 className="mt-6 text-h1 font-bold text-ink">Cadastrar clínica</h1>
+          <h1 className="mt-6 text-h1 font-bold uppercase tracking-tight text-ink">Cadastrar clínica ou consultório</h1>
           <p className="mt-2 text-caption text-slate-500">
-            Esta conta será criada como administradora de uma clínica no MedSync. Você já entra e pode configurar
-            equipe, plano e agenda na hora — nossa equipe valida o CNPJ em paralelo para liberar atendimentos
-            reais. Se você representa uma empresa parceira que já tem clínica contratante, peça ao suporte
-            MedSync para incluir seu CNPJ como beneficiário — não é necessário criar uma nova clínica.
+            Esta conta será a administradora do seu consultório ou da sua clínica no MedSync. Você já entra e pode
+            configurar a equipe, o plano e a agenda na hora — nossa equipe confere o CNPJ em paralelo para liberar os
+            atendimentos. Se você é médico e já atende por uma clínica que usa o MedSync, não precisa criar outra conta:
+            peça ao administrador da clínica para incluir você na equipe.
           </p>
           <div className="mt-8 space-y-5">
             {error && <ErrorBanner message={error} />}
             <Field
-              label="Razao social"
+              label="Razão social"
               value={form.clinicName}
               maxLength={180}
               onChange={(clinicName) => setForm({ ...form, clinicName })}
@@ -87,10 +89,10 @@ export default function RegisterCompanyPage() {
               placeholder="00.000.000/0000-00"
             />
             <div className="border-t border-slate-100 pt-5">
-              <p className="text-label font-semibold text-ink">Plano interno da clinica no MedSync</p>
+              <p className="text-label font-semibold text-ink">Plano no MedSync</p>
               <p className="mt-1 text-caption text-slate-400">
-                Configura o limite e o valor de uso da clinica dentro da plataforma. Pode ser ajustado depois
-                com a equipe MedSync — nao e uma cobrança que acontece automaticamente no cadastro.
+                Define o limite e o valor de uso dentro da plataforma. Pode ser ajustado depois com a equipe MedSync —
+                não é uma cobrança feita automaticamente no cadastro.
               </p>
             </div>
             <div className="grid gap-5 md:grid-cols-2">
@@ -148,7 +150,7 @@ export default function RegisterCompanyPage() {
               Use ao menos 12 caracteres, com maiúscula, minúscula, número e símbolo.
             </p>
             <button className={`${buttonClass} w-full`} disabled={loading}>
-              {loading ? "Criando..." : "Criar clínica"}
+              {loading ? "Criando..." : "Criar conta"}
             </button>
           </div>
         </form>

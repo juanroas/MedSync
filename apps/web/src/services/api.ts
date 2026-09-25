@@ -58,6 +58,14 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     cache: "no-store",
   });
 
+  const credentialMessages: Record<string, string> = {
+    "/auth/login": "E-mail ou senha inválidos.",
+    "/auth/login/mfa": "Código inválido ou expirado.",
+  };
+  if (response.status === 401 && credentialMessages[path]) {
+    throw new ApiError(credentialMessages[path], response.status);
+  }
+
   if (response.status === 401 && typeof window !== "undefined") {
     clearSession();
     if (window.location.pathname !== "/login") window.location.href = "/login";

@@ -1700,13 +1700,13 @@ public static class ApiEndpoints
         if (string.IsNullOrWhiteSpace(request.ClinicName) ||
             string.IsNullOrWhiteSpace(request.Name) ||
             string.IsNullOrWhiteSpace(request.Email))
-            return Validation("registration", "Empresa, nome e e-mail são obrigatórios.");
+            return Validation("registration", "Razão social, nome e e-mail são obrigatórios.");
         if (PasswordPolicy.Validate(request.Password) is { } passwordError)
             return Validation("password", passwordError);
 
         var taxId = DigitsOnly(request.TaxId ?? string.Empty);
         if (!IsValidCnpj(taxId))
-            return Validation("taxId", "Informe um CNPJ valido para a empresa contratante.");
+            return Validation("taxId", "Informe um CNPJ válido.");
         var monthlyFee = request.MonthlyFee ?? 0m;
         if (monthlyFee <= 0)
             return Validation("monthlyFee", "Informe um valor mensal maior que zero.");
@@ -1714,7 +1714,7 @@ public static class ApiEndpoints
         if (monthlyConsultationLimit <= 0)
             return Validation("monthlyConsultationLimit", "Informe um limite mensal de consultas maior que zero.");
         var planName = string.IsNullOrWhiteSpace(request.PlanName)
-            ? "Plano empresarial inicial"
+            ? "Plano inicial"
             : request.PlanName.Trim();
         if (planName.Length < 3)
             return Validation("planName", "Informe o nome do plano contratado.");
@@ -1754,7 +1754,7 @@ public static class ApiEndpoints
         {
             Clinic = clinic,
             Name = planName,
-            Description = "Plano criado no autocadastro de clinica.",
+            Description = "Plano criado no autocadastro.",
             MonthlyFee = monthlyFee,
             MonthlyConsultationLimit = monthlyConsultationLimit
         };

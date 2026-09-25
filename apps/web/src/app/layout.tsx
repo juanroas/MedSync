@@ -7,7 +7,7 @@ export const metadata: Metadata = {
     template: "%s | MedSync",
   },
   description:
-    "Plataforma de telemedicina para conectar médicos e pacientes com segurança.",
+    "Agenda, sala de vídeo e prontuário para médicos e clínicas atenderem pacientes com segurança.",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

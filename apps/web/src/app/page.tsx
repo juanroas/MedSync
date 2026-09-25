@@ -1,36 +1,39 @@
 import { PublicFooter, PublicHeader } from "@/components/public-header";
+import { RotatingText } from "@/components/rotating-text";
 import { ArrowRight, Building2, CalendarCheck2, HeartPulse, ShieldCheck, Stethoscope, UserPlus } from "lucide-react";
 import Link from "next/link";
 
+const headlineSubjects = ["Sua clínica", "Seu consultório"];
+
 const steps = [
-  { icon: UserPlus, title: "1. Crie a conta", body: "A clinica se cadastra em minutos e ja entra no painel." },
-  { icon: Stethoscope, title: "2. Monte a equipe", body: "Cadastre medicos e os horarios que cada um atende." },
-  { icon: CalendarCheck2, title: "3. Atenda por video", body: "Pacientes solicitam por especialidade e entram na sala segura." },
-  { icon: ShieldCheck, title: "4. Mantenha a privacidade", body: "Cada perfil ve so o seu escopo, com trilha de auditoria." },
+  { icon: UserPlus, title: "1. Crie a conta", body: "Cadastre seu consultório ou sua clínica em poucos minutos e já entre no painel." },
+  { icon: CalendarCheck2, title: "2. Monte a agenda", body: "Defina os dias e horários em que cada médico atende." },
+  { icon: Stethoscope, title: "3. Atenda por vídeo", body: "O paciente solicita a consulta e entra na sala pelo navegador, sem instalar nada." },
+  { icon: ShieldCheck, title: "4. Proteja os dados", body: "Cada perfil vê só o que precisa, e todo acesso ao prontuário fica registrado." },
 ];
 
 const pillars = [
-  { icon: HeartPulse, title: "Paciente", body: "Solicita consulta, acompanha o status e entra na sala sem instalar nada." },
-  { icon: Stethoscope, title: "Medico", body: "Ve a propria agenda, define disponibilidade e registra o prontuario." },
-  { icon: Building2, title: "Empresa parceira", body: "Acompanha contrato e uso agregado, sem acesso a dado clinico individual." },
+  { icon: HeartPulse, title: "Paciente", body: "Solicita a consulta, acompanha o status e entra na sala sem instalar nada." },
+  { icon: Stethoscope, title: "Médico", body: "Vê a própria agenda, define os horários de atendimento e registra o prontuário." },
+  { icon: Building2, title: "Clínica", body: "Organiza a equipe, a agenda e o cadastro de pacientes, sem acesso ao conteúdo clínico." },
 ];
 
 const faqs = [
   {
-    q: "Preciso esperar aprovacao para usar?",
-    a: "Nao. Voce entra assim que cria a conta e ja pode configurar equipe e agenda. A equipe MedSync valida o CNPJ em paralelo para liberar atendimentos reais.",
+    q: "Serve para consultório ou só para clínica?",
+    a: "Para os dois. O médico pode usar no próprio consultório, e a clínica pode reunir vários profissionais, cada um com a sua agenda.",
   },
   {
-    q: "A empresa que patrocina o beneficio ve os dados dos pacientes?",
-    a: "Nao. Empresas parceiras veem apenas elegibilidade, contrato, faturas e indicadores agregados. Dados clinicos ficam restritos a medico e paciente.",
+    q: "Preciso esperar aprovação para usar?",
+    a: "Não. Você entra assim que cria a conta e já pode configurar a agenda e a equipe. A equipe MedSync confere o cadastro em paralelo para liberar os atendimentos.",
   },
   {
     q: "O paciente precisa instalar algum aplicativo?",
-    a: "Nao. A consulta acontece pelo navegador, com sala criada no momento do atendimento e acesso temporario para cada participante.",
+    a: "Não. A consulta acontece pelo navegador, com a sala criada no momento do atendimento e acesso temporário para cada participante.",
   },
   {
-    q: "Como peco ajuda depois de entrar?",
-    a: "Pelo menu Ajuda, dentro da plataforma. A solicitacao entra na fila do suporte MedSync e a resposta aparece na mesma tela.",
+    q: "Como peço ajuda depois de entrar?",
+    a: "Pelo menu Ajuda, dentro da plataforma. A solicitação vai para a fila do suporte MedSync e a resposta aparece na mesma tela.",
   },
 ];
 
@@ -48,20 +51,25 @@ export default function HomePage() {
       >
         <div className="mx-auto flex min-h-[78svh] max-w-4xl flex-col items-center justify-center px-5 py-20 text-center sm:px-8">
           <span className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3.5 py-1.5 text-micro font-semibold text-teal-50">
-            <ShieldCheck size={14} /> Telemedicina para clinicas
+            <ShieldCheck size={14} /> Telemedicina para médicos e clínicas
           </span>
           <h1 className="mt-6 text-headline font-bold uppercase tracking-tight md:text-display">
-            Sua clinica atendendo por video, sem complicacao.
+            <span className="sr-only">Sua clínica ou seu consultório atendendo por vídeo, sem complicação.</span>
+            <span aria-hidden="true">
+              <RotatingText words={headlineSubjects} />
+              <span className="sm:block">atendendo por vídeo,</span>{" "}
+              <span className="sm:block">sem complicação.</span>
+            </span>
           </h1>
           <p className="mx-auto mt-5 max-w-2xl text-base leading-7 text-white/80">
-            Agenda, sala de video e prontuario em um so lugar. Empresas parceiras podem patrocinar o beneficio
-            para seus times sem acessar dado clinico individual.
+            Agenda, sala de vídeo e prontuário em um só lugar, para o médico que atende no próprio consultório e para a
+            clínica com vários profissionais.
           </p>
           <Link
             href="/login"
             className="mt-9 inline-flex h-12 items-center justify-center gap-2 rounded-lg bg-teal-500 px-7 text-label font-semibold text-white shadow-card transition hover:bg-teal-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
           >
-            Comecar agora <ArrowRight size={17} />
+            Começar agora <ArrowRight size={17} />
           </Link>
         </div>
       </section>
@@ -83,9 +91,9 @@ export default function HomePage() {
 
       <section className="border-y border-slate-200 bg-white py-16 sm:py-20">
         <div className="mx-auto max-w-6xl px-5 sm:px-8">
-          <h2 className="text-center text-h2 font-bold uppercase tracking-tight">Um acesso, tres experiencias</h2>
+          <h2 className="text-center text-h2 font-bold uppercase tracking-tight">Um acesso, três experiências</h2>
           <p className="mx-auto mt-3 max-w-2xl text-center text-caption text-slate-500">
-            Todo mundo entra pelo mesmo login, mas cada perfil enxerga apenas o que precisa.
+            Todo mundo entra pelo mesmo login, mas cada perfil vê apenas o que precisa.
           </p>
           <div className="mt-10 grid gap-4 md:grid-cols-3">
             {pillars.map(({ icon: Icon, title, body }) => (

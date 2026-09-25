@@ -3,7 +3,7 @@ import Link from "next/link";
 
 // Sign-up is intentionally reached only via /login (see .agents/rules/ui-actions-and-flow.md).
 export function PublicHeader({ current }: { current: "home" | "sobre" }) {
-  const secondary = current === "home" ? { href: "/sobre", label: "Sobre" } : { href: "/", label: "Inicio" };
+  const secondary = current === "home" ? { href: "/sobre", label: "Sobre" } : { href: "/", label: "Início" };
 
   return (
     <header className="relative z-10 border-b border-slate-200/70 bg-white/95 backdrop-blur">
@@ -37,7 +37,7 @@ export function PublicFooter({ current }: { current: "home" | "sobre" }) {
           {current === "home" ? (
             <Link href="/sobre" className="hover:text-teal-700">Sobre</Link>
           ) : (
-            <Link href="/" className="hover:text-teal-700">Inicio</Link>
+            <Link href="/" className="hover:text-teal-700">Início</Link>
           )}
           <Link href="/login" className="hover:text-teal-700">Entrar</Link>
         </div>
