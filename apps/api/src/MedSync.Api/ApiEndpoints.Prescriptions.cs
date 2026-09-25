@@ -269,6 +269,7 @@ public static partial class ApiEndpoints
             appointment.Clinic.Name,
             appointment.Patient.Name,
             appointment.Patient.Cpf,
+            IsAssignedDoctor(actor, appointment) ? appointment.Patient.Phone : null,
             appointment.ScheduledAt,
             MissingForSignature(prescription, appointment.Doctor),
             IsSignatureConfigured()));

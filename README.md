@@ -136,12 +136,18 @@ recebem uma senha temporária, que deve ser trocada no primeiro acesso.
 | `PORT` | Porta HTTP. O padrão é `8080`. |
 | `DATABASE_URL` | URL PostgreSQL no formato `postgresql://user:pass@host:port/db`. |
 | `ConnectionStrings__DefaultConnection` | Alternativa à `DATABASE_URL`. |
-| `REDIS_URL` | URL do Redis. Sem ela, a API usa cache em memória. |
+| `REDIS_URL` | URL do Redis. Sem ela, a API usa cache em memória. No Windows local, use `127.0.0.1` em vez de `localhost` (o cliente tenta IPv6 e o Docker Desktop não responde). |
 | `JWT_SECRET` | Segredo de assinatura do JWT, com no mínimo 32 caracteres. |
 | `JWT_ISSUER` | Emissor do JWT. Padrão: `MedSync`. |
 | `JWT_AUDIENCE` | Audiência do JWT. Padrão: `MedSync.Web`. |
 | `SEED_DEMO_PASSWORD` | Senha inicial dos dois usuários demo. Nunca é versionada. |
-| `FRONTEND_URL` | Origem aceita pelo CORS. Aceita múltiplas URLs separadas por vírgula. |
+| `FRONTEND_URL` | Origem aceita pelo CORS. Aceita múltiplas URLs separadas por vírgula. A primeira é usada nos redirecionamentos da assinatura digital. |
+| `MEDICATION_CATALOG_SYNC` | `false` desliga a importação da base de medicamentos da Anvisa (testes sem internet). |
+| `MEDICATION_CATALOG_URL` | Fonte alternativa do CSV da Anvisa. |
+| `INTEGRAICP_BASE_URL` | URL da API IntegraICP (Valid). Sem as três variáveis `INTEGRAICP_*`, assinar receita fica indisponível. |
+| `INTEGRAICP_CHANNEL_ID` | Canal (chave de API) fornecido pela Valid. Nunca é versionado. |
+| `INTEGRAICP_CALLBACK_URL` | URL pública de `/signature/callback` da API, cadastrada na Valid. |
+| `MEDSYNC_ATTACHMENT_STORAGE_PATH` | Pasta dos anexos clínicos e PDFs assinados. Padrão: `App_Data/clinical-attachments`. |
 | `LIVEKIT_URL` | URL `wss://` do projeto LiveKit. Reservada para configuração. |
 | `LIVEKIT_API_KEY` | Chave da API do LiveKit. |
 | `LIVEKIT_API_SECRET` | Segredo do LiveKit. Somente no backend. |

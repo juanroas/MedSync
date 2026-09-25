@@ -34,6 +34,45 @@ test.describe("receita do atendimento", () => {
     await expect(doc.getByText(/sem validade — rascunho/i).first()).toBeVisible();
     await expect(doc.getByText(/modalidade de telemedicina/i)).toBeVisible();
     await expect(doc.getByText(medication, { exact: false })).toBeVisible();
+    // Sem o certificado em nuvem configurado, assinar fica indisponível e o motivo aparece (regra D2).
+    test.skip(process.env.MEDSYNC_E2E_SIGNING === "1", "com o IntegraICP simulado a assinatura fica disponível");
+    await expect(doc.getByRole("button", { name: /assinar com certificado digital/i })).toBeDisabled();
+    await expect(doc.getByText(/assinatura digital ICP-Brasil \(VIDaaS\) ainda não está ativa/i)).toBeVisible();
+  });
+
+  test("assinatura completa via certificado em nuvem (IntegraICP simulado)", async ({ page }) => {
+    test.skip(process.env.MEDSYNC_E2E_SIGNING !== "1", "defina MEDSYNC_E2E_SIGNING=1 com o IntegraICP simulado no ar");
+    const api = await request.newContext({ baseURL: baseApiURL });
+    await loginByApi(api, users.doctor);
+    const [doctor] = (await (await api.get("/doctors")).json()) as Array<Record<string, unknown>>;
+    await api.put(`/doctors/${doctor.id}`, { data: { ...doctor, professionalAddress: "Av. Paulista, 1000 - São Paulo/SP" } });
+    const appointments = (await (await api.get("/appointments")).json()) as Array<{ id: string }>;
+    const created = await api.post(`/appointments/${appointments[0].id}/prescriptions`, {
+      data: {
+        kind: "Simple",
+        patientLocation: "São Paulo/SP",
+        items: [{ medicationName: "LOSARTANA POTÁSSICA", dosage: "50 mg", instructions: "1 comprimido ao dia", continuousUse: true }],
+      },
+    });
+    const prescription = (await created.json()) as { id: string };
+    await api.dispose();
+
+    await loginByUi(page, users.doctor);
+    await page.goto(`/receita/${prescription.id}`);
+    await page.getByRole("button", { name: /assinar com certificado digital/i }).click();
+    await expect(page).toHaveURL(new RegExp(`/receita/${prescription.id}\\?assinatura=ok`));
+    await expect(page.getByText(/receita assinada com certificado ICP-Brasil/i)).toBeVisible();
+    await expect(page.getByRole("link", { name: /baixar pdf assinado/i })).toBeVisible();
+    await expect(page.getByRole("link", { name: /enviar pelo whatsapp/i })).toHaveAttribute("href", /^https:\/\/wa\.me\//);
+
+    await page.context().clearCookies();
+    await loginByUi(page, users.patient);
+    await page.goto(`/receita/${prescription.id}`);
+    await expect(page.getByRole("link", { name: /baixar pdf assinado/i })).toBeVisible();
+    await expect(page.getByRole("link", { name: /enviar pelo whatsapp/i })).toHaveCount(0);
+    const pdf = await page.request.get(`/api/prescriptions/${prescription.id}/pdf`);
+    expect(pdf.status()).toBe(200);
+    expect(pdf.headers()["content-type"]).toContain("application/pdf");
   });
 
   test("ADM da clinica e suporte nao veem receitas", async () => {

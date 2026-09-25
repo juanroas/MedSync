@@ -357,6 +357,7 @@ export type PrescriptionDocument = {
   clinicName: string;
   patientName: string;
   patientCpf: string;
+  patientPhone?: string | null;
   appointmentAt: string;
   missingForSignature: string[];
   signatureAvailable: boolean;

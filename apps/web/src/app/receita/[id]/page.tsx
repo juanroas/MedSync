@@ -1,20 +1,24 @@
 "use client";
 
-import { AlertBanner, Button, ErrorBanner, LoadingState } from "@/components/ui";
+import { AlertBanner, Button, ErrorBanner, LoadingState, secondaryButtonClass } from "@/components/ui";
 import { formatDateTime } from "@/lib/format";
 import type { PrescriptionDocument } from "@/lib/types";
-import { api } from "@/services/api";
-import { ArrowLeft, Printer } from "lucide-react";
+import { api, getSession } from "@/services/api";
+import { ArrowLeft, Download, MessageCircle, PenLine, Printer } from "lucide-react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
 // Documento da receita para conferir e imprimir (CFM 2.314 art. 13; .agents/rules/medical-documents.md).
 // Sem assinatura ICP-Brasil ele sai com a marca "sem validade" (regra D4).
 export default function PrescriptionDocumentPage() {
   const params = useParams<{ id: string }>();
+  const signatureResult = useSearchParams().get("assinatura");
+  const isDoctor = getSession()?.user.roles.includes("Doctor") ?? false;
   const [document, setDocument] = useState<PrescriptionDocument | null>(null);
   const [error, setError] = useState("");
+  const [signError, setSignError] = useState("");
+  const [signing, setSigning] = useState(false);
 
   useEffect(() => {
     api
@@ -34,6 +38,20 @@ export default function PrescriptionDocumentPage() {
 
   const { prescription } = document;
   const signed = prescription.status === "Signed";
+  const signBlocked = document.missingForSignature.length > 0 || !document.signatureAvailable;
+
+  // Sends the doctor to the certificate app (IntegraICP); the API callback brings them back here.
+  async function sign() {
+    setSigning(true);
+    setSignError("");
+    try {
+      const { authorizationUrl } = await api.signPrescription(prescription.id);
+      window.location.href = authorizationUrl;
+    } catch (err) {
+      setSignError(err instanceof Error ? err.message : "Não foi possível iniciar a assinatura.");
+      setSigning(false);
+    }
+  }
   const copies = prescription.kind === "Antimicrobial" ? ["1ª via — farmácia", "2ª via — paciente"] : [null];
 
   return (
@@ -46,19 +64,63 @@ export default function PrescriptionDocumentPage() {
           >
             <ArrowLeft size={16} /> Voltar ao prontuário
           </Link>
-          <Button type="button" onClick={() => window.print()}>
-            <Printer size={17} /> Imprimir
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            {signed ? (
+              <>
+                {isDoctor && (
+                  <a
+                    href={whatsAppLink(document)}
+                    target="_blank"
+                    rel="noreferrer"
+                    className={secondaryButtonClass}
+                  >
+                    <MessageCircle size={17} /> Enviar pelo WhatsApp
+                  </a>
+                )}
+                <a href={api.prescriptionPdfUrl(prescription.id)} className={buttonLinkClass}>
+                  <Download size={17} /> Baixar PDF assinado
+                </a>
+              </>
+            ) : (
+              <>
+                <button type="button" className={secondaryButtonClass} onClick={() => window.print()}>
+                  <Printer size={17} /> Imprimir rascunho
+                </button>
+                {isDoctor && (
+                  <Button type="button" onClick={sign} isLoading={signing} disabled={signBlocked || signing}>
+                    <PenLine size={17} /> Assinar com certificado digital
+                  </Button>
+                )}
+              </>
+            )}
+          </div>
         </div>
+        {signatureResult === "ok" && (
+          <AlertBanner tone="success" message="Receita assinada com certificado ICP-Brasil. O paciente já pode baixar o PDF." />
+        )}
+        {signatureResult && signatureResult !== "ok" && !signed && (
+          <AlertBanner
+            tone="error"
+            message={
+              signatureResult === "falhou"
+                ? "O provedor do certificado recusou a assinatura. Tente de novo; se persistir, fale com o suporte."
+                : "A autorização expirou ou não é válida. Clique em assinar de novo."
+            }
+          />
+        )}
+        {signError && <AlertBanner tone="error" message={signError} />}
         {!signed && (
           <AlertBanner
             tone="warning"
-            title="Rascunho sem validade"
-            message={
-              document.missingForSignature.length > 0
-                ? `Para assinar: ${document.missingForSignature.join("; ")}. A assinatura digital ICP-Brasil (VIDaaS) ainda não está ativa no MedSync.`
-                : "Pronto para assinar, mas a assinatura digital ICP-Brasil (VIDaaS) ainda não está ativa no MedSync."
-            }
+            title="Rascunho — ainda sem validade"
+            message={[
+              document.missingForSignature.length > 0 && `Para assinar: ${document.missingForSignature.join("; ")}.`,
+              !document.signatureAvailable && "A assinatura digital ICP-Brasil (VIDaaS) ainda não está ativa no MedSync.",
+              document.missingForSignature.length === 0 && document.signatureAvailable &&
+                "Confira o documento e assine com o seu certificado em nuvem.",
+            ]
+              .filter(Boolean)
+              .join(" ")}
           />
         )}
       </div>
@@ -151,6 +213,19 @@ export default function PrescriptionDocumentPage() {
 function formatCrm(crm: string, uf: string) {
   const number = crm.replace(/^\s*CRM[\s/-]*(?:[A-Za-z]{2}(?=[\s/-]))?[\s/-]*/i, "").trim();
   return `CRM ${number}/${uf.toUpperCase()}`;
+}
+
+const buttonLinkClass =
+  "inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-teal-700 px-5 text-sm font-bold text-white transition hover:bg-teal-800 focus:outline-none focus:ring-4 focus:ring-teal-100";
+
+// Opens the doctor's own WhatsApp with a ready message; only a login-protected link travels (rule D5).
+function whatsAppLink(document: PrescriptionDocument) {
+  const digits = (document.patientPhone ?? "").replace(/\D/g, "");
+  const phone = digits.length === 10 || digits.length === 11 ? `55${digits}` : "";
+  const firstName = document.patientName.split(" ")[0];
+  const link = `${window.location.origin}/receita/${document.prescription.id}`;
+  const text = `Olá, ${firstName}. Sua receita da consulta com ${document.doctorName} está no MedSync: ${link}`;
+  return `https://wa.me/${phone}?text=${encodeURIComponent(text)}`;
 }
 
 function formatCpf(value: string) {

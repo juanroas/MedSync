@@ -346,7 +346,9 @@ export const api = {
     request<Prescription>(`/prescriptions/${id}`, { method: "PUT", body: JSON.stringify(input) }),
   deletePrescription: (id: string) => request<void>(`/prescriptions/${id}`, { method: "DELETE" }),
   getPrescriptionDocument: (id: string) => request<PrescriptionDocument>(`/prescriptions/${id}`),
-  signPrescription: (id: string) => request<void>(`/prescriptions/${id}/sign`, { method: "POST" }),
+  signPrescription: (id: string) =>
+    request<{ authorizationUrl: string }>(`/prescriptions/${id}/sign`, { method: "POST" }),
+  prescriptionPdfUrl: (id: string) => `${API_URL}/prescriptions/${id}/pdf`,
   getPatientMedications: (patientId: string) =>
     request<PatientMedications>(`/patients/${patientId}/medications`),
   createAppointment: (appointment: {

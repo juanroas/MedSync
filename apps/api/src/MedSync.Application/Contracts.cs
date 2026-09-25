@@ -416,6 +416,7 @@ public sealed record PrescriptionDocumentResponse(
     string ClinicName,
     string PatientName,
     string PatientCpf,
+    string? PatientPhone,
     DateTime AppointmentAt,
     IReadOnlyList<string> MissingForSignature,
     bool SignatureAvailable);
