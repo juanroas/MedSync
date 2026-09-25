@@ -440,3 +440,9 @@ public sealed record MedicationInUseResponse(
 public sealed record PatientMedicationsResponse(
     IReadOnlyList<MedicationInUseResponse> Items,
     string? LegacyNote);
+
+public sealed record AvailableDaysResponse(
+    bool Restricted,
+    DateOnly From,
+    DateOnly To,
+    IReadOnlyList<DateOnly> Days);

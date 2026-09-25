@@ -1,5 +1,6 @@
 import type {
   Appointment,
+  AvailableDays,
   MedicationSearchItem,
   PatientMedications,
   Prescription,
@@ -275,6 +276,7 @@ export const api = {
     }),
   deleteMyAvailabilitySlot: (id: string) =>
     request<void>(`/doctors/me/availability/${id}`, { method: "DELETE" }),
+  getAvailableDays: (doctorId: string) => request<AvailableDays>(`/doctors/${doctorId}/available-days`),
   getAvailableTimes: (doctorId: string, date: string) =>
     request<AvailableTime[]>(`/doctors/${doctorId}/available-times?date=${date}`),
   getCareSpecialties: () => request<CareSpecialty[]>("/care/specialties"),

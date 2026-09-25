@@ -386,3 +386,10 @@ export type SigningSession = {
   simulated: boolean;
   provider?: string | null;
 };
+
+export type AvailableDays = {
+  restricted: boolean;
+  from: string;
+  to: string;
+  days: string[];
+};

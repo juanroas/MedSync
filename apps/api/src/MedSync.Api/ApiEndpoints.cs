@@ -55,6 +55,7 @@ public static partial class ApiEndpoints
         protectedApi.MapPost("/doctors/me/availability", CreateMyAvailabilitySlot);
         protectedApi.MapDelete("/doctors/me/availability/{id:guid}", DeleteMyAvailabilitySlot);
         protectedApi.MapGet("/doctors/{id:guid}/available-times", GetAvailableTimes);
+        protectedApi.MapGet("/doctors/{id:guid}/available-days", GetAvailableDays);
         protectedApi.MapGet("/care/specialties", GetCareSpecialties);
         protectedApi.MapPost("/appointments/request", RequestAppointment);
         protectedApi.MapPost("/appointments", CreateAppointment);
@@ -1601,9 +1602,76 @@ public static partial class ApiEndpoints
             .Select(x => new { x.ScheduledAt, x.DurationMinutes })
             .ToListAsync(cancellationToken);
 
+        var available = FreeSlots(date, windows, busy.Select(x => (x.ScheduledAt, x.DurationMinutes)).ToList(), DateTime.UtcNow);
+
+        audit.Add(actor, "DoctorAvailability.AvailableTimes", "Doctor", doctor.Id);
+        await db.SaveChangesAsync(cancellationToken);
+        return Results.Ok(available);
+    }
+
+    // Days with at least one free slot, so the patient's calendar only offers dates that can be booked.
+    // A doctor with no availability windows has an open schedule (Restricted = false), as before.
+    private static async Task<IResult> GetAvailableDays(
+        Guid id,
+        DateOnly? from,
+        int? days,
+        ClaimsPrincipal principal,
+        MedSyncDbContext db,
+        CancellationToken cancellationToken)
+    {
+        var actor = RequestContext.From(principal);
+        if (!actor.HasAny(ClinicRole.Patient) && !actor.HasAny(AccessRules.ManageAppointments))
+            return Results.Forbid();
+
+        var doctor = await db.Doctors.AsNoTracking()
+            .SingleOrDefaultAsync(x => x.Id == id && x.ClinicId == actor.ClinicId, cancellationToken);
+        if (doctor is null)
+            return Results.NotFound();
+
+        var now = DateTime.UtcNow;
+        var today = DateOnly.FromDateTime(now + BrazilUtcOffset);
+        var start = from is { } requested && requested > today ? requested : today;
+        var end = start.AddDays(Math.Clamp(days ?? 60, 1, 92) - 1);
+
+        var windows = await db.DoctorAvailabilitySlots.AsNoTracking()
+            .Where(x => x.DoctorId == doctor.Id)
+            .ToListAsync(cancellationToken);
+        if (windows.Count == 0)
+            return Results.Ok(new AvailableDaysResponse(false, start, end, []));
+
+        var rangeStartUtc = DateTime.SpecifyKind(start.ToDateTime(TimeOnly.MinValue) - BrazilUtcOffset, DateTimeKind.Utc);
+        var rangeEndUtc = DateTime.SpecifyKind(end.AddDays(1).ToDateTime(TimeOnly.MinValue) - BrazilUtcOffset, DateTimeKind.Utc);
+        var busy = (await db.Appointments.AsNoTracking()
+                .Where(x =>
+                    x.DoctorId == doctor.Id &&
+                    x.Status != AppointmentStatus.Cancelled &&
+                    x.Status != AppointmentStatus.Completed &&
+                    x.ScheduledAt < rangeEndUtc &&
+                    x.ScheduledAt.AddMinutes(x.DurationMinutes) > rangeStartUtc)
+                .Select(x => new { x.ScheduledAt, x.DurationMinutes })
+                .ToListAsync(cancellationToken))
+            .Select(x => (x.ScheduledAt, x.DurationMinutes))
+            .ToList();
+
+        var open = new List<DateOnly>();
+        for (var date = start; date <= end; date = date.AddDays(1))
+        {
+            var dayWindows = windows.Where(x => x.DayOfWeek == date.DayOfWeek).ToList();
+            if (dayWindows.Count > 0 && FreeSlots(date, dayWindows, busy, now).Count > 0)
+                open.Add(date);
+        }
+
+        return Results.Ok(new AvailableDaysResponse(true, start, end, open));
+    }
+
+    private static List<AvailableTimeResponse> FreeSlots(
+        DateOnly date,
+        IReadOnlyCollection<DoctorAvailabilitySlot> windows,
+        IReadOnlyCollection<(DateTime ScheduledAt, int DurationMinutes)> busy,
+        DateTime nowUtc)
+    {
         const int slotMinutes = 30;
         var available = new List<AvailableTimeResponse>();
-        var now = DateTime.UtcNow;
         foreach (var window in windows)
         {
             var cursor = window.StartTime;
@@ -1613,7 +1681,7 @@ public static partial class ApiEndpoints
                 var startsAtUtc = DateTime.SpecifyKind(startsAtLocal - BrazilUtcOffset, DateTimeKind.Utc);
                 var endsAtUtc = startsAtUtc.AddMinutes(slotMinutes);
 
-                var conflicts = startsAtUtc <= now || busy.Any(a =>
+                var conflicts = startsAtUtc <= nowUtc || busy.Any(a =>
                     a.ScheduledAt < endsAtUtc && a.ScheduledAt.AddMinutes(a.DurationMinutes) > startsAtUtc);
 
                 if (!conflicts)
@@ -1623,9 +1691,7 @@ public static partial class ApiEndpoints
             }
         }
 
-        audit.Add(actor, "DoctorAvailability.AvailableTimes", "Doctor", doctor.Id);
-        await db.SaveChangesAsync(cancellationToken);
-        return Results.Ok(available.OrderBy(x => x.StartsAt));
+        return available.OrderBy(x => x.StartsAt).ToList();
     }
 
     private static async Task<IResult> GetCareSpecialties(

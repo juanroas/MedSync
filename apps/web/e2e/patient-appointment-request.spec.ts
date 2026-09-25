@@ -19,9 +19,9 @@ test.describe("solicitacao de consulta por paciente", () => {
     await page.getByRole("link", { name: "Solicitar consulta", exact: true }).click();
 
     await expect(page.getByRole("heading", { name: /solicitar consulta/i })).toBeVisible();
-    await expect(page.getByLabel(/especialidade ou area/i)).toContainText(/clinica geral/i);
-    await page.getByLabel(/data e horario/i).fill(futureLocalDateTime());
-    await page.getByLabel(/observacao para o atendimento/i).fill("Solicitacao de homologacao por especialidade.");
+    await expect(page.getByLabel(/especialidade ou [aá]rea/i)).toContainText(/clinica geral/i);
+    await page.getByLabel(/data e hor[aá]rio/i).fill(futureLocalDateTime());
+    await page.getByLabel(/observa[cç][aã]o para o atendimento/i).fill("Solicitacao de homologacao por especialidade.");
     await page.getByRole("button", { name: /solicitar consulta/i }).click();
 
     await expect(page).toHaveURL(/\/consultas$/);

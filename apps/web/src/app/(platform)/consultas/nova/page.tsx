@@ -1,12 +1,13 @@
 "use client";
 
 import { ErrorBanner, LoadingState, PageHeader, buttonClass, inputClass } from "@/components/ui";
-import { formatBrazilDateInput, formatBrazilDateTimeInput } from "@/lib/format";
-import type { AvailableTime, CareSpecialty, Doctor, Patient } from "@/lib/types";
+import { formatBrazilDateTimeInput } from "@/lib/format";
+import type { AvailableDays, AvailableTime, CareSpecialty, Doctor, Patient } from "@/lib/types";
 import { brazilLocalDateTimeToUtcIso, isFutureBrazilLocalDateTime } from "@/lib/validation";
 import { api, getSession } from "@/services/api";
 import { ArrowLeft, CalendarPlus, CheckCircle2, Clock, Paperclip, X } from "lucide-react";
 import Link from "next/link";
+import { AvailabilityCalendar } from "@/components/availability-calendar";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
@@ -77,7 +78,7 @@ export default function NewAppointmentPage() {
     setError("");
 
     if (isPatient && (!form.specialty || !form.doctorId)) {
-      setError("Selecione uma especialidade e um medico disponivel.");
+      setError("Selecione uma especialidade e um médico disponível.");
       setSaving(false);
       return;
     }
@@ -87,7 +88,7 @@ export default function NewAppointmentPage() {
       return;
     }
     if (!isFutureBrazilLocalDateTime(form.scheduledAt)) {
-      setError("Escolha uma data e horario futuros no horario de Brasilia.");
+      setError("Escolha uma data e um horário futuros (horário de Brasília).");
       setSaving(false);
       return;
     }
@@ -140,7 +141,7 @@ export default function NewAppointmentPage() {
         title={isPatient ? "Solicitar consulta" : "Agendar consulta"}
         description={
           isPatient
-            ? "Escolha a area de cuidado e um horario. O MedSync vincula uma opcao disponivel para o atendimento."
+            ? "Escolha a especialidade, o médico e um horário livre."
             : "Escolha o medico, o paciente e o melhor horario. A sala sera preparada no momento do acesso."
         }
       />
@@ -224,7 +225,35 @@ function PatientRequestForm({
   const otherDoctorsInSpecialty = availableDoctors.filter((doctor) => doctor.id !== form.doctorId);
   const otherSpecialties = specialties.filter((item) => item.specialty !== form.specialty);
 
-  const [slotDate, setSlotDate] = useState(formatBrazilDateInput());
+  const [slotDate, setSlotDate] = useState("");
+  const [availableDays, setAvailableDays] = useState<AvailableDays | null>(null);
+  const [daysLoading, setDaysLoading] = useState(false);
+
+  // Only dates with a free slot can be picked; the first one is preselected.
+  useEffect(() => {
+    if (!doctorHasAvailability || !form.doctorId) {
+      setAvailableDays(null);
+      return;
+    }
+    let active = true;
+    setDaysLoading(true);
+    api
+      .getAvailableDays(form.doctorId)
+      .then((result) => {
+        if (!active) return;
+        setAvailableDays(result);
+        setSlotDate(result.days[0] ?? "");
+      })
+      .catch(() => {
+        if (active) setAvailableDays(null);
+      })
+      .finally(() => {
+        if (active) setDaysLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [doctorHasAvailability, form.doctorId]);
   const [availableTimes, setAvailableTimes] = useState<AvailableTime[]>([]);
   const [slotsLoading, setSlotsLoading] = useState(false);
   const [slotsError, setSlotsError] = useState("");
@@ -243,7 +272,7 @@ function PatientRequestForm({
         if (active) setAvailableTimes(times);
       })
       .catch((err) => {
-        if (active) setSlotsError(err instanceof Error ? err.message : "Erro ao carregar horarios disponiveis.");
+        if (active) setSlotsError(err instanceof Error ? err.message : "Erro ao carregar os horários disponíveis.");
       })
       .finally(() => {
         if (active) setSlotsLoading(false);
@@ -256,7 +285,7 @@ function PatientRequestForm({
   if (specialties.length === 0) {
     return (
       <div className="rounded-3xl border border-amber-100 bg-amber-50 p-6 text-sm text-amber-800">
-        Nenhuma especialidade esta disponivel para solicitacao neste momento. Entre em contato com o suporte MedSync.
+        Nenhuma especialidade está disponível para solicitação neste momento. Fale com o suporte MedSync.
       </div>
     );
   }
@@ -266,9 +295,9 @@ function PatientRequestForm({
       <section className="rounded-3xl border border-slate-100 bg-white p-6 shadow-sm sm:p-8">
         {isNoDoctorAvailableError(error) && (
           <div className="mb-6 rounded-2xl border border-amber-100 bg-amber-50 p-5 text-sm text-amber-800">
-            <p className="font-bold">Nenhum medico disponivel neste horario.</p>
+            <p className="font-bold">Nenhum médico disponível neste horário.</p>
             <p className="mt-1 text-xs leading-5">
-              Tente outro horario{otherDoctorsInSpecialty.length > 0 ? ", escolha outro profissional" : ""}
+              Tente outro horário{otherDoctorsInSpecialty.length > 0 ? ", escolha outro profissional" : ""}
               {otherSpecialties.length > 0 ? " ou veja outra especialidade" : ""} abaixo. Se nada funcionar, entre em contato com o suporte MedSync.
             </p>
             {(otherDoctorsInSpecialty.length > 0 || otherSpecialties.length > 0) && (
@@ -301,7 +330,7 @@ function PatientRequestForm({
         )}
         <div className="grid gap-6 sm:grid-cols-2">
           <label className="block sm:col-span-2">
-            <span className="mb-2 block text-sm font-bold text-slate-700">Especialidade ou area</span>
+            <span className="mb-2 block text-sm font-bold text-slate-700">Especialidade ou área</span>
             <select
               className={inputClass}
               value={form.specialty}
@@ -324,7 +353,7 @@ function PatientRequestForm({
             </select>
           </label>
           <label className="block sm:col-span-2">
-            <span className="mb-2 block text-sm font-bold text-slate-700">Medico disponivel</span>
+            <span className="mb-2 block text-sm font-bold text-slate-700">Médico disponível</span>
             <select
               className={inputClass}
               value={form.doctorId}
@@ -339,32 +368,39 @@ function PatientRequestForm({
               ))}
             </select>
             <span className="mt-2 block text-xs text-slate-400">
-              {availableDoctors.length} opcao{availableDoctors.length === 1 ? "" : "es"} nesta especialidade.
+              {availableDoctors.length} {availableDoctors.length === 1 ? "opção" : "opções"} nesta especialidade.
             </span>
           </label>
           {doctorHasAvailability ? (
             <div className="block sm:col-span-2">
-              <span className="mb-2 block text-sm font-bold text-slate-700">Data e horario de Brasilia</span>
-              <p className="mb-3 text-xs text-slate-400">
-                Este medico configurou dias e horarios fixos de atendimento. Escolha um horario disponivel abaixo.
-              </p>
-              <input
-                className={`${inputClass} mb-4`}
-                type="date"
-                value={slotDate}
-                onChange={(event) => {
-                  setSlotDate(event.target.value);
-                  onChange({ ...form, scheduledAt: "" });
-                }}
-                min={formatBrazilDateInput()}
-                required
-              />
+              <span className="mb-2 block text-sm font-bold text-slate-700">Escolha o dia e o horário (Brasília)</span>
+              {daysLoading ? (
+                <p className="mb-4 text-sm text-slate-400">Carregando dias disponíveis...</p>
+              ) : availableDays && availableDays.days.length > 0 ? (
+                <div className="mb-4">
+                  <AvailabilityCalendar
+                    key={form.doctorId}
+                    availableDays={availableDays.days}
+                    from={availableDays.from}
+                    to={availableDays.to}
+                    selected={slotDate}
+                    onSelect={(day) => {
+                      setSlotDate(day);
+                      onChange({ ...form, scheduledAt: "" });
+                    }}
+                  />
+                </div>
+              ) : (
+                <p className="mb-4 rounded-xl border border-amber-100 bg-amber-50 px-4 py-3 text-xs font-semibold text-amber-800">
+                  {selectedDoctor?.name ?? "Este médico"} não tem horários livres nos próximos 60 dias.
+                </p>
+              )}
               {slotsError && <p className="mb-3 text-xs font-semibold text-red-600">{slotsError}</p>}
               {slotsLoading ? (
-                <p className="text-sm text-slate-400">Carregando horarios...</p>
-              ) : availableTimes.length === 0 ? (
+                <p className="text-sm text-slate-400">Carregando horários...</p>
+              ) : !slotDate ? null : availableTimes.length === 0 ? (
                 <div className="rounded-xl border border-amber-100 bg-amber-50 px-4 py-3 text-xs font-semibold text-amber-800">
-                  <p>Nenhum horario disponivel com {selectedDoctor?.name ?? "este medico"} nesta data. Tente outra data{otherDoctorsInSpecialty.length > 0 ? " ou escolha outro profissional abaixo." : "."}</p>
+                  <p>Nenhum horário disponível com {selectedDoctor?.name ?? "este médico"} nesta data. Tente outra data{otherDoctorsInSpecialty.length > 0 ? " ou escolha outro profissional abaixo." : "."}</p>
                   {otherDoctorsInSpecialty.length > 0 && (
                     <div className="mt-3 flex flex-wrap gap-2">
                       {otherDoctorsInSpecialty.map((doctor) => (
@@ -406,7 +442,7 @@ function PatientRequestForm({
             </div>
           ) : (
             <label className="block sm:col-span-2">
-              <span className="mb-2 block text-sm font-bold text-slate-700">Data e horario de Brasilia</span>
+              <span className="mb-2 block text-sm font-bold text-slate-700">Data e horário (Brasília)</span>
               <input
                 className={inputClass}
                 type="datetime-local"
@@ -418,11 +454,11 @@ function PatientRequestForm({
             </label>
           )}
           <label className="block sm:col-span-2">
-            <span className="mb-2 block text-sm font-bold text-slate-700">Observacao para o atendimento</span>
+            <span className="mb-2 block text-sm font-bold text-slate-700">Observação para o atendimento</span>
             <textarea
               className={`${inputClass} h-28 resize-none py-3`}
               maxLength={240}
-              placeholder="Descreva brevemente o motivo da solicitacao..."
+              placeholder="Descreva brevemente o motivo da consulta..."
               value={form.notes}
               onChange={(event) => onChange({ ...form, notes: event.target.value })}
             />
@@ -476,7 +512,7 @@ function PatientRequestForm({
         title="Como funciona"
         steps={[
           "Você escolhe a especialidade e o horário.",
-          "O MedSync vincula uma opcao disponivel na especialidade.",
+          "O médico recebe a solicitação na agenda dele.",
           "A consulta aparece em Minhas consultas.",
         ]}
       />
@@ -532,7 +568,7 @@ function OperationalScheduleForm({
             </select>
           </label>
           <label className="block sm:col-span-2">
-            <span className="mb-2 block text-sm font-bold text-slate-700">Data e horario de Brasilia</span>
+            <span className="mb-2 block text-sm font-bold text-slate-700">Data e horário (Brasília)</span>
             <input
               className={inputClass}
               type="datetime-local"
@@ -598,7 +634,7 @@ function OperationalScheduleForm({
         steps={[
           "A consulta aparece na agenda.",
           "Ao entrar, a API cria a sala segura.",
-          "Cada participante recebe um token temporario.",
+          "Cada participante recebe um acesso temporário à sala.",
         ]}
       />
     </form>
@@ -607,15 +643,15 @@ function OperationalScheduleForm({
 
 function AsideSteps({ title, steps }: { title: string; steps: string[] }) {
   return (
-    <aside className="h-fit rounded-3xl bg-ink p-7 text-white">
-      <span className="grid size-12 place-items-center rounded-2xl bg-teal-400/15 text-teal-200">
-        <CheckCircle2 size={22} />
+    <aside className="h-fit rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+      <span className="grid size-11 place-items-center rounded-lg bg-teal-50 text-teal-700">
+        <CheckCircle2 size={20} />
       </span>
-      <h2 className="mt-6 text-xl font-bold">{title}</h2>
-      <ol className="mt-5 space-y-5 text-sm text-white/55">
+      <h2 className="mt-5 text-lg font-bold text-ink">{title}</h2>
+      <ol className="mt-4 space-y-4 text-sm text-slate-600">
         {steps.map((text, index) => (
           <li key={text} className="flex gap-3">
-            <span className="grid size-6 shrink-0 place-items-center rounded-full bg-white/10 text-xs text-teal-200">
+            <span className="grid size-6 shrink-0 place-items-center rounded-full bg-teal-50 text-xs font-bold text-teal-700">
               {index + 1}
             </span>
             <span className="pt-0.5 leading-5">{text}</span>
