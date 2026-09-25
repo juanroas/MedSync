@@ -38,19 +38,12 @@ public static class ApiEndpoints
         protectedApi.MapPost("/clinics/onboarding", CreateClinicOnboarding);
         protectedApi.MapGet("/clinics/activation", GetClinicActivations);
         protectedApi.MapPut("/clinics/{id:guid}/activation", UpdateClinicActivation);
-        protectedApi.MapGet("/company-portal", GetCompanyPortal);
-        protectedApi.MapGet("/company-beneficiaries", GetCompanyBeneficiaries);
-        protectedApi.MapPost("/company-beneficiaries", CreateCompanyBeneficiary);
-        protectedApi.MapPut("/company-beneficiaries/{id:guid}/eligibility", UpdateCompanyBeneficiaryEligibility);
-        protectedApi.MapGet("/finance/invoices", GetFinanceInvoices);
-        protectedApi.MapGet("/finance/export", GetFinancialExport);
         protectedApi.MapGet("/privacy/requests", GetPrivacyRequests);
         protectedApi.MapPost("/privacy/requests", CreatePrivacyRequest);
         protectedApi.MapPut("/privacy/requests/{id:guid}/status", UpdatePrivacyRequestStatus);
         protectedApi.MapGet("/support/requests", GetSupportRequests);
         protectedApi.MapPost("/support/requests", CreateSupportRequest);
         protectedApi.MapPut("/support/requests/{id:guid}/status", UpdateSupportRequestStatus);
-        protectedApi.MapGet("/reports/business-summary", GetBusinessReport);
 
         protectedApi.MapPost("/patients", CreatePatient);
         protectedApi.MapGet("/patients", GetPatients);
@@ -485,531 +478,6 @@ public static class ApiEndpoints
             x => x.Id == clinicId && x.ActivationStatus == ClinicActivationStatus.Active,
             cancellationToken);
 
-    private static async Task<IResult> GetCompanyPortal(
-        ClaimsPrincipal principal,
-        MedSyncDbContext db,
-        AuditWriter audit,
-        CancellationToken cancellationToken)
-    {
-        var actor = RequestContext.From(principal);
-        if (!actor.HasAny(
-                ClinicRole.CompanyAdmin,
-                ClinicRole.CompanyFinance,
-                ClinicRole.CompanyAuditor,
-                ClinicRole.PlatformAdmin,
-                ClinicRole.PlatformFinance))
-            return Results.Forbid();
-
-        var company = await db.Companies.AsNoTracking()
-            .Where(x => x.ClinicId == actor.ClinicId && x.IsActive)
-            .OrderBy(x => x.CreatedAt)
-            .FirstOrDefaultAsync(cancellationToken);
-        if (company is null)
-            return Results.NotFound(new { message = "Empresa contratante nao encontrada para este ambiente." });
-
-        var contract = await db.CompanyContracts.AsNoTracking()
-            .Include(x => x.BenefitPlan)
-            .Where(x => x.ClinicId == actor.ClinicId && x.CompanyId == company.Id)
-            .OrderByDescending(x => x.StartsAt)
-            .FirstOrDefaultAsync(cancellationToken);
-
-        var beneficiaryCount = await db.CompanyEmployees.AsNoTracking()
-            .CountAsync(x => x.ClinicId == actor.ClinicId && x.CompanyId == company.Id, cancellationToken);
-        var eligibleCount = await db.CompanyEmployees.AsNoTracking()
-            .CountAsync(
-                x => x.ClinicId == actor.ClinicId &&
-                     x.CompanyId == company.Id &&
-                     x.IsActive &&
-                     x.EligibilityRecords.Any(e => e.IsEligible),
-                cancellationToken);
-        var inactiveCount = await db.CompanyEmployees.AsNoTracking()
-            .CountAsync(
-                x => x.ClinicId == actor.ClinicId &&
-                     x.CompanyId == company.Id &&
-                     !x.IsActive,
-                cancellationToken);
-
-        const int minimumAggregationGroup = 5;
-        var hideUsage = eligibleCount < minimumAggregationGroup;
-        int? totalConsultations = null;
-        int? scheduledConsultations = null;
-        int? inProgressConsultations = null;
-        int? completedConsultations = null;
-
-        if (!hideUsage)
-        {
-            var linkedPatientIds = db.CompanyEmployees.AsNoTracking()
-                .Where(x => x.ClinicId == actor.ClinicId && x.CompanyId == company.Id && x.PatientId != null)
-                .Select(x => x.PatientId!.Value);
-            var appointments = db.Appointments.AsNoTracking()
-                .Where(x => x.ClinicId == actor.ClinicId && linkedPatientIds.Contains(x.PatientId));
-
-            totalConsultations = await appointments.CountAsync(cancellationToken);
-            scheduledConsultations = await appointments
-                .CountAsync(x => x.Status == AppointmentStatus.Scheduled, cancellationToken);
-            inProgressConsultations = await appointments
-                .CountAsync(x => x.Status == AppointmentStatus.InProgress, cancellationToken);
-            completedConsultations = await appointments
-                .CountAsync(x => x.Status == AppointmentStatus.Completed, cancellationToken);
-        }
-
-        audit.Add(actor, "CompanyPortal.View", "Company", company.Id);
-        await db.SaveChangesAsync(cancellationToken);
-
-        return Results.Ok(new CompanyPortalResponse(
-            new CompanyPortalCompanyResponse(
-                company.Id,
-                company.LegalName,
-                company.TradeName,
-                MaskTaxId(company.TaxId),
-                company.IsActive),
-            contract is null
-                ? null
-                : new CompanyPortalContractResponse(
-                    contract.Id,
-                    contract.BenefitPlan.Name,
-                    contract.Status,
-                    contract.StartsAt,
-                    contract.EndsAt,
-                    contract.BenefitPlan.MonthlyConsultationLimit),
-            new CompanyPortalEligibilityResponse(
-                beneficiaryCount,
-                eligibleCount,
-                inactiveCount),
-            new CompanyPortalUsageResponse(
-                totalConsultations,
-                scheduledConsultations,
-                inProgressConsultations,
-                completedConsultations,
-                hideUsage,
-                hideUsage
-                    ? $"Uso agregado oculto ate existir grupo minimo de {minimumAggregationGroup} elegiveis."
-                    : null),
-            new CompanyPortalBillingResponse(
-                contract?.BenefitPlan.MonthlyFee,
-                "BRL",
-                contract is null ? "Sem contrato ativo" : "Contrato em homologacao",
-                "Emissao de faturas ainda depende da especificacao financeira aprovada."),
-            [
-                "Empresas acessam apenas dados administrativos e agregados.",
-                "Uso clinico individual nao e exposto no portal empresarial.",
-                "Relatorios dependem de grupo minimo para reduzir risco de reidentificacao."
-            ]));
-    }
-
-    private static async Task<IResult> CreateCompanyBeneficiary(
-        CreateCompanyBeneficiaryRequest request,
-        ClaimsPrincipal principal,
-        MedSyncDbContext db,
-        AuditWriter audit,
-        CancellationToken cancellationToken)
-    {
-        var actor = RequestContext.From(principal);
-        if (!actor.HasAny(ClinicRole.CompanyAdmin, ClinicRole.Support, ClinicRole.PlatformAdmin))
-        {
-            audit.Add(actor, "CompanyEligibility.Create", "CompanyEmployee", null, "Denied", "Perfil sem permissao para cadastrar beneficiario.");
-            await db.SaveChangesAsync(cancellationToken);
-            return Results.Forbid();
-        }
-
-        var name = request.Name.Trim();
-        if (name.Length is < 3 or > 160)
-            return Validation("name", "Nome deve ter entre 3 e 160 caracteres.");
-        if (!IsValidEmail(request.Email))
-            return Validation("email", "Informe um e-mail valido.");
-        var employeeCode = string.IsNullOrWhiteSpace(request.EmployeeCode) ? null : request.EmployeeCode.Trim();
-        if (employeeCode is { Length: > 60 })
-            return Validation("employeeCode", "Matricula deve ter ate 60 caracteres.");
-
-        var email = request.Email.Trim().ToLowerInvariant();
-
-        var company = await db.Companies
-            .Where(x => x.ClinicId == actor.ClinicId && x.IsActive)
-            .OrderBy(x => x.CreatedAt)
-            .FirstOrDefaultAsync(cancellationToken);
-        if (company is null)
-            return Results.NotFound(new { message = "Empresa contratante nao encontrada para este ambiente." });
-
-        var activeContract = await db.CompanyContracts
-            .Include(x => x.BenefitPlan)
-            .Where(x =>
-                x.ClinicId == actor.ClinicId &&
-                x.CompanyId == company.Id &&
-                x.Status == CompanyContractStatus.Active)
-            .OrderByDescending(x => x.StartsAt)
-            .FirstOrDefaultAsync(cancellationToken);
-        if (activeContract is null)
-            return Results.Conflict(new { message = "Nao existe contrato ativo para cadastrar beneficiario." });
-
-        if (await db.CompanyEmployees.AnyAsync(
-                x => x.ClinicId == actor.ClinicId && x.CompanyId == company.Id && x.Email == email,
-                cancellationToken))
-            return Results.Conflict(new { message = "Ja existe um beneficiario com este e-mail nesta empresa." });
-        if (employeeCode is not null && await db.CompanyEmployees.AnyAsync(
-                x => x.ClinicId == actor.ClinicId && x.CompanyId == company.Id && x.EmployeeCode == employeeCode,
-                cancellationToken))
-            return Results.Conflict(new { message = "Ja existe um beneficiario com esta matricula nesta empresa." });
-
-        var today = DateOnly.FromDateTime(DateTime.UtcNow.Date);
-        var beneficiary = new CompanyEmployee
-        {
-            ClinicId = actor.ClinicId,
-            CompanyId = company.Id,
-            Name = name,
-            Email = email,
-            EmployeeCode = employeeCode,
-            IsActive = true
-        };
-        var eligibility = new EmployeeEligibility
-        {
-            ClinicId = actor.ClinicId,
-            CompanyEmployee = beneficiary,
-            BenefitPlanId = activeContract.BenefitPlanId,
-            IsEligible = true,
-            EligibleFrom = today,
-            Reason = "Cadastro inicial de beneficiario pela empresa."
-        };
-
-        db.CompanyEmployees.Add(beneficiary);
-        db.EmployeeEligibilities.Add(eligibility);
-        audit.Add(actor, "CompanyEligibility.Create", "CompanyEmployee", beneficiary.Id);
-        await db.SaveChangesAsync(cancellationToken);
-
-        return Results.Created(
-            $"/company-beneficiaries/{beneficiary.Id}",
-            new CompanyBeneficiaryResponse(
-                beneficiary.Id,
-                beneficiary.Name,
-                beneficiary.Email,
-                beneficiary.EmployeeCode,
-                beneficiary.IsActive,
-                activeContract.BenefitPlan.Name,
-                eligibility.IsEligible,
-                eligibility.EligibleFrom,
-                eligibility.EligibleUntil,
-                eligibility.Reason));
-    }
-
-    private static async Task<IResult> GetCompanyBeneficiaries(
-        ClaimsPrincipal principal,
-        MedSyncDbContext db,
-        AuditWriter audit,
-        CancellationToken cancellationToken)
-    {
-        var actor = RequestContext.From(principal);
-        if (!actor.HasAny(
-                ClinicRole.CompanyAdmin,
-                ClinicRole.Support,
-                ClinicRole.PlatformAdmin))
-        {
-            audit.Add(actor, "CompanyEligibility.List", "Company", null, "Denied", "Perfil sem permissao para lista individual de elegibilidade.");
-            await db.SaveChangesAsync(cancellationToken);
-            return Results.Forbid();
-        }
-
-        var company = await db.Companies.AsNoTracking()
-            .Where(x => x.ClinicId == actor.ClinicId && x.IsActive)
-            .OrderBy(x => x.CreatedAt)
-            .FirstOrDefaultAsync(cancellationToken);
-        if (company is null)
-            return Results.NotFound(new { message = "Empresa contratante nao encontrada para este ambiente." });
-
-        var beneficiaries = await db.CompanyEmployees.AsNoTracking()
-            .Where(x => x.ClinicId == actor.ClinicId && x.CompanyId == company.Id)
-            .OrderBy(x => x.Name)
-            .Select(x => new CompanyBeneficiaryResponse(
-                x.Id,
-                x.Name,
-                x.Email,
-                x.EmployeeCode,
-                x.IsActive,
-                x.EligibilityRecords
-                    .OrderByDescending(e => e.EligibleFrom)
-                    .Select(e => e.BenefitPlan.Name)
-                    .FirstOrDefault(),
-                x.EligibilityRecords
-                    .OrderByDescending(e => e.EligibleFrom)
-                    .Select(e => e.IsEligible)
-                    .FirstOrDefault(),
-                x.EligibilityRecords
-                    .OrderByDescending(e => e.EligibleFrom)
-                    .Select(e => (DateOnly?)e.EligibleFrom)
-                    .FirstOrDefault(),
-                x.EligibilityRecords
-                    .OrderByDescending(e => e.EligibleFrom)
-                    .Select(e => e.EligibleUntil)
-                    .FirstOrDefault(),
-                x.EligibilityRecords
-                    .OrderByDescending(e => e.EligibleFrom)
-                    .Select(e => e.Reason)
-                    .FirstOrDefault()))
-            .ToListAsync(cancellationToken);
-
-        audit.Add(actor, "CompanyEligibility.List", "Company", company.Id);
-        await db.SaveChangesAsync(cancellationToken);
-        return Results.Ok(beneficiaries);
-    }
-
-    private static async Task<IResult> UpdateCompanyBeneficiaryEligibility(
-        Guid id,
-        UpdateCompanyBeneficiaryEligibilityRequest request,
-        ClaimsPrincipal principal,
-        MedSyncDbContext db,
-        AuditWriter audit,
-        CancellationToken cancellationToken)
-    {
-        var actor = RequestContext.From(principal);
-        if (!actor.HasAny(
-                ClinicRole.CompanyAdmin,
-                ClinicRole.Support,
-                ClinicRole.PlatformAdmin))
-        {
-            audit.Add(actor, "CompanyEligibility.Update", "CompanyEmployee", id, "Denied", "Perfil sem permissao para atualizar elegibilidade.");
-            await db.SaveChangesAsync(cancellationToken);
-            return Results.Forbid();
-        }
-
-        var beneficiary = await db.CompanyEmployees
-            .Include(x => x.EligibilityRecords)
-            .ThenInclude(x => x.BenefitPlan)
-            .SingleOrDefaultAsync(
-                x => x.Id == id && x.ClinicId == actor.ClinicId,
-                cancellationToken);
-        if (beneficiary is null)
-            return Results.NotFound();
-
-        var activeContract = await db.CompanyContracts.AsNoTracking()
-            .Include(x => x.BenefitPlan)
-            .Where(x =>
-                x.ClinicId == actor.ClinicId &&
-                x.CompanyId == beneficiary.CompanyId &&
-                x.Status == CompanyContractStatus.Active)
-            .OrderByDescending(x => x.StartsAt)
-            .FirstOrDefaultAsync(cancellationToken);
-        if (activeContract is null)
-            return Results.Conflict(new { message = "Nao existe contrato ativo para alterar elegibilidade." });
-
-        if (request.EligibleUntil is not null &&
-            request.EligibleUntil < DateOnly.FromDateTime(DateTime.UtcNow.Date))
-            return Validation("eligibleUntil", "A data final de elegibilidade nao pode estar no passado.");
-
-        var reason = string.IsNullOrWhiteSpace(request.Reason)
-            ? request.IsEligible ? "Elegibilidade atualizada." : "Beneficiario inativado administrativamente."
-            : request.Reason.Trim();
-        if (reason.Length > 240)
-            return Validation("reason", "Motivo administrativo deve ter ate 240 caracteres.");
-
-        var latest = beneficiary.EligibilityRecords
-            .OrderByDescending(x => x.EligibleFrom)
-            .FirstOrDefault();
-        if (latest is null || latest.BenefitPlanId != activeContract.BenefitPlanId)
-        {
-            latest = new EmployeeEligibility
-            {
-                ClinicId = actor.ClinicId,
-                CompanyEmployeeId = beneficiary.Id,
-                BenefitPlanId = activeContract.BenefitPlanId,
-                EligibleFrom = DateOnly.FromDateTime(DateTime.UtcNow.Date)
-            };
-            db.EmployeeEligibilities.Add(latest);
-        }
-
-        beneficiary.IsActive = request.IsEligible;
-        latest.IsEligible = request.IsEligible;
-        latest.EligibleUntil = request.EligibleUntil;
-        latest.Reason = reason;
-
-        audit.Add(actor, "CompanyEligibility.Update", "CompanyEmployee", beneficiary.Id);
-        await db.SaveChangesAsync(cancellationToken);
-
-        return Results.Ok(new CompanyBeneficiaryResponse(
-            beneficiary.Id,
-            beneficiary.Name,
-            beneficiary.Email,
-            beneficiary.EmployeeCode,
-            beneficiary.IsActive,
-            latest.BenefitPlan?.Name ?? activeContract.BenefitPlan.Name,
-            latest.IsEligible,
-            latest.EligibleFrom,
-            latest.EligibleUntil,
-            latest.Reason));
-    }
-
-    private static async Task<IResult> GetFinanceInvoices(
-        ClaimsPrincipal principal,
-        MedSyncDbContext db,
-        AuditWriter audit,
-        CancellationToken cancellationToken)
-    {
-        var actor = RequestContext.From(principal);
-        if (!actor.HasAny(
-                ClinicRole.CompanyAdmin,
-                ClinicRole.CompanyFinance,
-                ClinicRole.PlatformAdmin,
-                ClinicRole.PlatformFinance))
-        {
-            audit.Add(actor, "FinanceInvoice.List", "Company", null, "Denied", "Perfil sem permissao financeira.");
-            await db.SaveChangesAsync(cancellationToken);
-            return Results.Forbid();
-        }
-
-        var company = await db.Companies.AsNoTracking()
-            .Where(x => x.ClinicId == actor.ClinicId && x.IsActive)
-            .OrderBy(x => x.CreatedAt)
-            .FirstOrDefaultAsync(cancellationToken);
-        if (company is null)
-            return Results.NotFound(new { message = "Empresa contratante nao encontrada para este ambiente." });
-
-        var contract = await db.CompanyContracts.AsNoTracking()
-            .Include(x => x.BenefitPlan)
-            .Where(x => x.ClinicId == actor.ClinicId && x.CompanyId == company.Id)
-            .OrderByDescending(x => x.StartsAt)
-            .FirstOrDefaultAsync(cancellationToken);
-        if (contract is null)
-            return Results.Ok(Array.Empty<FinanceInvoiceResponse>());
-
-        var now = DateTime.UtcNow;
-        var periodStart = new DateTime(now.Year, now.Month, 1, 0, 0, 0, DateTimeKind.Utc);
-        var nextPeriodStart = periodStart.AddMonths(1);
-        var period = $"{periodStart:yyyy-MM}";
-
-        var linkedPatientIds = db.CompanyEmployees.AsNoTracking()
-            .Where(x => x.ClinicId == actor.ClinicId && x.CompanyId == company.Id && x.PatientId != null)
-            .Select(x => x.PatientId!.Value);
-
-        var paidAmount = await db.Payments.AsNoTracking()
-            .Where(x =>
-                x.ClinicId == actor.ClinicId &&
-                x.CreatedAt >= periodStart &&
-                x.CreatedAt < nextPeriodStart &&
-                x.Status == PaymentStatus.Paid &&
-                linkedPatientIds.Contains(x.Appointment.PatientId))
-            .SumAsync(x => (decimal?)x.Amount, cancellationToken) ?? 0m;
-
-        var amount = contract.BenefitPlan.MonthlyFee;
-        var status = paidAmount >= amount ? "Pago" : "Aberta";
-        var dueDate = DateOnly.FromDateTime(periodStart.AddDays(9));
-
-        audit.Add(actor, "FinanceInvoice.List", "Company", company.Id);
-        await db.SaveChangesAsync(cancellationToken);
-
-        return Results.Ok(new[]
-        {
-            new FinanceInvoiceResponse(
-                $"{company.Id:N}-{period}",
-                period,
-                $"Mensalidade {contract.BenefitPlan.Name}",
-                amount,
-                paidAmount,
-                "BRL",
-                status,
-                dueDate,
-                periodStart,
-            "Fatura de homologacao baseada no contrato ativo e pagamentos confirmados. Sem dado clinico individual.")
-        });
-    }
-
-    private static async Task<IResult> GetFinancialExport(
-        string? period,
-        ClaimsPrincipal principal,
-        MedSyncDbContext db,
-        AuditWriter audit,
-        CancellationToken cancellationToken)
-    {
-        var actor = RequestContext.From(principal);
-        if (!actor.HasAny(
-                ClinicRole.CompanyAdmin,
-                ClinicRole.CompanyFinance,
-                ClinicRole.PlatformAdmin,
-                ClinicRole.PlatformFinance))
-        {
-            audit.Add(actor, "FinanceExport.Generate", "Company", null, "Denied", "Perfil sem permissao para exportacao financeira.");
-            await db.SaveChangesAsync(cancellationToken);
-            return Results.Forbid();
-        }
-
-        if (!TryResolvePeriod(period, out var periodStart))
-            return Validation("period", "Periodo deve usar o formato yyyy-MM.");
-
-        var nextPeriodStart = periodStart.AddMonths(1);
-        var periodLabel = $"{periodStart:yyyy-MM}";
-        var isGlobal = actor.HasAny(ClinicRole.PlatformAdmin, ClinicRole.PlatformFinance);
-        var companiesQuery = db.Companies.AsNoTracking()
-            .Include(x => x.Clinic)
-            .Where(x => x.IsActive);
-        if (!isGlobal)
-            companiesQuery = companiesQuery.Where(x => x.ClinicId == actor.ClinicId);
-
-        var companies = await companiesQuery
-            .OrderBy(x => x.TradeName ?? x.LegalName)
-            .ToListAsync(cancellationToken);
-
-        var rows = new List<FinancialExportRowResponse>();
-        foreach (var company in companies)
-        {
-            var contract = await db.CompanyContracts.AsNoTracking()
-                .Include(x => x.BenefitPlan)
-                .Where(x => x.ClinicId == company.ClinicId && x.CompanyId == company.Id)
-                .OrderByDescending(x => x.StartsAt)
-                .FirstOrDefaultAsync(cancellationToken);
-            var beneficiaryCount = await db.CompanyEmployees.AsNoTracking()
-                .CountAsync(x => x.ClinicId == company.ClinicId && x.CompanyId == company.Id, cancellationToken);
-            var eligibleCount = await db.CompanyEmployees.AsNoTracking()
-                .CountAsync(
-                    x => x.ClinicId == company.ClinicId &&
-                         x.CompanyId == company.Id &&
-                         x.IsActive &&
-                         x.EligibilityRecords.Any(e => e.IsEligible),
-                    cancellationToken);
-            var linkedPatientIds = db.CompanyEmployees.AsNoTracking()
-                .Where(x => x.ClinicId == company.ClinicId && x.CompanyId == company.Id && x.PatientId != null)
-                .Select(x => x.PatientId!.Value);
-            var paidAmount = await db.Payments.AsNoTracking()
-                .Where(x =>
-                    x.ClinicId == company.ClinicId &&
-                    x.CreatedAt >= periodStart &&
-                    x.CreatedAt < nextPeriodStart &&
-                    x.Status == PaymentStatus.Paid &&
-                    linkedPatientIds.Contains(x.Appointment.PatientId))
-                .SumAsync(x => (decimal?)x.Amount, cancellationToken) ?? 0m;
-            var monthlyFee = contract?.BenefitPlan.MonthlyFee ?? 0m;
-            var openAmount = Math.Max(0m, monthlyFee - paidAmount);
-            var billingStatus = contract is null
-                ? "Sem contrato"
-                : openAmount <= 0 ? "Pago" : "Aberta";
-
-            rows.Add(new FinancialExportRowResponse(
-                company.Id,
-                company.ClinicId,
-                company.Clinic.Name,
-                company.TradeName ?? company.LegalName,
-                MaskTaxId(company.TaxId),
-                contract?.BenefitPlan.Name,
-                contract?.Status,
-                beneficiaryCount,
-                eligibleCount,
-                monthlyFee,
-                paidAmount,
-                openAmount,
-                "BRL",
-                billingStatus));
-        }
-
-        audit.Add(actor, "FinanceExport.Generate", isGlobal ? "Platform" : "Company", isGlobal ? null : rows.FirstOrDefault()?.CompanyId);
-        await db.SaveChangesAsync(cancellationToken);
-
-        return Results.Ok(new FinancialExportResponse(
-            periodLabel,
-            isGlobal,
-            DateTime.UtcNow,
-            rows,
-            [
-                "Exportacao financeira minimizada por CNPJ.",
-                "Nao inclui CPF, prontuario, diagnostico, observacao clinica, conteudo de chamada ou lista individual sensivel.",
-                "Empresa contratante exporta apenas o proprio CNPJ; MedSync exporta visao global conforme perfil autorizado."
-            ]));
-    }
-
     private static async Task<IResult> GetPrivacyRequests(
         ClaimsPrincipal principal,
         MedSyncDbContext db,
@@ -1262,137 +730,6 @@ public static class ApiEndpoints
         audit.Add(actor, "SupportRequest.UpdateStatus", "SupportRequest", supportRequest.Id);
         await db.SaveChangesAsync(cancellationToken);
         return Results.Ok(ToResponse(supportRequest));
-    }
-
-    private static async Task<IResult> GetBusinessReport(
-        string? period,
-        ClaimsPrincipal principal,
-        MedSyncDbContext db,
-        AuditWriter audit,
-        CancellationToken cancellationToken)
-    {
-        var actor = RequestContext.From(principal);
-        if (!CanViewBusinessReports(actor))
-        {
-            audit.Add(actor, "BusinessReport.View", "Company", null, "Denied", "Perfil sem permissao para relatorios B2B.");
-            await db.SaveChangesAsync(cancellationToken);
-            return Results.Forbid();
-        }
-
-        if (!TryResolvePeriod(period, out var periodStart))
-            return Validation("period", "Periodo deve usar o formato yyyy-MM.");
-
-        var nextPeriodStart = periodStart.AddMonths(1);
-        var periodLabel = $"{periodStart:yyyy-MM}";
-        var isGlobal = CanViewGlobalBusinessReports(actor);
-        var minimumAggregationGroup = 3;
-
-        var companiesQuery = db.Companies.AsNoTracking()
-            .Include(x => x.Clinic)
-            .Where(x => x.IsActive);
-        if (!isGlobal)
-            companiesQuery = companiesQuery.Where(x => x.ClinicId == actor.ClinicId);
-
-        var companies = await companiesQuery
-            .OrderBy(x => x.TradeName ?? x.LegalName)
-            .ToListAsync(cancellationToken);
-
-        var reportItems = new List<BusinessReportCompanyResponse>();
-        foreach (var company in companies)
-        {
-            var contract = await db.CompanyContracts.AsNoTracking()
-                .Include(x => x.BenefitPlan)
-                .Where(x => x.ClinicId == company.ClinicId && x.CompanyId == company.Id)
-                .OrderByDescending(x => x.StartsAt)
-                .FirstOrDefaultAsync(cancellationToken);
-
-            var beneficiaryCount = await db.CompanyEmployees.AsNoTracking()
-                .CountAsync(x => x.ClinicId == company.ClinicId && x.CompanyId == company.Id, cancellationToken);
-            var eligibleCount = await db.CompanyEmployees.AsNoTracking()
-                .CountAsync(
-                    x => x.ClinicId == company.ClinicId &&
-                         x.CompanyId == company.Id &&
-                         x.IsActive &&
-                         x.EligibilityRecords.Any(e => e.IsEligible),
-                    cancellationToken);
-            var inactiveCount = await db.CompanyEmployees.AsNoTracking()
-                .CountAsync(
-                    x => x.ClinicId == company.ClinicId &&
-                         x.CompanyId == company.Id &&
-                         !x.IsActive,
-                    cancellationToken);
-
-            var linkedPatientIds = db.CompanyEmployees.AsNoTracking()
-                .Where(x => x.ClinicId == company.ClinicId && x.CompanyId == company.Id && x.PatientId != null)
-                .Select(x => x.PatientId!.Value);
-
-            var usageQuery = db.Appointments.AsNoTracking()
-                .Where(x =>
-                    x.ClinicId == company.ClinicId &&
-                    x.ScheduledAt >= periodStart &&
-                    x.ScheduledAt < nextPeriodStart &&
-                    linkedPatientIds.Contains(x.PatientId));
-
-            var hideUsage = eligibleCount < minimumAggregationGroup;
-            int? totalConsultations = null;
-            int? scheduledConsultations = null;
-            int? inProgressConsultations = null;
-            int? completedConsultations = null;
-            if (!hideUsage)
-            {
-                totalConsultations = await usageQuery.CountAsync(cancellationToken);
-                scheduledConsultations = await usageQuery.CountAsync(x => x.Status == AppointmentStatus.Scheduled, cancellationToken);
-                inProgressConsultations = await usageQuery.CountAsync(x => x.Status == AppointmentStatus.InProgress, cancellationToken);
-                completedConsultations = await usageQuery.CountAsync(x => x.Status == AppointmentStatus.Completed, cancellationToken);
-            }
-
-            var paidAmount = await db.Payments.AsNoTracking()
-                .Where(x =>
-                    x.ClinicId == company.ClinicId &&
-                    x.CreatedAt >= periodStart &&
-                    x.CreatedAt < nextPeriodStart &&
-                    x.Status == PaymentStatus.Paid &&
-                    linkedPatientIds.Contains(x.Appointment.PatientId))
-                .SumAsync(x => (decimal?)x.Amount, cancellationToken) ?? 0m;
-            var monthlyFee = contract?.BenefitPlan.MonthlyFee;
-            var billingStatus = monthlyFee is null
-                ? "Sem contrato"
-                : paidAmount >= monthlyFee ? "Pago" : "Aberta";
-
-            reportItems.Add(new BusinessReportCompanyResponse(
-                company.Id,
-                company.ClinicId,
-                company.Clinic.Name,
-                company.TradeName ?? company.LegalName,
-                MaskTaxId(company.TaxId),
-                contract?.BenefitPlan.Name,
-                contract?.Status,
-                beneficiaryCount,
-                eligibleCount,
-                inactiveCount,
-                totalConsultations,
-                scheduledConsultations,
-                inProgressConsultations,
-                completedConsultations,
-                hideUsage,
-                hideUsage ? $"Uso agregado oculto ate existir grupo minimo de {minimumAggregationGroup} elegiveis." : null,
-                monthlyFee,
-                paidAmount,
-                "BRL",
-                billingStatus));
-        }
-
-        audit.Add(actor, "BusinessReport.View", isGlobal ? "Company.Global" : "Company", null);
-        await db.SaveChangesAsync(cancellationToken);
-        return Results.Ok(new BusinessReportResponse(
-            periodLabel,
-            isGlobal,
-            reportItems,
-            [
-                "Relatorio B2B exibe apenas dados administrativos e agregados.",
-                "Uso assistencial pode ser ocultado quando nao ha grupo minimo.",
-                "Prontuario, diagnostico, observacao clinica e conteudo de chamada nao sao retornados."
-            ]));
     }
 
     private static readonly TimeSpan MfaPendingTtl = TimeSpan.FromMinutes(5);
@@ -1785,7 +1122,7 @@ public static class ApiEndpoints
         if (await db.Patients.AnyAsync(
                 x => x.ClinicId == actor.ClinicId && (x.Email == email || x.Cpf == cpf),
                 cancellationToken))
-            return Results.Conflict(new { message = "Já existe um paciente com este e-mail ou CPF na empresa." });
+            return Results.Conflict(new { message = "Já existe um paciente com este e-mail ou CPF nesta clínica." });
 
         var user = await db.Users.SingleOrDefaultAsync(x => x.Email == email, cancellationToken);
         if (user is null)
@@ -1828,15 +1165,6 @@ public static class ApiEndpoints
                 : request.ContinuousMedications.Trim()
         };
         db.Patients.Add(patient);
-
-        var matchingBeneficiary = await db.CompanyEmployees.FirstOrDefaultAsync(
-            x => x.ClinicId == actor.ClinicId && x.Email == email && x.PatientId == null,
-            cancellationToken);
-        if (matchingBeneficiary is not null)
-        {
-            matchingBeneficiary.PatientId = patient.Id;
-            audit.Add(actor, "CompanyEligibility.LinkPatient", "CompanyEmployee", matchingBeneficiary.Id);
-        }
 
         audit.Add(actor, "Patient.Create", "Patient", patient.Id);
         await db.SaveChangesAsync(cancellationToken);
@@ -1927,7 +1255,7 @@ public static class ApiEndpoints
         if (await db.Patients.AnyAsync(
                 x => x.ClinicId == actor.ClinicId && x.Id != id && x.Email == email,
                 cancellationToken))
-            return Results.Conflict(new { message = "Já existe um paciente com este e-mail na empresa." });
+            return Results.Conflict(new { message = "Já existe um paciente com este e-mail nesta clínica." });
         if (await db.Users.AnyAsync(
                 x => x.Id != patient.UserId && x.Email == email,
                 cancellationToken))
@@ -1982,7 +1310,7 @@ public static class ApiEndpoints
         if (await db.Doctors.AnyAsync(
                 x => x.ClinicId == actor.ClinicId && (x.Email == email || x.Crm == crm),
                 cancellationToken))
-            return Results.Conflict(new { message = "Já existe um médico com este e-mail ou CRM na empresa." });
+            return Results.Conflict(new { message = "Já existe um médico com este e-mail ou CRM nesta clínica." });
 
         var user = await db.Users.SingleOrDefaultAsync(x => x.Email == email, cancellationToken);
         if (user is null)
@@ -2098,7 +1426,7 @@ public static class ApiEndpoints
         if (await db.Doctors.AnyAsync(
                 x => x.ClinicId == actor.ClinicId && x.Id != id && (x.Email == email || x.Crm == crm),
                 cancellationToken))
-            return Results.Conflict(new { message = "Já existe um médico com este e-mail ou CRM na empresa." });
+            return Results.Conflict(new { message = "Já existe um médico com este e-mail ou CRM nesta clínica." });
         if (await db.Users.AnyAsync(
                 x => x.Id != doctor.UserId && x.Email == email,
                 cancellationToken))
@@ -3339,43 +2667,6 @@ public static class ApiEndpoints
 
     private static bool CanOperateSupport(RequestContext actor) => actor.IsSupport || actor.IsMedicalAdmin;
 
-    private static bool CanViewBusinessReports(RequestContext actor) =>
-        actor.HasAny(
-            ClinicRole.CompanyAdmin,
-            ClinicRole.CompanyFinance,
-            ClinicRole.CompanyAuditor,
-            ClinicRole.PlatformAdmin,
-            ClinicRole.PlatformFinance);
-
-    private static bool CanViewGlobalBusinessReports(RequestContext actor) =>
-        actor.HasAny(
-            ClinicRole.PlatformAdmin,
-            ClinicRole.PlatformFinance);
-
-    private static bool TryResolvePeriod(string? value, out DateTime periodStart)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            var now = DateTime.UtcNow;
-            periodStart = new DateTime(now.Year, now.Month, 1, 0, 0, 0, DateTimeKind.Utc);
-            return true;
-        }
-
-        var parts = value.Split('-', StringSplitOptions.TrimEntries);
-        if (parts.Length == 2 &&
-            int.TryParse(parts[0], out var year) &&
-            int.TryParse(parts[1], out var month) &&
-            year is >= 2020 and <= 2100 &&
-            month is >= 1 and <= 12)
-        {
-            periodStart = new DateTime(year, month, 1, 0, 0, 0, DateTimeKind.Utc);
-            return true;
-        }
-
-        periodStart = default;
-        return false;
-    }
-
     private static IResult? ValidatePrivacyRequest(
         string requesterName,
         string requesterEmail,
@@ -3477,10 +2768,8 @@ public static class ApiEndpoints
         var lockedFields = new List<string>
         {
             "Papel/permissao",
-            "CNPJ/tenant",
-            "Elegibilidade",
-            "Dados clinicos",
-            "Financeiro"
+            "Clínica",
+            "Dados clinicos"
         };
         if (patient is not null)
             lockedFields.Add("CPF");
@@ -3493,7 +2782,7 @@ public static class ApiEndpoints
         var profileType = doctor is not null
             ? "Profissional de saude"
             : patient is not null
-                ? "Paciente/beneficiario"
+                ? "Paciente"
                 : "Perfil administrativo";
 
         return new PersonalProfileResponse(

@@ -280,12 +280,11 @@ projetos a partir de `apps/api`.
 - Headers de segurança incluem CSP, Referrer-Policy, X-Content-Type-Options,
   Permissions-Policy e HSTS fora de desenvolvimento.
 
-## B2B
+## Perfis e dados clínicos
 
-A fundação de dados B2B inclui `Company`, `CompanyEmployee`, `BenefitPlan`,
-`CompanyContract` e `EmployeeEligibility`. A regra central é que empresas nunca
-acessam prontuário, diagnóstico, observações clínicas ou dados clínicos
-individuais de colaboradores. Consulte [o modelo B2B](docs/01-product/B2B_MODEL.md).
+O MedSync é software para médicos e clínicas (ADR-0003), com seis perfis: Paciente, Médico, ADM da clínica,
+Médico ADM MedSync, Suporte e DPO. Conteúdo clínico (prontuário, medicação, anexos) só aparece para o paciente e
+para o médico que o atendeu. Veja a [matriz de permissões](docs/07-security/PERMISSION_MATRIX.md).
 
 Consulte [o plano de produção](docs/09-production/PLANO_PRODUCAO.md) e
 [o relatório de homologação](docs/09-production/RELATORIO_HOMOLOGACAO.md).

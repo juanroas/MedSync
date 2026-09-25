@@ -1,7 +1,6 @@
 import type {
   Appointment,
   AvailableTime,
-  BusinessReport,
   CareSpecialty,
   ClinicalRecord,
   ClinicalRecordAttachment,
@@ -9,13 +8,9 @@ import type {
   ClinicActivation,
   ClinicActivationStatus,
   ClinicOnboarding,
-  CompanyBeneficiary,
-  CompanyPortal,
   ConsultationRoom,
   Doctor,
   DoctorAvailabilitySlot,
-  FinancialExport,
-  FinanceInvoice,
   LoginResponse,
   MfaEnrollResponse,
   MfaRequiredResponse,
@@ -203,26 +198,6 @@ export const api = {
       method: "PUT",
       body: JSON.stringify(input),
     }),
-  getCompanyPortal: () => request<CompanyPortal>("/company-portal"),
-  getCompanyBeneficiaries: () => request<CompanyBeneficiary[]>("/company-beneficiaries"),
-  createCompanyBeneficiary: (input: { name: string; email: string; employeeCode?: string }) =>
-    request<CompanyBeneficiary>("/company-beneficiaries", {
-      method: "POST",
-      body: JSON.stringify(input),
-    }),
-  updateCompanyBeneficiaryEligibility: (
-    id: string,
-    input: { isEligible: boolean; eligibleUntil?: string; reason?: string },
-  ) =>
-    request<CompanyBeneficiary>(`/company-beneficiaries/${id}/eligibility`, {
-      method: "PUT",
-      body: JSON.stringify(input),
-    }),
-  getFinanceInvoices: () => request<FinanceInvoice[]>("/finance/invoices"),
-  getFinancialExport: (period?: string) =>
-    request<FinancialExport>(`/finance/export${period ? `?period=${encodeURIComponent(period)}` : ""}`),
-  getBusinessReport: (period?: string) =>
-    request<BusinessReport>(`/reports/business-summary${period ? `?period=${encodeURIComponent(period)}` : ""}`),
   getPrivacyRequests: () => request<PrivacyRequest[]>("/privacy/requests"),
   createPrivacyRequest: (input: {
     requesterName: string;

@@ -183,7 +183,7 @@ export default function DoctorsPage() {
           <div className="mb-5">
             <h2 className="font-bold text-ink">Dados profissionais permitidos</h2>
             <p className="mt-1 text-xs leading-5 text-slate-400">
-              Esta atualizacao nao altera faturas, elegibilidade empresarial, prontuario ou registro clinico.
+              Esta atualização não altera prontuário nem registro clínico.
             </p>
           </div>
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">

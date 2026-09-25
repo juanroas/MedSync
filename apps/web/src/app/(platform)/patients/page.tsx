@@ -209,7 +209,7 @@ export default function PatientsPage() {
           <div className="mb-5">
             <h2 className="font-bold text-ink">Dados cadastrais permitidos</h2>
             <p className="mt-1 text-xs leading-5 text-slate-400">
-              CPF, elegibilidade, faturas e registros clinicos nao sao alterados por este formulario.
+              CPF e registros clínicos não são alterados por este formulário.
             </p>
           </div>
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">

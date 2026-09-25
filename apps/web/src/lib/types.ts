@@ -1,25 +1,11 @@
-// ADR-0003: six profiles. The legacy values below still exist only for the company-module screens that
-// Delivery C deletes; no account carries them after the ConsolidateRoles migration.
+// ADR-0003: os seis perfis.
 export type ClinicRole =
   | "Patient"
   | "Doctor"
   | "ClinicAdmin"
   | "MedicalDirector"
   | "Support"
-  | "DataProtectionOfficer"
-  | LegacyClinicRole;
-
-type LegacyClinicRole =
-  | "Receptionist"
-  | "Finance"
-  | "PrivacyAuditor"
-  | "CompanyAdmin"
-  | "CompanyFinance"
-  | "PlatformFinance"
-  | "CompanyAuditor"
-  | "PlatformAuditor"
-  | "PlatformAdmin"
-  | "OccupationalHealthAdmin";
+  | "DataProtectionOfficer";
 
 export const ROLE_LABELS: Record<ClinicRole, string> = {
   Patient: "Paciente",
@@ -28,16 +14,6 @@ export const ROLE_LABELS: Record<ClinicRole, string> = {
   MedicalDirector: "Médico ADM MedSync",
   Support: "Suporte MedSync",
   DataProtectionOfficer: "DPO MedSync",
-  Receptionist: "Recepção (legado)",
-  Finance: "Financeiro (legado)",
-  PrivacyAuditor: "Auditor de privacidade (legado)",
-  CompanyAdmin: "Empresa (legado)",
-  CompanyFinance: "Financeiro empresa (legado)",
-  PlatformFinance: "Financeiro MedSync (legado)",
-  CompanyAuditor: "Auditor empresa (legado)",
-  PlatformAuditor: "Auditor MedSync (legado)",
-  PlatformAdmin: "Admin MedSync (legado)",
-  OccupationalHealthAdmin: "Médico do trabalho (legado)",
 };
 
 export type User = {
@@ -283,77 +259,6 @@ export type Payment = {
   checkoutUrl?: string;
 };
 
-export type CompanyContractStatus =
-  | "Draft"
-  | "Active"
-  | "Suspended"
-  | "Ended"
-  | "Cancelled";
-
-export type CompanyPortal = {
-  company: {
-    id: string;
-    legalName: string;
-    tradeName?: string;
-    taxIdMasked: string;
-    isActive: boolean;
-  };
-  contract?: {
-    id: string;
-    planName: string;
-    status: CompanyContractStatus;
-    startsAt: string;
-    endsAt?: string;
-    monthlyConsultationLimit: number;
-  };
-  eligibility: {
-    beneficiaryCount: number;
-    eligibleCount: number;
-    inactiveCount: number;
-  };
-  usage: {
-    totalConsultations?: number;
-    scheduledConsultations?: number;
-    inProgressConsultations?: number;
-    completedConsultations?: number;
-    hiddenDueToPrivacyThreshold: boolean;
-    hiddenReason?: string;
-  };
-  billing: {
-    estimatedMonthlyFee?: number;
-    currency: string;
-    status: string;
-    note: string;
-  };
-  privacyGuards: string[];
-};
-
-export type CompanyBeneficiary = {
-  id: string;
-  name: string;
-  email: string;
-  employeeCode?: string;
-  isActive: boolean;
-  planName?: string;
-  isEligible: boolean;
-  eligibleFrom?: string;
-  eligibleUntil?: string;
-  reason?: string;
-};
-
-export type FinanceInvoice = {
-  id: string;
-  period: string;
-  description: string;
-  amount: number;
-  paidAmount: number;
-  currency: string;
-  status: string;
-  dueDate: string;
-  issuedAt: string;
-  note: string;
-};
-
 export type PrivacyRequestType =
   | "Access"
   | "Correction"
@@ -396,57 +301,3 @@ export type SupportRequest = {
   updatedAt: string;
 };
 
-export type BusinessReport = {
-  period: string;
-  isGlobal: boolean;
-  companies: BusinessReportCompany[];
-  privacyGuards: string[];
-};
-
-export type BusinessReportCompany = {
-  companyId: string;
-  tenantId: string;
-  tenantName: string;
-  companyName: string;
-  taxIdMasked: string;
-  planName?: string;
-  contractStatus?: CompanyContractStatus;
-  beneficiaryCount: number;
-  eligibleCount: number;
-  inactiveCount: number;
-  totalConsultations?: number;
-  scheduledConsultations?: number;
-  inProgressConsultations?: number;
-  completedConsultations?: number;
-  hiddenDueToPrivacyThreshold: boolean;
-  hiddenReason?: string;
-  monthlyFee?: number;
-  paidAmount: number;
-  currency: string;
-  billingStatus: string;
-};
-
-export type FinancialExport = {
-  period: string;
-  isGlobal: boolean;
-  generatedAt: string;
-  rows: FinancialExportRow[];
-  privacyGuards: string[];
-};
-
-export type FinancialExportRow = {
-  companyId: string;
-  tenantId: string;
-  tenantName: string;
-  companyName: string;
-  taxIdMasked: string;
-  planName?: string;
-  contractStatus?: CompanyContractStatus;
-  beneficiaryCount: number;
-  eligibleCount: number;
-  monthlyFee: number;
-  paidAmount: number;
-  openAmount: number;
-  currency: string;
-  billingStatus: string;
-};

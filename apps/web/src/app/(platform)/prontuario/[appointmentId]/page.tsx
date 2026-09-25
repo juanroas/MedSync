@@ -363,7 +363,7 @@ export default function ClinicalRecordPage() {
                 <div>
                   <h2 className="font-bold text-ink">Escopo protegido</h2>
                   <p className="mt-2 text-sm leading-6 text-slate-500">
-                    Prontuario nao aparece para empresa, financeiro, suporte ou auditoria administrativa. Acesso clinico
+                    Prontuário não aparece para a administração da clínica, suporte ou auditoria. Acesso clinico
                     exige finalidade assistencial e gera evento de auditoria.
                   </p>
                 </div>

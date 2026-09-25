@@ -313,7 +313,7 @@ export default function AppointmentsPage() {
         title={isDoctor ? "Agenda" : isPatient ? "Minhas consultas" : "Consultas"}
         description={
           isDoctor
-            ? "Consultas vinculadas ao seu atendimento. O medico nao cria a propria agenda neste modelo B2B."
+            ? "Consultas vinculadas ao seu atendimento. A agenda é montada pela clínica."
             : isPatient
               ? "Acompanhe seus atendimentos autorizados e a entrada na sala."
               : "Acompanhe os proximos horarios e entre nas salas virtuais de atendimento."
@@ -418,7 +418,7 @@ export default function AppointmentsPage() {
             isDoctor
               ? "Quando uma consulta for vinculada ao seu atendimento, ela aparece aqui."
               : isPatient
-                ? "Quando sua elegibilidade gerar um atendimento, ele aparece aqui."
+                ? "Quando você solicitar uma consulta, ela aparece aqui."
                 : "Use \"Agendar consulta\" no topo da pagina para criar o primeiro atendimento."
           }
         />

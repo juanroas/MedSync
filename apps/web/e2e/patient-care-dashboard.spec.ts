@@ -10,7 +10,7 @@ test.describe("home care do paciente", () => {
     await expect(page.getByRole("heading", { name: /acesse seu cuidado digital/i })).toBeVisible();
     await expect(page.getByText(/proximo atendimento/i)).toBeVisible();
     await expect(page.getByRole("heading", { name: /minhas consultas/i })).toBeVisible();
-    await expect(page.getByText(/sua jornada e separada da empresa/i)).toBeVisible();
+    await expect(page.getByText(/seus dados clínicos são só seus/i)).toBeVisible();
     await expect(page.getByRole("heading", { name: /central de operacao/i })).toHaveCount(0);
   });
 });

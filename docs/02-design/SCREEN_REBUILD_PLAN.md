@@ -13,11 +13,12 @@ Legenda: ⬜ a fazer · 🟨 em andamento · ✅ feito · ⏸ bloqueado por deci
 | Item | Status | Observação |
 |---|---|---|
 | Decisões do ADR-0003 | ✅ | Software para médicos e clínicas; módulo empresa removido |
-| Commit limpo do trabalho atual | ⬜ | Antes de apagar o módulo empresa, para a remoção ser revertível |
-| Remover módulo empresa (telas, endpoints, perfis, entidades, specs) | ⬜ | Migração de remoção de tabelas em entrega própria |
-| Consolidar `ClinicRole` em 6 perfis + migração + seed | ⬜ | — |
-| Atualizar `navigation`, `ROLE_LABELS`, `PERMISSION_MATRIX.md`, specs E2E | ⬜ | Mesma entrega da consolidação |
-| Escolher e trocar de local de atendimento após o login | ⬜ | Hoje o login abre sempre o vínculo mais antigo |
+| Commit limpo do trabalho atual | ✅ | `1f799eb`, `d688125` |
+| Identidade e ativação da clínica no `Clinic` (entrega A) | ✅ | `f11077b`; tela `/clinicas` |
+| Remover módulo empresa (telas, endpoints, perfis, entidades, specs) | ✅ | Entrega C; migração `RemoveCompanyModule` só com os DROP |
+| Consolidar `ClinicRole` em 6 perfis + migração + seed | ✅ | Entrega B (`8028003`); migração `ConsolidateRoles` |
+| Atualizar `navigation`, `ROLE_LABELS`, `PERMISSION_MATRIX.md`, specs E2E | ✅ | Entregas B e C |
+| Escolher e trocar de local de atendimento após o login | ⬜ | Adiado: entra junto com a tela de Vínculos médico ↔ clínica |
 
 ## Fase 1 — Público (feito na rodada de 23/09)
 | Tela | Status | Falta |
@@ -63,7 +64,7 @@ Legenda: ⬜ a fazer · 🟨 em andamento · ✅ feito · ⏸ bloqueado por deci
 | Tela | Status | Ação principal | Paridade / regulação |
 |---|---|---|---|
 | Início | ⬜ | — | Pendências: clínicas a ativar, CRMs a verificar |
-| Clínicas | 🟨 | Ativar clínica | Hoje em `/elegibilidade` (aba de CNPJ); sai de lá quando o módulo empresa for removido |
+| Clínicas | 🟨 | Ativar clínica | Tela própria `/clinicas` (Fase 0); falta ficha da clínica e responsável técnico |
 | Médicos | ⬜ | Verificar CRM | — |
 | Auditoria clínica | ⬜ | Abrir prontuário com justificativa | Regra de acesso do ADR-0003 |
 

@@ -13,7 +13,7 @@ test.describe("CRUD cadastral por perfil", () => {
     await expect(page.getByLabel(/e-mail/i)).toBeVisible();
     await expect(page.getByLabel(/nascimento/i)).toBeVisible();
     await expect(page.getByLabel(/telefone/i)).toBeVisible();
-    await expect(page.getByText(/cpf, elegibilidade, faturas e registros clinicos nao sao alterados/i)).toBeVisible();
+    await expect(page.getByText(/cpf e registros clínicos não são alterados/i)).toBeVisible();
     await expect(page.getByRole("button", { name: /atualizar cadastro/i })).toBeVisible();
   });
 
@@ -25,7 +25,7 @@ test.describe("CRUD cadastral por perfil", () => {
     await expect(page.getByLabel("CRM", { exact: true })).toBeVisible();
     await expect(page.getByLabel(/uf do crm/i)).toBeVisible();
     await expect(page.getByLabel(/especialidade/i)).toBeVisible();
-    await expect(page.getByText(/nao altera faturas, elegibilidade empresarial, prontuario ou registro clinico/i)).toBeVisible();
+    await expect(page.getByText(/não altera prontuário nem registro clínico/i)).toBeVisible();
     await expect(page.getByRole("button", { name: /atualizar perfil medico/i })).toBeVisible();
   });
 });

@@ -5,8 +5,8 @@ Leia este arquivo antes de qualquer mudança; ele aponta para as regras e skills
 
 ## Projeto
 
-Plataforma de telemedicina B2B, clínica em primeiro lugar (ADR-0002): clínicas atendem pacientes por vídeo;
-empresas parceiras podem patrocinar o benefício sem acessar dado clínico individual.
+Software de telemedicina para médicos e clínicas (ADR-0003): clínicas e médicos atendem pacientes por vídeo, com
+agenda, prontuário e auditoria. Não há módulo de empresa/benefício.
 
 | Parte | Stack | Caminho |
 |---|---|---|
@@ -63,7 +63,7 @@ Mercado e regulação: [`docs/01-product/MARKET_ANALYSIS_CLINIC_SOFTWARE.md`](do
 
 ## Limites que não se negociam
 
-- Dado clínico (prontuário, diagnóstico, medicação, conteúdo de chamada) nunca aparece em telas de empresa,
-  financeiro ou auditoria agregada. Na dúvida, leia `medsync-security-lgpd`.
+- Dado clínico (prontuário, diagnóstico, medicação, conteúdo de chamada) nunca aparece para ADM da clínica,
+  Suporte, DPO ou em auditoria. Na dúvida, leia `medsync-security-lgpd`.
 - Autorização é decidida na API (`apps/api/src/MedSync.Api/ApiEndpoints.cs`); esconder um botão no front não é controle de acesso.
 - Segredos (`.env`, `SEED_DEMO_PASSWORD`) nunca são versionados, impressos em log ou passados como argumento de comando.

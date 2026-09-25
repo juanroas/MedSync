@@ -222,16 +222,14 @@ app.MapPost("/ops/presentation-seed", async (
     await DatabaseSeeder.SeedAsync(db, passwords, demoPassword!, cancellationToken);
 
     var users = await db.Users.CountAsync(cancellationToken);
-    var companies = await db.Companies.CountAsync(cancellationToken);
-    var beneficiaries = await db.CompanyEmployees.CountAsync(cancellationToken);
+    var clinics = await db.Clinics.CountAsync(x => !x.IsPlatform, cancellationToken);
 
     app.Logger.LogInformation(
-        "Presentation seed executed manually. Environment: {Environment}; Mode: {Mode}; Users: {Users}; Companies: {Companies}; Beneficiaries: {Beneficiaries}",
+        "Presentation seed executed manually. Environment: {Environment}; Mode: {Mode}; Users: {Users}; Clinics: {Clinics}",
         environment.EnvironmentName,
         seedMode.Mode,
         users,
-        companies,
-        beneficiaries);
+        clinics);
 
     return Results.Ok(new
     {
@@ -239,8 +237,7 @@ app.MapPost("/ops/presentation-seed", async (
         environment = environment.EnvironmentName,
         mode = seedMode.Mode,
         users,
-        companies,
-        beneficiaries
+        clinics
     });
 }).AllowAnonymous().RequireRateLimiting("auth");
 app.MapMedSyncEndpoints();

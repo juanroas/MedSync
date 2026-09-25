@@ -8,7 +8,7 @@ test.describe("experiencia por perfil", () => {
     await loginByUi(page, users.doctor);
 
     await expect(page.getByRole("heading", { name: /^painel medico$/i })).toBeVisible();
-    await expect(page.getByText(/agendamentos sao criados/i)).toBeVisible();
+    await expect(page.getByText(/agendamentos são criados/i)).toBeVisible();
     await expect(page.getByRole("link", { name: /nova consulta/i })).toHaveCount(0);
   });
 

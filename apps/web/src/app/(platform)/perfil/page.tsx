@@ -77,7 +77,7 @@ export default function PersonalProfilePage() {
       <PageHeader
         eyebrow="Conta"
         title="Meus dados"
-        description="Atualize seus dados pessoais permitidos sem alterar permissao, CNPJ, elegibilidade ou informacao clinica."
+        description="Atualize seus dados pessoais sem alterar permissão, clínica ou informação clínica."
       />
 
       {error && <ErrorBanner message={error} />}
