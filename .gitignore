@@ -24,3 +24,7 @@ obj/
 .vscode/
 .DS_Store
 Thumbs.db
+
+# Arquivos gerados em runtime (PDFs assinados, anexos clinicos) e snapshots do Playwright MCP
+App_Data/
+.playwright-mcp/

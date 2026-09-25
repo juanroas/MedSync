@@ -52,6 +52,8 @@ builder.Services.AddScoped<LiveKitRoomManager>();
 builder.Services.AddHostedService<VideoSessionCleanupService>();
 builder.Services.AddHttpClient();
 builder.Services.AddHostedService<MedicationCatalogImporter>();
+builder.Services.AddHttpClient(nameof(IntegraIcpSignatureProvider));
+builder.Services.AddSingleton<IntegraIcpSignatureProvider>();
 builder.Services.ConfigureHttpJsonOptions(options =>
     options.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 builder.Services.AddEndpointsApiExplorer();

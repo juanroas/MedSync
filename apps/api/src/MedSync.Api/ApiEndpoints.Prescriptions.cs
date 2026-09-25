@@ -2,7 +2,9 @@ using System.Security.Claims;
 using MedSync.Application;
 using MedSync.Domain;
 using MedSync.Infrastructure;
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Distributed;
 
 namespace MedSync.Api;
 
@@ -22,8 +24,15 @@ public static partial class ApiEndpoints
         protectedApi.MapPut("/prescriptions/{id:guid}", UpdatePrescription);
         protectedApi.MapDelete("/prescriptions/{id:guid}", DeletePrescription);
         protectedApi.MapPost("/prescriptions/{id:guid}/sign", SignPrescription);
+        protectedApi.MapGet("/prescriptions/{id:guid}/pdf", DownloadPrescriptionPdf);
         protectedApi.MapGet("/patients/{patientId:guid}/medications", GetPatientMedications);
     }
+
+    // The certificate app returns the doctor's browser here after approval; the single-use state proves who started it.
+    private static void MapSignatureCallback(IEndpointRouteBuilder app) =>
+        app.MapGet("/signature/callback", CompletePrescriptionSignature).AllowAnonymous();
+
+    private sealed record PendingSignature(Guid PrescriptionId, Guid UserId, Guid ClinicId, string Verifier);
 
     private static async Task<IResult> SearchMedications(
         string? q,
@@ -270,6 +279,8 @@ public static partial class ApiEndpoints
         ClaimsPrincipal principal,
         MedSyncDbContext db,
         AuditWriter audit,
+        IntegraIcpSignatureProvider signatureProvider,
+        IDistributedCache cache,
         CancellationToken cancellationToken)
     {
         var actor = RequestContext.From(principal);
@@ -284,15 +295,132 @@ public static partial class ApiEndpoints
         if (missing.Count > 0)
             return Validation("prescription", $"Antes de assinar: {string.Join("; ", missing)}.");
 
-        // D1: the signature is the doctor's own ICP-Brasil certificate through the PSC cloud API (VIDaaS).
-        // Until MedSync is registered with the PSC there is nothing that can sign, so say so plainly.
-        audit.Add(actor, "Prescription.Sign", "Prescription", id, "Denied", "Assinatura digital ainda não configurada.");
-        await db.SaveChangesAsync(cancellationToken);
-        return Results.Conflict(new
+        // D1: the signature is the doctor's own ICP-Brasil cloud certificate (IntegraICP). Without a channel, nothing signs.
+        if (!IsSignatureConfigured())
         {
-            message = "A assinatura digital ICP-Brasil (certificado em nuvem VIDaaS) ainda não está ativa no MedSync. " +
-                      "Você pode imprimir o rascunho para conferência, mas ele não tem validade."
-        });
+            audit.Add(actor, "Prescription.Sign", "Prescription", id, "Denied", "Assinatura digital ainda não configurada.");
+            await db.SaveChangesAsync(cancellationToken);
+            return Results.Conflict(new
+            {
+                message = "A assinatura digital ICP-Brasil (certificado em nuvem VIDaaS) ainda não está ativa no MedSync. " +
+                          "Você pode imprimir o rascunho para conferência, mas ele não tem validade."
+            });
+        }
+
+        var (verifier, challenge) = IntegraIcpSignatureProvider.CreatePkcePair();
+        var state = Convert.ToHexString(System.Security.Cryptography.RandomNumberGenerator.GetBytes(24));
+        await cache.SetStringAsync(
+            $"signature:{state}",
+            JsonSerializer.Serialize(new PendingSignature(prescription.Id, actor.UserId, actor.ClinicId, verifier)),
+            new DistributedCacheEntryOptions { AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10) },
+            cancellationToken);
+        audit.Add(actor, "Prescription.SignStart", "Prescription", id);
+        await db.SaveChangesAsync(cancellationToken);
+        return Results.Ok(new { authorizationUrl = signatureProvider.BuildAuthorizationUrl(challenge, state) });
+    }
+
+    private static async Task<IResult> CompletePrescriptionSignature(
+        string? state,
+        string? credentialId,
+        MedSyncDbContext db,
+        AuditWriter audit,
+        IntegraIcpSignatureProvider signatureProvider,
+        ClinicalAttachmentStorage storage,
+        IDistributedCache cache,
+        ILoggerFactory loggerFactory,
+        CancellationToken cancellationToken)
+    {
+        var frontend = (Environment.GetEnvironmentVariable("FRONTEND_URL") ?? "http://localhost:3000")
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)[0].TrimEnd('/');
+        if (string.IsNullOrWhiteSpace(state) || string.IsNullOrWhiteSpace(credentialId))
+            return Results.Redirect($"{frontend}/consultas?assinatura=invalida");
+
+        // Single use: read and drop the pending signature before doing anything else.
+        var key = $"signature:{state}";
+        var pendingJson = await cache.GetStringAsync(key, cancellationToken);
+        await cache.RemoveAsync(key, cancellationToken);
+        if (pendingJson is null)
+            return Results.Redirect($"{frontend}/consultas?assinatura=expirada");
+
+        var pending = JsonSerializer.Deserialize<PendingSignature>(pendingJson)!;
+        var actor = new RequestContext(pending.UserId, pending.ClinicId, new HashSet<ClinicRole> { ClinicRole.Doctor });
+        var prescription = await db.Prescriptions
+            .Include(x => x.Items)
+            .Include(x => x.Appointment).ThenInclude(x => x.Doctor)
+            .Include(x => x.Appointment).ThenInclude(x => x.Patient)
+            .Include(x => x.Appointment).ThenInclude(x => x.Clinic)
+            .SingleOrDefaultAsync(x => x.Id == pending.PrescriptionId, cancellationToken);
+        var documentUrl = $"{frontend}/receita/{pending.PrescriptionId}";
+        if (prescription is null ||
+            prescription.Status != PrescriptionStatus.Draft ||
+            prescription.Appointment.Doctor.UserId != pending.UserId)
+            return Results.Redirect($"{documentUrl}?assinatura=invalida");
+
+        try
+        {
+            var appointment = prescription.Appointment;
+            var signedAt = DateTime.UtcNow;
+            var document = PrescriptionPdf.Render(new PrescriptionPdfData(
+                prescription.Id,
+                prescription.Kind,
+                appointment.Doctor.Name,
+                appointment.Doctor.Crm,
+                appointment.Doctor.CrmUf,
+                appointment.Doctor.Specialty,
+                appointment.Doctor.ProfessionalAddress!,
+                appointment.Clinic.Name,
+                appointment.Patient.Name,
+                appointment.Patient.Cpf,
+                prescription.PatientLocation!,
+                prescription.Notes,
+                signedAt,
+                prescription.Items.ToList()));
+            var signer = new RemoteDigitalSigner(signatureProvider.CreateSigner(credentialId, pending.Verifier), cancellationToken);
+            var pdf = await PrescriptionPdf.SignAsync(document, signer, prescription.PatientLocation!);
+            var (storageKey, sha256) = await storage.SaveGeneratedAsync(
+                prescription.ClinicId, "prescriptions", $"{prescription.Id:N}.pdf", pdf, cancellationToken);
+
+            prescription.Status = PrescriptionStatus.Signed;
+            prescription.SignedAt = signedAt;
+            prescription.SignedDocumentKey = storageKey;
+            prescription.SignedDocumentSha256 = sha256;
+            prescription.UpdatedAt = signedAt;
+            audit.Add(actor, "Prescription.Sign", "Prescription", prescription.Id);
+            await db.SaveChangesAsync(cancellationToken);
+            return Results.Redirect($"{documentUrl}?assinatura=ok");
+        }
+        catch (Exception exception) when (exception is InvalidOperationException or HttpRequestException)
+        {
+            loggerFactory.CreateLogger("PrescriptionSignature").LogWarning(exception, "Prescription signature failed.");
+            audit.Add(actor, "Prescription.Sign", "Prescription", prescription.Id, "Failed", "Falha no provedor de assinatura.");
+            await db.SaveChangesAsync(cancellationToken);
+            return Results.Redirect($"{documentUrl}?assinatura=falhou");
+        }
+    }
+
+    private static async Task<IResult> DownloadPrescriptionPdf(
+        Guid id,
+        ClaimsPrincipal principal,
+        MedSyncDbContext db,
+        AuditWriter audit,
+        ClinicalAttachmentStorage storage,
+        CancellationToken cancellationToken)
+    {
+        var actor = RequestContext.From(principal);
+        var prescription = await db.Prescriptions.AsNoTracking()
+            .Include(x => x.Appointment).ThenInclude(x => x.Doctor)
+            .Include(x => x.Appointment).ThenInclude(x => x.Patient)
+            .SingleOrDefaultAsync(x => x.Id == id && x.Status == PrescriptionStatus.Signed, cancellationToken);
+        if (prescription?.SignedDocumentKey is null ||
+            !(IsAssignedDoctor(actor, prescription.Appointment) || IsPatient(actor, prescription.Appointment)))
+            return Results.NotFound();
+
+        var path = storage.GetAbsolutePath(prescription.SignedDocumentKey);
+        if (!File.Exists(path))
+            return Results.NotFound();
+        audit.Add(actor, "Prescription.DownloadPdf", "Prescription", id);
+        await db.SaveChangesAsync(cancellationToken);
+        return Results.File(path, "application/pdf", $"receita-{prescription.SignedAt:yyyyMMdd}.pdf");
     }
 
     private static async Task<IResult> GetPatientMedications(
@@ -424,8 +552,7 @@ public static partial class ApiEndpoints
         return missing;
     }
 
-    // Becomes true when the VIDaaS integration (slice 3) exists; until then nothing can sign.
-    private static bool IsSignatureConfigured() => false;
+    private static bool IsSignatureConfigured() => IntegraIcpSignatureProvider.IsConfigured;
 
     private static PrescriptionResponse ToResponse(Prescription prescription) =>
         new(

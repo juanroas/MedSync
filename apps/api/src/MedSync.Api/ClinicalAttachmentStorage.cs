@@ -66,6 +66,21 @@ public sealed class ClinicalAttachmentStorage(IWebHostEnvironment environment)
             hash);
     }
 
+    // Files the server itself produced (e.g. signed prescription PDFs); no upload validation needed.
+    public async Task<(string StorageKey, string Sha256)> SaveGeneratedAsync(
+        Guid clinicId,
+        string folder,
+        string fileName,
+        byte[] bytes,
+        CancellationToken cancellationToken)
+    {
+        var relativePath = Path.Combine(clinicId.ToString("N"), folder, fileName);
+        var absolutePath = GetAbsolutePath(relativePath);
+        Directory.CreateDirectory(Path.GetDirectoryName(absolutePath)!);
+        await File.WriteAllBytesAsync(absolutePath, bytes, cancellationToken);
+        return (relativePath, Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant());
+    }
+
     public string GetAbsolutePath(string storageKey)
     {
         var fullPath = Path.GetFullPath(Path.Combine(rootPath, storageKey));
