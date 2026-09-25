@@ -32,7 +32,7 @@ Legenda: ⬜ a fazer · 🟨 em andamento · ✅ feito · ⏸ bloqueado por deci
 ## Fase 2 — Médico (fecha a consulta)
 | Tela | Status | Ação principal | Paridade / regulação |
 |---|---|---|---|
-| Início | ⬜ | Entrar na próxima consulta | Agenda do dia (todos os concorrentes) |
+| Início | ✅ | Entrar na próxima consulta | KPIs do dia, cartão "Próxima consulta" (termo do paciente + Entrar na sala quando abre), agenda de hoje |
 | Agenda | 🟨 | Adicionar horário | Já tem disponibilidade; falta visão semana/dia |
 | Certificado digital (em Meu perfil) | ⬜ | Conectar certificado | Certificado em nuvem gratuito do CFM; **a confirmar a API do PSC (VALID)** antes de construir |
 | Atendimento / Prontuário | ⬜ | Finalizar e assinar | Registro assinado ICP-Brasil para dispensar papel (CFM 1.821 arts. 3º–5º); alerta de presencial ≤ 180 dias em crônicos (CFM 2.314 art. 6º §2) |

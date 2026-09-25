@@ -7,8 +7,10 @@ test.describe("experiencia por perfil", () => {
   test("medico ve painel medico e nao cria agenda", async ({ page }) => {
     await loginByUi(page, users.doctor);
 
-    await expect(page.getByRole("heading", { name: /^painel medico$/i })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /^painel$/i })).toBeVisible();
     await expect(page.getByText(/agendamentos são criados/i)).toBeVisible();
+    await expect(page.getByText("Próxima consulta", { exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /agenda de hoje/i })).toBeVisible();
     await expect(page.getByRole("link", { name: /nova consulta/i })).toHaveCount(0);
   });
 
@@ -77,8 +79,12 @@ test.describe("experiencia por perfil", () => {
     await page.getByRole("button", { name: /sair da conta/i }).click();
     await loginByUi(page, users.patient);
     await page.getByRole("link", { name: /^minhas consultas$/i }).click();
+    // O paciente passa pelo termo de telemedicina antes da sala (CFM 2.314 art. 15).
     await expect(
-      page.getByText(/aguardando sala/i).or(page.getByRole("link", { name: /^entrar$/i })),
+      page
+        .getByText(/aguardando sala/i)
+        .or(page.getByRole("link", { name: /^entrar$/i }))
+        .or(page.getByRole("link", { name: /^aceitar termo$/i })),
     ).toBeVisible();
   });
 });

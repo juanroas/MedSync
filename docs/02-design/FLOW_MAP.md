@@ -55,7 +55,8 @@ o bloco fixo "Nova consulta" — a ação vive no header de `/consultas` e no Pa
 |---|---|---|---|
 | `/dashboard` Paciente | Paciente | Cartão "Próximo atendimento": Solicitar consulta → vira Acompanhar status / Entrar na sala | o vazio da lista só explica em texto |
 | `/dashboard` Central de operação | ADM da clínica | **Nova consulta** (some enquanto a clínica está em análise) | "Ver auditoria" só para quem tem Auditoria no menu |
-| `/dashboard` demais perfis | Médico, Médico ADM (clínicas em análise), Suporte (pedidos abertos), DPO | nenhuma (leitura) | links "Ver todas/Ver agenda" dentro de painéis são permitidos |
+| `/dashboard` Médico | Médico | **Entrar na sala** no cartão "Próxima consulta", só com a janela aberta (15 min antes) | "Ver prontuário" e "Ver agenda" são links secundários; a agenda de hoje não tem botão por linha |
+| `/dashboard` demais perfis | Médico ADM (clínicas em análise), Suporte (pedidos abertos), DPO | nenhuma (leitura) | links "Ver todas/Ver agenda" dentro de painéis são permitidos |
 | `/consultas` | Paciente / quem agenda | **Solicitar consulta** / **Agendar consulta** | vazio sem botão (o header já tem) |
 | `/consultas` | Médico | seção "Minha disponibilidade" (Adicionar horário) | lista de consultas é leitura |
 | `/consultas/nova` | Paciente / ADM da clínica | **Solicitar** / **Confirmar agendamento** | exige clínica ativa |

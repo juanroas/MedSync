@@ -12,12 +12,13 @@ import {
   buttonClass,
 } from "@/components/ui";
 import {
+  canDoctorOpenRoom,
   isAppointmentJoinWindowOpen,
   isAppointmentMissed,
   isAppointmentRoomJoinable,
   isAppointmentStaleInProgress,
 } from "@/lib/appointments";
-import { formatDateTime, statusClass, statusLabel } from "@/lib/format";
+import { formatDateTime, formatTime, statusClass, statusLabel } from "@/lib/format";
 import type {
   Appointment,
   ClinicActivation,
@@ -28,9 +29,9 @@ import type {
 import { api, getSession } from "@/services/api";
 import {
   ArrowRight,
-  BarChart3,
   Building2,
   CalendarCheck2,
+  CalendarDays,
   CheckCircle2,
   Clock3,
   FileText,
@@ -141,7 +142,6 @@ export default function DashboardPage() {
     return (
       <DoctorHome
         appointments={appointments}
-        patients={patients}
         loading={loading}
         error={error}
       />
@@ -263,68 +263,123 @@ function DpoHome({ error }: { error: string }) {
 
 function DoctorHome({
   appointments,
-  patients,
   loading,
   error,
 }: {
   appointments: Appointment[];
-  patients: Patient[];
   loading: boolean;
   error: string;
 }) {
   const now = new Date();
-  const day = appointments.filter((item) => isSameRange(item.scheduledAt, now, "day")).length;
-  const week = appointments.filter((item) => isSameRange(item.scheduledAt, now, "week")).length;
-  const month = appointments.filter((item) => isSameRange(item.scheduledAt, now, "month")).length;
-  const year = appointments.filter((item) => isSameRange(item.scheduledAt, now, "year")).length;
-  const upcoming = appointments
-    .filter(
-      (item) =>
-        (item.status === "Scheduled" && !isAppointmentMissed(item)) ||
-        (item.status === "InProgress" && !isAppointmentStaleInProgress(item)),
-    )
-    .sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime())
-    .slice(0, 5);
+  const byTime = (a: Appointment, b: Appointment) =>
+    new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime();
+  const isOpen = (item: Appointment) =>
+    (item.status === "Scheduled" && !isAppointmentMissed(item)) ||
+    (item.status === "InProgress" && !isAppointmentStaleInProgress(item));
+  const today = appointments
+    .filter((item) => item.status !== "Cancelled" && isSameRange(item.scheduledAt, now, "day"))
+    .sort(byTime);
+  const toAttendToday = today.filter(isOpen).length;
+  const completedToday = today.filter((item) => item.status === "Completed").length;
+  const week = appointments.filter(
+    (item) => item.status !== "Cancelled" && isSameRange(item.scheduledAt, now, "week"),
+  ).length;
+  const next = appointments.filter(isOpen).sort(byTime)[0];
 
   return (
     <>
       <PageHeader
-        eyebrow="MedSync Medical"
-        title="Painel medico"
-        description="Acompanhe sua agenda vinculada, pacientes atendidos e indicadores do periodo. Os agendamentos são criados pela clínica ou solicitados pelo paciente."
-        action={
-          <span className="w-fit rounded-full bg-coral-50 px-3 py-1.5 text-xs font-bold text-coral-600">
-            Sem criacao de agenda
-          </span>
-        }
+        eyebrow="Portal médico"
+        title="Painel"
+        description="Suas consultas de hoje e a próxima a atender. Os agendamentos são criados pela clínica ou solicitados pelo paciente."
       />
       {error && <ErrorBanner message={error} />}
       {loading ? (
-        <LoadingState label="Carregando sua agenda medica..." />
+        <LoadingState label="Carregando sua agenda..." />
       ) : (
         <>
           <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <MetricCard label="Hoje" value={day} detail="consultas vinculadas" icon={<CalendarCheck2 size={20} />} tone="success" />
-            <MetricCard label="Semana" value={week} detail="periodo atual" icon={<Clock3 size={20} />} tone="info" />
-            <MetricCard label="Mes" value={month} detail="volume assistencial" icon={<BarChart3 size={20} />} tone="neutral" />
-            <MetricCard label="Ano" value={year} detail="historico agregado" icon={<FileText size={20} />} tone="warning" />
+            <MetricCard label="Hoje" value={today.length} detail="consultas no dia" icon={<CalendarCheck2 size={20} />} tone="success" />
+            <MetricCard label="A atender" value={toAttendToday} detail="ainda hoje" icon={<Clock3 size={20} />} tone="warning" />
+            <MetricCard label="Concluídas" value={completedToday} detail="hoje" icon={<CheckCircle2 size={20} />} tone="info" />
+            <MetricCard label="Semana" value={week} detail="consultas na semana" icon={<CalendarDays size={20} />} tone="neutral" />
           </section>
 
-          <section className="mt-7 grid gap-6 xl:grid-cols-[1.2fr_.8fr]">
-            <AppointmentsPanel appointments={upcoming} canJoin />
-            <Card className="p-6">
-              <p className="text-xs font-bold uppercase text-teal-600">Pacientes vinculados</p>
-              <h2 className="mt-3 text-xl font-bold text-ink">
-                {patients.length} {patients.length === 1 ? "paciente" : "pacientes"}
-              </h2>
-              <p className="mt-3 text-sm leading-6 text-slate-500">
-                O medico visualiza pacientes somente quando existe consulta vinculada ao seu atendimento.
-              </p>
+          <section className="mt-7 grid gap-6 xl:grid-cols-[.85fr_1.15fr]">
+            <NextConsultationCard appointment={next} />
+            <Card className="overflow-hidden">
+              <SectionHeader
+                title="Agenda de hoje"
+                description="Em ordem de horário"
+                action={(
+                  <Link href="/consultas" className="flex items-center gap-1.5 text-xs font-bold text-teal-600">
+                    Ver agenda <ArrowRight size={14} />
+                  </Link>
+                )}
+              />
+              {today.length === 0 ? (
+                <p className="px-6 py-12 text-center text-sm text-slate-400">Nenhuma consulta hoje.</p>
+              ) : (
+                <ul className="divide-y divide-slate-100">
+                  {today.map((item) => (
+                    <li key={item.id} className="flex items-center gap-4 px-6 py-4">
+                      <span className="w-14 shrink-0 text-sm font-bold text-ink">{formatTime(item.scheduledAt)}</span>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-semibold text-ink">{item.patientName}</p>
+                        <p className="mt-0.5 text-xs text-slate-400">{item.specialty}</p>
+                      </div>
+                      <Badge className={appointmentStatusClass(item)}>{appointmentStatusText(item)}</Badge>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </Card>
           </section>
         </>
       )}
     </>
+  );
+}
+
+function NextConsultationCard({ appointment }: { appointment?: Appointment }) {
+  if (!appointment) {
+    return (
+      <Card className="p-6">
+        <p className="text-xs font-bold uppercase text-teal-600">Próxima consulta</p>
+        <p className="mt-3 text-sm leading-6 text-slate-500">
+          Nenhuma consulta agendada. Seus horários disponíveis ficam em Agenda.
+        </p>
+      </Card>
+    );
+  }
+
+  const roomOpen = canDoctorOpenRoom(appointment);
+  return (
+    <Card className="p-6">
+      <p className="text-xs font-bold uppercase text-teal-600">Próxima consulta</p>
+      <h2 className="mt-3 text-2xl font-bold text-ink">{appointment.patientName}</h2>
+      <p className="mt-1 text-sm text-slate-500">
+        {appointment.specialty} · {formatDateTime(appointment.scheduledAt)}
+      </p>
+      <p className="mt-4 flex items-center gap-2 text-xs font-semibold text-slate-600">
+        <ShieldCheck className={appointment.consentAccepted ? "text-teal-600" : "text-amber-600"} size={15} />
+        {appointment.consentAccepted
+          ? "Paciente aceitou o termo de telemedicina."
+          : "O paciente ainda precisa aceitar o termo de telemedicina."}
+      </p>
+      <div className="mt-6 flex flex-wrap items-center gap-4">
+        {roomOpen ? (
+          <Link href={`/sala/${appointment.id}`} className={buttonClass}>
+            <Video size={17} /> Entrar na sala
+          </Link>
+        ) : (
+          <p className="text-sm text-slate-500">A sala abre 15 minutos antes do horário.</p>
+        )}
+        <Link href={`/prontuario/${appointment.id}`} className="text-sm font-bold text-teal-700 hover:text-teal-800">
+          Ver prontuário
+        </Link>
+      </div>
+    </Card>
   );
 }
 

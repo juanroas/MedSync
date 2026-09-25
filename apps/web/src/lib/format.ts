@@ -10,6 +10,13 @@ export function formatDateTime(value: string) {
   }).format(new Date(value));
 }
 
+export function formatTime(value: string) {
+  return new Intl.DateTimeFormat("pt-BR", {
+    timeZone: BRAZIL_TIME_ZONE,
+    timeStyle: "short",
+  }).format(new Date(value));
+}
+
 export function formatBrazilDateTimeInput(value = new Date()) {
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone: BRAZIL_TIME_ZONE,

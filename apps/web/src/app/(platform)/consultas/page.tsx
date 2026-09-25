@@ -2,7 +2,8 @@
 
 import { Card, EmptyState, ErrorBanner, LoadingState, PageHeader, buttonClass, inputClass } from "@/components/ui";
 import {
-  isAppointmentJoinWindowOpen,
+  canDoctorEnterExistingRoom,
+  canStartRoom,
   isAppointmentMissed,
   isAppointmentRoomJoinable,
   isAppointmentStaleInProgress,
@@ -613,19 +614,3 @@ function appointmentStatusClass(appointment: Appointment) {
   return statusClass[appointment.status];
 }
 
-function canStartRoom(appointment: Appointment) {
-  if (appointment.roomName || !["Scheduled", "InProgress"].includes(appointment.status)) {
-    return false;
-  }
-
-  return isAppointmentJoinWindowOpen(appointment);
-}
-
-function canDoctorEnterExistingRoom(appointment: Appointment) {
-  return Boolean(appointment.roomName) &&
-    ["Scheduled", "InProgress"].includes(appointment.status) &&
-    appointment.videoStatus !== "Completed" &&
-    appointment.videoStatus !== "Cancelled" &&
-    appointment.videoStatus !== "Expired" &&
-    isAppointmentJoinWindowOpen(appointment);
-}
