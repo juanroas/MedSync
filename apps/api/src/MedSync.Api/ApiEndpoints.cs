@@ -2451,6 +2451,10 @@ public static partial class ApiEndpoints
 
         appointment.ConsultationRoom.Status = VideoSessionStatus.InProgress;
         appointment.ConsultationRoom.LastActivityAt = DateTime.UtcNow;
+        if (IsAssignedDoctor(actor, appointment))
+            appointment.ConsultationRoom.DoctorJoinedAt ??= DateTime.UtcNow;
+        else if (IsPatient(actor, appointment))
+            appointment.ConsultationRoom.PatientJoinedAt ??= DateTime.UtcNow;
         audit.Add(actor, "Video.TokenIssued", "Appointment", appointmentId);
         await db.SaveChangesAsync(cancellationToken);
         return Results.Ok(new
@@ -2468,6 +2472,7 @@ public static partial class ApiEndpoints
 
     private static async Task<IResult> EndConsultation(
         Guid appointmentId,
+        EndConsultationRequest? request,
         ClaimsPrincipal principal,
         MedSyncDbContext db,
         LiveKitRoomManager liveKit,
@@ -2480,17 +2485,21 @@ public static partial class ApiEndpoints
             return Results.NotFound();
         if (!IsAssignedDoctor(actor, appointment))
             return Results.Forbid();
+        // "Não compareceu" only when the doctor was in the call and the patient never joined it.
+        var noShow = string.Equals(request?.Outcome, "NoShow", StringComparison.OrdinalIgnoreCase);
+        if (noShow && (appointment.ConsultationRoom.DoctorJoinedAt is null || appointment.ConsultationRoom.PatientJoinedAt is not null))
+            return Validation("outcome", "Só é possível registrar não comparecimento se você entrou na sala e o paciente não entrou.");
         var deleteResult = await liveKit.DeleteAsync(appointment.ConsultationRoom.RoomName);
         if (deleteResult == LiveKitDeleteRoomResult.Failed && InJoinWindow(appointment))
             return Results.Problem(
                 "Não foi possível desconectar os participantes. Tente encerrar novamente.",
                 statusCode: StatusCodes.Status503ServiceUnavailable);
-        appointment.Status = AppointmentStatus.Completed;
+        appointment.Status = noShow ? AppointmentStatus.NoShow : AppointmentStatus.Completed;
         appointment.ConsultationRoom.Status = VideoSessionStatus.Completed;
         appointment.ConsultationRoom.EndedAt = DateTime.UtcNow;
         audit.Add(
             actor,
-            "Consultation.End",
+            noShow ? "Consultation.NoShow" : "Consultation.End",
             "Appointment",
             appointmentId,
             deleteResult == LiveKitDeleteRoomResult.Deleted ? "Success" : "Warning",
@@ -2664,7 +2673,9 @@ public static partial class ApiEndpoints
                     ? null
                     : x.ConsultationRoom.RoomName,
                 x.ConsultationRoom == null ? null : x.ConsultationRoom.Status,
-                isDoctor && x.Doctor.UserId == actorUserId ? x.Patient.ContinuousMedications : null));
+                isDoctor && x.Doctor.UserId == actorUserId ? x.Patient.ContinuousMedications : null,
+                x.ConsultationRoom != null && x.ConsultationRoom.DoctorJoinedAt != null,
+                x.ConsultationRoom != null && x.ConsultationRoom.PatientJoinedAt != null));
     }
 
 

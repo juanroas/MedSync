@@ -29,8 +29,10 @@ test.describe("agenda do medico", () => {
     const saturday = page.locator("section[aria-label^='Sábado']");
     await expect(saturday).toContainText("07:00–07:30 atende");
 
-    page.once("dialog", (dialog) => dialog.accept());
     await page.getByRole("button", { name: /remover sábado 07:00/i }).click();
+    const dialog = page.getByRole("dialog", { name: /remover horário de atendimento/i });
+    await expect(dialog).toBeVisible();
+    await dialog.getByRole("button", { name: /^remover horário$/i }).click();
     await expect(saturday).not.toContainText("07:00–07:30");
   });
 });

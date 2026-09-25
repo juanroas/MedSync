@@ -413,8 +413,8 @@ export const api = {
       `/consultations/${appointmentId}/token`,
       { method: "POST" },
     ),
-  endConsultation: (appointmentId: string) =>
-    request<void>(`/consultations/${appointmentId}/end`, { method: "POST" }),
+  endConsultation: (appointmentId: string, outcome: "Completed" | "NoShow" = "Completed") =>
+    request<void>(`/consultations/${appointmentId}/end`, { method: "POST", body: JSON.stringify({ outcome }) }),
 
   createCheckout: (appointmentId: string) =>
     request<Payment>(`/appointments/${appointmentId}/payments/checkout`, {

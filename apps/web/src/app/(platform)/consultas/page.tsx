@@ -1,8 +1,11 @@
 "use client";
 
+import { useConfirm } from "@/components/dialog";
 import { DoctorAgenda } from "@/components/doctor-agenda";
 import { EmptyState, ErrorBanner, LoadingState, PageHeader } from "@/components/ui";
 import {
+  appointmentStatusLabel,
+  appointmentStatusTone,
   canDoctorEnterExistingRoom,
   canStartRoom,
   isAppointmentMissed,
@@ -42,6 +45,7 @@ export default function AppointmentsPage() {
 
 function AppointmentsList() {
   const router = useRouter();
+  const [confirm, confirmDialog] = useConfirm();
   const roles = getSession()?.user.roles ?? [];
   const isDoctor = roles.includes("Doctor");
   const isPatient = roles.includes("Patient");
@@ -163,7 +167,7 @@ function AppointmentsList() {
   }
 
   async function cancelAppointment(appointmentId: string) {
-    if (!window.confirm("Cancelar esta consulta? Esta acao nao pode ser desfeita.")) return;
+    if (!(await confirm({ title: "Cancelar esta consulta?", description: "Esta ação não pode ser desfeita.", confirmLabel: "Cancelar consulta", danger: true }))) return;
     setCancelingId(appointmentId);
     setError("");
     try {
@@ -226,7 +230,7 @@ function AppointmentsList() {
             <FileText size={15} /> Aceitar termo
           </Link>
         ) : isAppointmentMissed(appointment) ? (
-          // A coluna Status ja exibe "Nao compareceu"; evita repetir o mesmo rotulo aqui.
+          // A coluna Status já mostra o desfecho; evita repetir o mesmo rótulo aqui.
           <span className="inline-flex h-10 w-full items-center justify-center px-3 text-xs text-slate-300">
             —
           </span>
@@ -272,6 +276,7 @@ function AppointmentsList() {
         ) : undefined}
       />
       {error && <ErrorBanner message={error} />}
+      {confirmDialog}
 
       {loading ? (
         <LoadingState label="Carregando agenda..." />
@@ -421,7 +426,7 @@ function getAppointmentNextStep(appointment: Appointment) {
 
   if (isAppointmentMissed(appointment)) {
     return {
-      label: "Nao compareceu",
+      label: "Não realizada",
       icon: <CalendarDays size={15} />,
       className: "bg-slate-100 text-slate-500",
     };
@@ -466,15 +471,6 @@ function getAppointmentNextStep(appointment: Appointment) {
   };
 }
 
-function appointmentStatusText(appointment: Appointment) {
-  if (isAppointmentMissed(appointment)) return "Nao compareceu";
-  if (isAppointmentStaleInProgress(appointment)) return "Horario encerrado";
-  return statusLabel[appointment.status];
-}
-
-function appointmentStatusClass(appointment: Appointment) {
-  if (isAppointmentMissed(appointment)) return "bg-slate-100 text-slate-500";
-  if (isAppointmentStaleInProgress(appointment)) return "bg-slate-50 text-slate-500";
-  return statusClass[appointment.status];
-}
+const appointmentStatusText = appointmentStatusLabel;
+const appointmentStatusClass = appointmentStatusTone;
 

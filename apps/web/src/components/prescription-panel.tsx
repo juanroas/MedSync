@@ -1,5 +1,6 @@
 "use client";
 
+import { useConfirm } from "@/components/dialog";
 import { AlertBanner, Badge, Button, Card, SelectInput, TextInput, cn, secondaryButtonClass } from "@/components/ui";
 import { formatDateTime } from "@/lib/format";
 import type {
@@ -45,6 +46,7 @@ export function PrescriptionPanel({ appointmentId, patientId }: { appointmentId:
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const [confirm, confirmDialog] = useConfirm();
 
   const load = useCallback(async () => {
     const [list, inUse] = await Promise.all([
@@ -120,7 +122,7 @@ export function PrescriptionPanel({ appointmentId, patientId }: { appointmentId:
   }
 
   async function remove(prescription: Prescription) {
-    if (!window.confirm("Excluir este rascunho de receita?")) return;
+    if (!(await confirm({ title: "Excluir este rascunho?", description: prescription.items.map((item) => item.medicationName).join(", "), confirmLabel: "Excluir rascunho", danger: true }))) return;
     setError("");
     try {
       await api.deletePrescription(prescription.id);
@@ -159,6 +161,7 @@ export function PrescriptionPanel({ appointmentId, patientId }: { appointmentId:
 
       {error && <AlertBanner tone="error" message={error} />}
       {message && <AlertBanner tone="success" message={message} />}
+      {confirmDialog}
 
       {medications && (medications.items.length > 0 || medications.legacyNote) && !draft && (
         <div className="mb-5 rounded-lg border border-amber-100 bg-amber-50/70 p-4">

@@ -1,16 +1,20 @@
 "use client";
 
 import { Badge, Button, Card, ErrorBanner, LoadingState, PageHeader, buttonClass, cn, inputClass } from "@/components/ui";
+import { useConfirm } from "@/components/dialog";
+import { EndConsultationDialog } from "@/components/end-consultation-dialog";
 import {
+  appointmentStatusLabel,
+  appointmentStatusTone,
+  canConcludeConsultation,
   canDoctorEnterExistingRoom,
   canStartRoom,
   isAppointmentMissed,
-  isAppointmentStaleInProgress,
 } from "@/lib/appointments";
-import { formatBrazilDateInput, formatTime, statusClass, statusLabel } from "@/lib/format";
+import { formatBrazilDateInput, formatTime } from "@/lib/format";
 import type { Appointment, DoctorAvailabilitySlot, WeekDay } from "@/lib/types";
 import { api } from "@/services/api";
-import { ChevronLeft, ChevronRight, Clock3, FileText, Plus, Trash2, Video, X, XCircle } from "lucide-react";
+import { CheckCircle2, ChevronLeft, ChevronRight, FileText, Plus, Trash2, Video, X, XCircle } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
@@ -65,6 +69,9 @@ export function DoctorAgenda() {
   const [error, setError] = useState("");
   const [showSlotForm, setShowSlotForm] = useState(false);
   const [busyId, setBusyId] = useState("");
+  const [concludingId, setConcludingId] = useState("");
+  const [showCancelled, setShowCancelled] = useState(false);
+  const [confirm, confirmDialog] = useConfirm();
   const [, setTick] = useState(0);
 
   const load = useCallback(async () => {
@@ -91,7 +98,9 @@ export function DoctorAgenda() {
   const days = view === "week" ? WEEK.map((_, index) => addDays(weekStart, index)) : [selectedDay];
   const byDay = useMemo(() => {
     const map = new Map<string, Appointment[]>();
-    for (const appointment of [...appointments].sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt))) {
+    for (const appointment of [...appointments]
+      .filter((item) => item.status !== "Cancelled")
+      .sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt))) {
       const key = dayKeyOf(appointment.scheduledAt);
       map.set(key, [...(map.get(key) ?? []), appointment]);
     }
@@ -103,6 +112,10 @@ export function DoctorAgenda() {
       map.set(slot.dayOfWeek, [...(map.get(slot.dayOfWeek) ?? []), slot]);
     return map;
   }, [slots]);
+
+  const cancelledOfDay = appointments.filter(
+    (item) => item.status === "Cancelled" && dayKeyOf(item.scheduledAt) === selectedDay,
+  );
 
   const rangeLabel =
     view === "week"
@@ -232,24 +245,58 @@ export function DoctorAgenda() {
                       router.push(`/sala/${appointment.id}`);
                     }, "Não foi possível iniciar a sala.")
                   }
-                  onEnd={() => run(appointment.id, () => api.endConsultation(appointment.id), "Não foi possível encerrar.")}
-                  onCancel={() => {
-                    if (window.confirm("Cancelar esta consulta? O paciente será avisado na lista dele.")) {
-                      void run(appointment.id, () => api.cancelAppointment(appointment.id), "Não foi possível cancelar.");
-                    }
+                  onConclude={() => setConcludingId(appointment.id)}
+                  onCancel={async () => {
+                    const ok = await confirm({
+                      title: "Cancelar esta consulta?",
+                      description: `${appointment.patientName}, ${formatTime(appointment.scheduledAt)}. O paciente vê o cancelamento na lista dele.`,
+                      confirmLabel: "Cancelar consulta",
+                      danger: true,
+                    });
+                    if (ok) void run(appointment.id, () => api.cancelAppointment(appointment.id), "Não foi possível cancelar.");
                   }}
                 />
               ))}
             </ul>
           )}
+          {cancelledOfDay.length > 0 && (
+            <div className="border-t border-slate-100 px-6 py-3">
+              <button type="button" onClick={() => setShowCancelled((value) => !value)} className="text-xs font-bold text-slate-500 hover:text-ink">
+                {showCancelled ? "Ocultar canceladas" : `Mostrar canceladas (${cancelledOfDay.length})`}
+              </button>
+              {showCancelled && (
+                <ul className="mt-2 space-y-1 text-sm text-slate-400">
+                  {cancelledOfDay.map((item) => (
+                    <li key={item.id}>
+                      {formatTime(item.scheduledAt)} · {item.patientName} · cancelada
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
         </Card>
       )}
+
+      {concludingId && (
+        <EndConsultationDialog
+          appointmentId={concludingId}
+          open
+          onClose={() => setConcludingId("")}
+          onEnded={() => {
+            setConcludingId("");
+            void load();
+          }}
+        />
+      )}
+      {confirmDialog}
 
       {!loading && (
         <AvailabilityList
           slots={slots}
           onRemoved={(id) => setSlots((items) => items.filter((slot) => slot.id !== id))}
           onError={setError}
+          confirm={confirm}
         />
       )}
     </>
@@ -313,13 +360,13 @@ function DayRow({
   appointment,
   busy,
   onStart,
-  onEnd,
+  onConclude,
   onCancel,
 }: {
   appointment: Appointment;
   busy: boolean;
   onStart: () => void;
-  onEnd: () => void;
+  onConclude: () => void;
   onCancel: () => void;
 }) {
   const canCancel = appointment.status === "Scheduled" && !isAppointmentMissed(appointment);
@@ -357,16 +404,17 @@ function DayRow({
           >
             <Video size={15} /> Entrar na sala
           </Link>
-        ) : isAppointmentStaleInProgress(appointment) ? (
+        ) : null}
+        {canConcludeConsultation(appointment) && (
           <button
             type="button"
-            onClick={onEnd}
+            onClick={onConclude}
             disabled={busy}
-            className="inline-flex h-10 items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 text-xs font-bold text-amber-700 hover:bg-amber-100"
+            className="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-xs font-bold text-slate-700 hover:border-teal-200 hover:bg-teal-50"
           >
-            <Clock3 size={15} /> Encerrar
+            <CheckCircle2 size={15} /> Concluir
           </button>
-        ) : null}
+        )}
         {canCancel && (
           <button
             type="button"
@@ -456,10 +504,12 @@ function AvailabilityList({
   slots,
   onRemoved,
   onError,
+  confirm,
 }: {
   slots: DoctorAvailabilitySlot[];
   onRemoved: (id: string) => void;
   onError: (message: string) => void;
+  confirm: ReturnType<typeof useConfirm>[0];
 }) {
   const sorted = [...slots].sort((a, b) => {
     const day = WEEK.indexOf(a.dayOfWeek) - WEEK.indexOf(b.dayOfWeek);
@@ -467,7 +517,14 @@ function AvailabilityList({
   });
 
   async function remove(slot: DoctorAvailabilitySlot) {
-    if (!window.confirm(`Remover ${DAY_NAMES[slot.dayOfWeek]} ${slot.startTime.slice(0, 5)}–${slot.endTime.slice(0, 5)}?`)) return;
+    const label = `${DAY_NAMES[slot.dayOfWeek]} ${slot.startTime.slice(0, 5)}–${slot.endTime.slice(0, 5)}`;
+    const ok = await confirm({
+      title: "Remover horário de atendimento?",
+      description: `${label}. Consultas já marcadas nesse horário continuam valendo.`,
+      confirmLabel: "Remover horário",
+      danger: true,
+    });
+    if (!ok) return;
     try {
       await api.deleteMyAvailabilitySlot(slot.id);
       onRemoved(slot.id);
@@ -504,14 +561,5 @@ function AvailabilityList({
   );
 }
 
-function rowStatusText(appointment: Appointment) {
-  if (isAppointmentMissed(appointment)) return "Não compareceu";
-  if (isAppointmentStaleInProgress(appointment)) return "Sala expirada";
-  return statusLabel[appointment.status];
-}
-
-function rowStatusClass(appointment: Appointment) {
-  if (isAppointmentMissed(appointment) || isAppointmentStaleInProgress(appointment)) return "bg-slate-100 text-slate-500";
-  return statusClass[appointment.status];
-}
-
+const rowStatusText = appointmentStatusLabel;
+const rowStatusClass = appointmentStatusTone;

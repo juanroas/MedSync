@@ -212,6 +212,8 @@ export type Appointment = {
   roomName?: string;
   videoStatus?: VideoSessionStatus;
   patientContinuousMedications?: string;
+  doctorJoined?: boolean;
+  patientJoined?: boolean;
 };
 
 export type ConsultationRoom = {

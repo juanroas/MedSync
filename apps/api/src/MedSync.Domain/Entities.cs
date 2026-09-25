@@ -199,6 +199,9 @@ public sealed class ConsultationRoom
     public DateTime? StartedAt { get; set; }
     public DateTime? EndedAt { get; set; }
     public DateTime? LastActivityAt { get; set; }
+    // First time each side received a call token: tells "patient did not show up" apart from "never happened".
+    public DateTime? DoctorJoinedAt { get; set; }
+    public DateTime? PatientJoinedAt { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }
 

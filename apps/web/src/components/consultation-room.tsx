@@ -3,6 +3,7 @@
 import "@livekit/components-styles";
 
 import { ClinicalAttachmentsPanel } from "@/components/clinical-attachments-panel";
+import { EndConsultationDialog } from "@/components/end-consultation-dialog";
 import { ErrorBanner, LoadingState, TextArea, buttonClass, cn } from "@/components/ui";
 import { formatDateTime } from "@/lib/format";
 import type { Appointment, ClinicalRecord, PatientClinicalRecord } from "@/lib/types";
@@ -39,6 +40,7 @@ export function ConsultationRoom({ appointmentId }: { appointmentId: string }) {
   const [endError, setEndError] = useState("");
   // Why the call ended without the user choosing to leave: the doctor ended it, or the connection dropped.
   const [ended, setEnded] = useState<"by-doctor" | "connection" | null>(null);
+  const [ending, setEnding] = useState(false);
   const [waiting, setWaiting] = useState(false);
   const [term, setTerm] = useState<ConsentTerm | null>(null);
   const [accepting, setAccepting] = useState(false);
@@ -282,25 +284,17 @@ export function ConsultationRoom({ appointmentId }: { appointmentId: string }) {
     router.push("/consultas");
   }
 
+  // Saves the record draft, then asks how the consultation ended (MedSync dialog, not the browser's confirm).
+  // While the dialog is open the room ignores disconnects: ending it deletes the room for everyone.
   async function endConsultation() {
     if (exitingRef.current) return;
-    if (!window.confirm("Encerrar a consulta? O paciente será desconectado e a consulta ficará como concluída.")) return;
     exitingRef.current = true;
     setEndError("");
-
     if (!await saveClinicalDraftBeforeExit()) {
       exitingRef.current = false;
       return;
     }
-
-    try {
-      await api.endConsultation(appointmentId);
-    } catch (err) {
-      setEndError(err instanceof Error ? err.message : "Não foi possível encerrar a consulta. Tente novamente.");
-      exitingRef.current = false;
-      return;
-    }
-    router.push(`/prontuario/${appointmentId}`);
+    setEnding(true);
   }
 
   async function handleRoomDisconnected(reason?: DisconnectReason) {
@@ -490,6 +484,17 @@ export function ConsultationRoom({ appointmentId }: { appointmentId: string }) {
               )}
             </div>
           </header>
+          {isDoctor && (
+            <EndConsultationDialog
+              appointmentId={appointmentId}
+              open={ending}
+              onClose={() => {
+                setEnding(false);
+                exitingRef.current = false;
+              }}
+              onEnded={() => router.push(`/prontuario/${appointmentId}`)}
+            />
+          )}
           {endError && (
             <p role="alert" className="shrink-0 border-b border-red-300/30 bg-red-500/15 px-5 py-2.5 text-sm text-red-100">
               {endError}

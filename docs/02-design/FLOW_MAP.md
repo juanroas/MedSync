@@ -58,12 +58,12 @@ o bloco fixo "Nova consulta" — a ação vive no header de `/consultas` e no Pa
 | `/dashboard` Médico | Médico | **Entrar na sala** no cartão "Próxima consulta", só com a janela aberta (15 min antes) | "Ver prontuário" e "Ver agenda" são links secundários; a agenda de hoje não tem botão por linha |
 | `/dashboard` demais perfis | Médico ADM (clínicas em análise), Suporte (pedidos abertos), DPO | nenhuma (leitura) | links "Ver todas/Ver agenda" dentro de painéis são permitidos |
 | `/consultas` | Paciente / quem agenda | **Solicitar consulta** / **Agendar consulta** | vazio sem botão (o header já tem) |
-| `/consultas` (Agenda) | Médico (só médico) | **Adicionar horário** | Abre em "Dia" (hoje); "Semana" mostra a grade com horários de atendimento. Por consulta: Prontuário, Iniciar/Entrar na sala (botão escuro, não primário), Cancelar. Quem é médico e ADM ao mesmo tempo usa a lista da clínica |
+| `/consultas` (Agenda) | Médico (só médico) | **Adicionar horário** | Abre em "Dia" (hoje); "Semana" mostra a grade com horários de atendimento. Por consulta: Prontuário, Iniciar/Entrar na sala (botão escuro, não primário), **Concluir** (sala aberta, dentro ou depois do horário; mesma janela da sala), Cancelar. Canceladas saem do dia ("Mostrar canceladas"). Desfechos: "Não realizada" (ninguém abriu a sala), "Paciente não entrou", "Sala expirada", "Não compareceu" (registrado pelo médico). Quem é médico e ADM ao mesmo tempo usa a lista da clínica |
 | `/consultas/nova` | Paciente / ADM da clínica | **Solicitar** / **Confirmar agendamento** | exige clínica ativa |
 | `/ajuda` (paciente) | Paciente | **Enviar para o suporte** ou **Enviar pedido sobre meus dados** (abas) | Pedido LGPD vai para a fila do DPO; "Minhas solicitações" junta os dois tipos |
 | `/ajuda` | Todos menos Suporte e paciente | Suporte e Médico ADM veem a fila de todas as clínicas; o Suporte não tem o formulário (não abre pedido para si) |
 | `/privacidade` | DPO (paciente é redirecionado para `/ajuda?tipo=lgpd`) | **Registrar solicitação** | o DPO registra pedidos recebidos por outros canais e atualiza a fila |
-| Sala `/sala/{id}` | Médico | **Encerrar consulta** (cabeçalho, com confirmação) → vai para o prontuário | "Sair da sala" sai sem encerrar; o "Leave" do LiveKit fica escondido |
+| Sala `/sala/{id}` | Médico | **Encerrar consulta** → janela MedSync "Consulta realizada — concluir" / "Paciente não compareceu" (só se o médico entrou e o paciente não) → prontuário | "Sair da sala" sai sem encerrar; o "Leave" do LiveKit fica escondido. Paciente: "Consulta encerrada pelo médico" ou "Voltar para a sala" se a conexão cair |
 | `/prontuario/{id}` | Médico | **Salvar prontuário** | Seção Receita: "Nova receita", "Renovar uso contínuo", por linha "Ver e imprimir" / "Editar" / excluir rascunho |
 | `/assinatura/simulador` | Médico (só com `SIGNATURE_PROVIDER=simulator`) | **Aprovar (simulação)** | "Recusar" volta sem assinar; a tela diz que não é o VIDaaS |
 | `/patients` (Pacientes vinculados) | Médico (só médico) | nenhuma (leitura) | Por paciente: "Abrir prontuário" da próxima ou da última consulta |
@@ -71,6 +71,8 @@ o bloco fixo "Nova consulta" — a ação vive no header de `/consultas` e no Pa
 | `/receita/{id}` | Médico (rascunho e assinada), paciente (só assinada) | Rascunho: **Assinar com certificado digital** (desabilitado com o motivo quando falta dado ou integração) · Assinada: **Baixar PDF assinado** | Secundárias: "Imprimir rascunho"; "Enviar pelo WhatsApp" só para o médico, com a receita assinada. Rascunho sai com a marca "sem validade" |
 | `/clinicas` | Suporte, Médico ADM | **Cadastrar clínica** (onboarding assistido) | só o Médico ADM ativa/suspende e define plano, por linha |
 | `/acessos` | ADM da clínica, Médico ADM | **Novo acesso** | ADM cria ADM da clínica; Médico ADM cria Médico ADM/Suporte/DPO; ninguém desabilita o próprio acesso |
+
+Confirmações usam a janela do MedSync (`components/dialog.tsx`, `useConfirm`), nunca o `confirm()` do navegador.
 
 ## 5. Pendências conhecidas (backlog de fluxo)
 

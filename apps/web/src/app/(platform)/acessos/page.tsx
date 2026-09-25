@@ -1,5 +1,6 @@
 "use client";
 
+import { useConfirm } from "@/components/dialog";
 import { Badge, Card, EmptyState, ErrorBanner, LoadingState, PageHeader, SearchField, buttonClass, inputClass } from "@/components/ui";
 import { ROLE_LABELS, type ClinicRole, type StaffUser } from "@/lib/types";
 import { api, getSession } from "@/services/api";
@@ -53,6 +54,7 @@ export default function AccessPage() {
   const [resetResult, setResetResult] = useState<{ name: string; temporaryPassword: string } | null>(null);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [confirm, confirmDialog] = useConfirm();
 
   const visibleUsers = useMemo(
     () =>
@@ -107,7 +109,7 @@ export default function AccessPage() {
   }
 
   async function toggleAccess(user: StaffUser) {
-    if (user.isActive && !window.confirm(`Desabilitar o acesso de ${user.name}? A pessoa nao vai conseguir entrar ate ser reabilitada.`))
+    if (user.isActive && !(await confirm({ title: `Desabilitar o acesso de ${user.name}?`, description: "A pessoa não consegue entrar até ser reabilitada.", confirmLabel: "Desabilitar", danger: true })))
       return;
     setSavingId(user.id);
     setError("");
@@ -127,7 +129,7 @@ export default function AccessPage() {
   }
 
   async function resetPassword(user: StaffUser) {
-    if (!window.confirm(`Gerar uma nova senha temporaria para ${user.name}? A senha atual deixara de funcionar.`)) return;
+    if (!(await confirm({ title: `Gerar nova senha temporária para ${user.name}?`, description: "A senha atual deixa de funcionar.", confirmLabel: "Gerar senha" }))) return;
     setResettingId(user.id);
     setError("");
     setSuccess("");
@@ -154,6 +156,7 @@ export default function AccessPage() {
         ) : undefined}
       />
       {error && <ErrorBanner message={error} />}
+      {confirmDialog}
       {success && (
         <div className="mb-5 rounded-lg border border-emerald-100 bg-emerald-50 p-4 text-sm font-semibold text-emerald-800">
           {success}

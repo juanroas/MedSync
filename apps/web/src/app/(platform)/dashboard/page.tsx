@@ -12,6 +12,8 @@ import {
   buttonClass,
 } from "@/components/ui";
 import {
+  appointmentStatusLabel,
+  appointmentStatusTone,
   canDoctorOpenRoom,
   isAppointmentJoinWindowOpen,
   isAppointmentMissed,
@@ -878,8 +880,8 @@ function patientCareStep(appointment: Appointment) {
 
   if (isAppointmentMissed(appointment)) {
     return {
-      cta: "Nao compareceu",
-      status: "Nao compareceu",
+      cta: "Não realizada",
+      status: "Não realizada",
       primary: false,
       icon: <CalendarCheck2 size={17} />,
       badgeClass: "bg-amber-50 text-amber-700",
@@ -957,17 +959,8 @@ function patientCareStep(appointment: Appointment) {
   };
 }
 
-function appointmentStatusText(appointment: Appointment) {
-  if (isAppointmentMissed(appointment)) return "Nao compareceu";
-  if (isAppointmentStaleInProgress(appointment)) return "Horario encerrado";
-  return statusLabel[appointment.status];
-}
-
-function appointmentStatusClass(appointment: Appointment) {
-  if (isAppointmentMissed(appointment)) return "bg-amber-50 text-amber-700";
-  if (isAppointmentStaleInProgress(appointment)) return "bg-slate-50 text-slate-500";
-  return statusClass[appointment.status];
-}
+const appointmentStatusText = appointmentStatusLabel;
+const appointmentStatusClass = appointmentStatusTone;
 
 function isSameRange(value: string, reference: Date, range: "day" | "week" | "month" | "year") {
   const date = new Date(value);

@@ -1,5 +1,6 @@
 "use client";
 
+import { useConfirm } from "@/components/dialog";
 import {
   AlertBanner,
   Badge,
@@ -43,6 +44,7 @@ export default function ClinicsPage() {
   const roles = getSession()?.user.roles ?? [];
   const canActivate = roles.includes("MedicalDirector");
   const canOnboard = roles.some((role) => ["Support", "MedicalDirector"].includes(role));
+  const [confirm, confirmDialog] = useConfirm();
 
   const [clinics, setClinics] = useState<ClinicActivation[]>([]);
   const [drafts, setDrafts] = useState<Record<string, { planName: string; monthlyFee: string }>>({});
@@ -85,7 +87,7 @@ export default function ClinicsPage() {
   }
 
   async function changeStatus(clinic: ClinicActivation, status: ClinicActivationStatus) {
-    if (status === "Suspended" && !window.confirm(`Suspender ${clinic.clinicName}? Os pacientes deixam de conseguir marcar consultas.`))
+    if (status === "Suspended" && !(await confirm({ title: `Suspender ${clinic.clinicName}?`, description: "Os pacientes deixam de conseguir marcar consultas.", confirmLabel: "Suspender", danger: true })))
       return;
     const draft = drafts[clinic.clinicId] ?? toDraft(clinic);
     const monthlyFee = draft.monthlyFee ? Number(draft.monthlyFee.replace(",", ".")) : undefined;
@@ -161,6 +163,7 @@ export default function ClinicsPage() {
       />
 
       {error && <ErrorBanner message={error} />}
+      {confirmDialog}
       {success && <AlertBanner tone="success" message={success} />}
 
       {showForm && (

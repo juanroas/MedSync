@@ -209,7 +209,9 @@ public sealed record AppointmentResponse(
     bool ConsentAccepted,
     string? RoomName,
     VideoSessionStatus? VideoStatus,
-    string? PatientContinuousMedications = null);
+    string? PatientContinuousMedications = null,
+    bool DoctorJoined = false,
+    bool PatientJoined = false);
 
 public sealed record DoctorAvailabilitySlotResponse(
     Guid Id,
@@ -446,3 +448,6 @@ public sealed record AvailableDaysResponse(
     DateOnly From,
     DateOnly To,
     IReadOnlyList<DateOnly> Days);
+
+// How the doctor closes the consultation: it happened, or the patient never joined the call.
+public sealed record EndConsultationRequest(string? Outcome);
