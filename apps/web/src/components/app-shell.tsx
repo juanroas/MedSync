@@ -38,7 +38,7 @@ const navigation: Array<{
   { href: "/acessos", label: "Equipe e acessos", icon: UserCog, roles: ["ClinicAdmin", "MedicalDirector"] },
   { href: "/auditoria", label: "Auditoria", icon: ListChecks, roles: ["ClinicAdmin", "DataProtectionOfficer"] },
   { href: "/ajuda", label: "Ajuda", icon: LifeBuoy },
-  { href: "/privacidade", label: "Privacidade", icon: ShieldCheck, roles: ["Patient", "DataProtectionOfficer"] },
+  { href: "/privacidade", label: "Privacidade", icon: ShieldCheck, roles: ["DataProtectionOfficer"] },
 ];
 
 export function AppShell({ children }: { children: React.ReactNode }) {

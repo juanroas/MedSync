@@ -55,9 +55,9 @@ Pontos levantados pelo usuário em 25/09 (homologação), para esta fase:
    dias com horário livre do médico; o primeiro dia livre já vem selecionado e os horários ficam embaixo. API
    `GET /doctors/{id}/available-days`. Médico sem horários cadastrados segue com data/hora livre. Textos com acento e
    painel "Como funciona" claro.
-2. **Ajuda × Privacidade no menu do paciente**: parecem a mesma coisa para o paciente. Proposta: um item só
-   ("Ajuda"), com a opção "Pedido sobre meus dados (LGPD)" dentro dele. A LGPD (art. 18 e art. 41) exige canal para o
-   titular e um encarregado, não um item de menu próprio; a fila do DPO continua separada da do Suporte por trás.
+2. ✅ **Ajuda × Privacidade no menu do paciente**: um item só ("Ajuda") com abas "Dúvida ou problema" e "Pedido
+   sobre meus dados"; o pedido LGPD continua indo para a fila do DPO (separada da do Suporte), com prazo de 15 dias
+   informado (art. 19). `/privacidade` redireciona o paciente para a aba LGPD.
 3. ✅ **Sala do paciente**: quando o médico encerra (sala apagada, motivo `ROOM_DELETED`), o paciente vê "Consulta
    encerrada pelo médico" com "Ver minhas consultas"; se a conexão cair, qualquer participante vê "Voltar para a
    sala". Falta o atalho para os documentos da consulta (entra com "Meus documentos").

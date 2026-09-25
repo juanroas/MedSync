@@ -13,6 +13,7 @@ import {
   TextArea,
   TextInput,
 } from "@/components/ui";
+import { PatientHelp } from "@/components/patient-help";
 import type { SupportRequest, SupportRequestStatus } from "@/lib/types";
 import { api, getSession } from "@/services/api";
 import { LifeBuoy, MessageCircleQuestion } from "lucide-react";
@@ -35,7 +36,14 @@ const statusLabel = Object.fromEntries(statusOptions.map((item) => [item.value, 
   string
 >;
 
+// Paciente: Ajuda única (dúvida ou pedido sobre os próprios dados). Equipe e demais perfis: tela abaixo.
 export default function HelpPage() {
+  const roles = getSession()?.user.roles ?? [];
+  const isPatientOnly = roles.length > 0 && roles.every((role) => role === "Patient");
+  return isPatientOnly ? <PatientHelp /> : <TeamHelp />;
+}
+
+function TeamHelp() {
   const session = getSession();
   const roles = session?.user.roles ?? [];
   const canOperate = roles.some((role) => ["Support", "MedicalDirector"].includes(role));
@@ -105,7 +113,7 @@ export default function HelpPage() {
         description={
           canOperate
             ? "Solicitacoes de ajuda abertas por pacientes e equipe. Responda e atualize o status conforme o atendimento avanca."
-            : "Descreva o que voce precisa e o suporte MedSync responde por aqui. Para pedidos formais de dados pessoais (LGPD), use a tela de Privacidade."
+            : "Descreva o que você precisa e o suporte MedSync responde por aqui."
         }
       />
 

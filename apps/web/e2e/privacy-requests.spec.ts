@@ -12,15 +12,18 @@ test.describe("privacidade e direitos do titular", () => {
     const description = `Solicito acesso aos meus dados cadastrais em homologacao ${Date.now()}.`;
 
     await loginByUi(page, users.patient);
-    await page.getByRole("navigation").getByRole("link", { name: /privacidade/i }).click();
-
-    await expect(page.getByRole("heading", { name: /solicitacoes de privacidade/i })).toBeVisible();
-    await expect(page.getByText(/nao registre cpf completo/i)).toBeVisible();
-    await page.getByLabel(/tipo/i).selectOption("Access");
-    await page.getByLabel(/descricao/i).fill(description);
-    await page.getByRole("button", { name: /registrar solicitacao/i }).click();
-    await expect(page.getByText(/solicitacao registrada com trilha de auditoria/i)).toBeVisible();
-    await expect(page.getByText(description)).toBeVisible();
+    // Paciente não tem mais "Privacidade" no menu: o pedido sobre os dados fica dentro da Ajuda.
+    await expect(page.getByRole("navigation").getByRole("link", { name: /privacidade/i })).toHaveCount(0);
+    await page.goto("/privacidade");
+    await expect(page).toHaveURL(/\/ajuda\?tipo=lgpd/);
+    await expect(page.getByRole("tab", { name: /pedido sobre meus dados/i })).toHaveAttribute("aria-selected", "true");
+    await expect(page.getByText(/encarregado de dados \(DPO\)/i)).toBeVisible();
+    await page.getByLabel(/o que você quer/i).selectOption("Access");
+    await page.getByLabel(/detalhes do pedido/i).fill(description);
+    await page.getByRole("button", { name: /enviar pedido sobre meus dados/i }).click();
+    await expect(page.getByText(/pedido registrado/i)).toBeVisible();
+    const mine = page.locator("li").filter({ hasText: description });
+    await expect(mine).toContainText("Meus dados");
 
     await loginByUi(page, users.dpo);
     await page.getByRole("navigation").getByRole("link", { name: /privacidade/i }).click();

@@ -16,6 +16,7 @@ import {
 import type { PrivacyRequest, PrivacyRequestStatus, PrivacyRequestType } from "@/lib/types";
 import { api, getSession } from "@/services/api";
 import { FileText, LockKeyhole, ShieldCheck } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
 const requestTypes: Array<{ value: PrivacyRequestType; label: string }> = [
@@ -46,7 +47,18 @@ const statusTone: Record<PrivacyRequestStatus, "neutral" | "info" | "success" | 
 const typeLabel = Object.fromEntries(requestTypes.map((item) => [item.value, item.label])) as Record<PrivacyRequestType, string>;
 const statusLabel = Object.fromEntries(statusOptions.map((item) => [item.value, item.label])) as Record<PrivacyRequestStatus, string>;
 
+// Paciente faz pedidos sobre os próprios dados dentro da Ajuda; esta tela fica para o DPO.
 export default function PrivacyPage() {
+  const router = useRouter();
+  const roles = getSession()?.user.roles ?? [];
+  const isPatientOnly = roles.length > 0 && roles.every((role) => role === "Patient");
+  useEffect(() => {
+    if (isPatientOnly) router.replace("/ajuda?tipo=lgpd");
+  }, [isPatientOnly, router]);
+  return isPatientOnly ? null : <PrivacyQueue />;
+}
+
+function PrivacyQueue() {
   const session = getSession();
   const roles = session?.user.roles ?? [];
   const isPatientOnly = roles.includes("Patient") && roles.every((role) => role === "Patient");

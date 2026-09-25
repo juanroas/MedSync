@@ -36,7 +36,7 @@ Qualquer PR que adicione tela, item de menu ou botão que navega **atualiza este
 
 | Perfil | Itens do menu |
 |---|---|
-| Paciente | Painel · Minhas consultas · Meu cadastro · Ajuda · Privacidade |
+| Paciente | Painel · Minhas consultas · Meu cadastro · Ajuda (inclui "Pedido sobre meus dados") |
 | Médico | Painel · Agenda · Pacientes vinculados · Meu perfil · Ajuda |
 | ADM da clínica | Painel · Meus dados · Consultas · Pacientes · Médicos · Equipe e acessos · Auditoria (da clínica) · Ajuda |
 | Médico ADM MedSync | Painel · Meus dados · Clínicas · Equipe MedSync · Ajuda (fila) |
@@ -60,8 +60,9 @@ o bloco fixo "Nova consulta" — a ação vive no header de `/consultas` e no Pa
 | `/consultas` | Paciente / quem agenda | **Solicitar consulta** / **Agendar consulta** | vazio sem botão (o header já tem) |
 | `/consultas` (Agenda) | Médico (só médico) | **Adicionar horário** | Abre em "Dia" (hoje); "Semana" mostra a grade com horários de atendimento. Por consulta: Prontuário, Iniciar/Entrar na sala (botão escuro, não primário), Cancelar. Quem é médico e ADM ao mesmo tempo usa a lista da clínica |
 | `/consultas/nova` | Paciente / ADM da clínica | **Solicitar** / **Confirmar agendamento** | exige clínica ativa |
-| `/ajuda` | Todos menos Suporte | **Enviar para o suporte** | Suporte e Médico ADM veem a fila de todas as clínicas; o Suporte não tem o formulário (não abre pedido para si) |
-| `/privacidade` | Paciente, DPO | **Registrar solicitação** | só pedidos formais de titular (LGPD); o DPO registra pedidos recebidos por outros canais e atualiza a fila |
+| `/ajuda` (paciente) | Paciente | **Enviar para o suporte** ou **Enviar pedido sobre meus dados** (abas) | Pedido LGPD vai para a fila do DPO; "Minhas solicitações" junta os dois tipos |
+| `/ajuda` | Todos menos Suporte e paciente | Suporte e Médico ADM veem a fila de todas as clínicas; o Suporte não tem o formulário (não abre pedido para si) |
+| `/privacidade` | DPO (paciente é redirecionado para `/ajuda?tipo=lgpd`) | **Registrar solicitação** | o DPO registra pedidos recebidos por outros canais e atualiza a fila |
 | Sala `/sala/{id}` | Médico | **Encerrar consulta** (cabeçalho, com confirmação) → vai para o prontuário | "Sair da sala" sai sem encerrar; o "Leave" do LiveKit fica escondido |
 | `/prontuario/{id}` | Médico | **Salvar prontuário** | Seção Receita: "Nova receita", "Renovar uso contínuo", por linha "Ver e imprimir" / "Editar" / excluir rascunho |
 | `/assinatura/simulador` | Médico (só com `SIGNATURE_PROVIDER=simulator`) | **Aprovar (simulação)** | "Recusar" volta sem assinar; a tela diz que não é o VIDaaS |
