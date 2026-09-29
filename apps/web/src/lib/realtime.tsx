@@ -6,7 +6,7 @@ import { createContext, ReactNode, useContext, useEffect, useRef, useState } fro
 
 // Real-time notifications (ADR-0004). One connection per tab, straight to the API (not through the Vercel proxy),
 // authenticated by a 2-minute ticket fetched on every (re)connect. Events only say { type, id }: screens reload
-// through the normal API. Without NEXT_PUBLIC_REALTIME_URL everything still works, refreshing every 30 s.
+// through the normal API. Without a public API URL everything still works, refreshing every 30 s.
 
 export type RealtimeEventType =
   | "appointmentChanged"
@@ -20,7 +20,9 @@ export type RealtimeEventType =
 export type RealtimeEvent = { type: RealtimeEventType; id?: string };
 type Listener = (event: RealtimeEvent) => void;
 
-const REALTIME_URL = process.env.NEXT_PUBLIC_REALTIME_URL?.replace(/\/$/, "");
+// Same public API address the site already knows (NEXT_PUBLIC_API_URL); NEXT_PUBLIC_REALTIME_URL only overrides it
+// if the hub ever lives elsewhere.
+const REALTIME_URL = (process.env.NEXT_PUBLIC_REALTIME_URL ?? process.env.NEXT_PUBLIC_API_URL)?.replace(/\/$/, "");
 const FALLBACK_REFRESH_MS = 30_000;
 
 type RealtimeContextValue = { connected: boolean; subscribe: (listener: Listener) => () => void };

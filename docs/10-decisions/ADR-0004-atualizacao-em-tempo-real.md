@@ -23,7 +23,7 @@
 2. **Redis como backplane** (`Microsoft.AspNetCore.SignalR.StackExchangeRedis`) quando `REDIS_URL` existe: um aviso
    publicado em qualquer instância chega a quem está conectado em qualquer outra
    ([Microsoft — Redis backplane](https://learn.microsoft.com/en-us/aspnet/core/signalr/redis-backplane?view=aspnetcore-10.0)).
-3. **O navegador conecta direto na API** (`NEXT_PUBLIC_REALTIME_URL`), não pela Vercel.
+3. **O navegador conecta direto na API** (`NEXT_PUBLIC_API_URL`, que já é a URL pública da Railway; `NEXT_PUBLIC_REALTIME_URL` só se o hub mudar de endereço), não pela Vercel.
 4. **Ticket de tempo real**: `POST /realtime/ticket` (pela Vercel, com o cookie) devolve um JWT de **2 minutos** com
    audiência própria `MedSync.Realtime`, enviado na conexão pelo `access_token` da query
    ([Microsoft — segurança SignalR](https://learn.microsoft.com/en-us/aspnet/core/signalr/security?view=aspnetcore-8.0)).
@@ -56,6 +56,6 @@ entrar está em andamento — sem isso, o aviso de "paciente entrou" disparava u
 
 ## Consequências
 
-- Variáveis novas: `NEXT_PUBLIC_REALTIME_URL` na Vercel (URL pública da API) e, na Railway, WebSocket precisa estar
-  liberado (é o padrão).
+- Nenhuma variável nova na Vercel: reaproveita `NEXT_PUBLIC_API_URL` (precisa de novo deploy do web). Na Railway,
+  `FRONTEND_URL` com o endereço do site (origem permitida do WebSocket) e WebSocket liberado (é o padrão).
 - Toda mudança de status nova deve chamar o `RealtimeNotifier` depois de salvar.

@@ -163,8 +163,8 @@ recebem uma senha temporária, que deve ser trocada no primeiro acesso.
 | Variável | Descrição |
 |---|---|
 | `NEXT_PUBLIC_API_BASE_PATH` | Caminho usado pelo browser para chamar a API. Em Vercel, use `/api` para manter cookie same-origin. |
-| `NEXT_PUBLIC_API_URL` | URL pública da API, sem barra no final. Usada pelo rewrite/proxy do Next.js quando `API_PROXY_TARGET` nao for definido. |
-| `NEXT_PUBLIC_REALTIME_URL` | URL pública da API (Railway) para o tempo real, sem barra final. O navegador conecta direto nela (WebSocket em `/hubs/events`), não pelo proxy da Vercel. Sem ela, as telas atualizam a cada 30 s. Ver ADR-0004. |
+| `NEXT_PUBLIC_API_URL` | URL pública da API (Railway), sem barra no final. Usada pelo rewrite/proxy do Next.js quando `API_PROXY_TARGET` não for definido e pelo tempo real: o navegador conecta direto nela (WebSocket em `/hubs/events`). Ver ADR-0004. |
+| `NEXT_PUBLIC_REALTIME_URL` | Opcional. Só se o tempo real ficar num endereço diferente da `NEXT_PUBLIC_API_URL`. |
 | `API_PROXY_TARGET` | URL interna ou publica da API usada pelo servidor Next.js no rewrite `/api/:path*`. |
 | `NEXT_PUBLIC_LIVEKIT_URL` | URL WebSocket pública do LiveKit (`wss://...`). |
 
