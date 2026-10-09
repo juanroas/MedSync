@@ -147,16 +147,40 @@ export const WEEKDAY_LABELS: Record<WeekDay, string> = {
   Saturday: "Sabado",
 };
 
+export type ConsultationModality = "Online" | "InPerson" | "Both";
+
+export const MODALITY_LABELS: Record<ConsultationModality, string> = {
+  Online: "Online",
+  InPerson: "Presencial",
+  Both: "Online ou presencial",
+};
+
 export type DoctorAvailabilitySlot = {
   id: string;
   dayOfWeek: WeekDay;
   startTime: string;
   endTime: string;
+  modality: ConsultationModality;
+};
+
+export type DoctorTimeOff = {
+  id: string;
+  startDate: string;
+  endDate: string;
+  reason?: string | null;
+};
+
+export type DoctorSchedule = {
+  slotMinutes: number;
+  bookingWindowDays: number;
+  windows: DoctorAvailabilitySlot[];
+  timeOff: DoctorTimeOff[];
 };
 
 export type AvailableTime = {
   startsAt: string;
   durationMinutes: number;
+  modality: ConsultationModality;
 };
 
 export type CareSpecialty = {

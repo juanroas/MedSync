@@ -454,6 +454,9 @@ namespace MedSync.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<int>("BookingWindowDays")
+                        .HasColumnType("integer");
+
                     b.Property<Guid>("ClinicId")
                         .HasColumnType("uuid");
 
@@ -485,6 +488,9 @@ namespace MedSync.Infrastructure.Migrations
 
                     b.Property<string>("Rqe")
                         .HasColumnType("text");
+
+                    b.Property<int>("SlotMinutes")
+                        .HasColumnType("integer");
 
                     b.Property<string>("Specialty")
                         .IsRequired()
@@ -531,6 +537,11 @@ namespace MedSync.Infrastructure.Migrations
                     b.Property<TimeOnly>("EndTime")
                         .HasColumnType("time without time zone");
 
+                    b.Property<string>("Modality")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
                     b.Property<TimeOnly>("StartTime")
                         .HasColumnType("time without time zone");
 
@@ -541,6 +552,38 @@ namespace MedSync.Infrastructure.Migrations
                     b.HasIndex("DoctorId", "DayOfWeek");
 
                     b.ToTable("DoctorAvailabilitySlots", "medsync");
+                });
+
+            modelBuilder.Entity("MedSync.Domain.DoctorTimeOff", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ClinicId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("DoctorId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateOnly>("EndDate")
+                        .HasColumnType("date");
+
+                    b.Property<string>("Reason")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<DateOnly>("StartDate")
+                        .HasColumnType("date");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DoctorId", "StartDate");
+
+                    b.ToTable("DoctorTimeOffs", "medsync");
                 });
 
             modelBuilder.Entity("MedSync.Domain.MedicationCatalogItem", b =>
@@ -1122,6 +1165,17 @@ namespace MedSync.Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("Clinic");
+
+                    b.Navigation("Doctor");
+                });
+
+            modelBuilder.Entity("MedSync.Domain.DoctorTimeOff", b =>
+                {
+                    b.HasOne("MedSync.Domain.Doctor", "Doctor")
+                        .WithMany()
+                        .HasForeignKey("DoctorId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                     b.Navigation("Doctor");
                 });

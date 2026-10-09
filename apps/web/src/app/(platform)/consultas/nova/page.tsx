@@ -104,7 +104,8 @@ export default function NewAppointmentPage() {
           specialty: form.specialty,
           doctorId: form.doctorId,
           scheduledAt: brazilLocalDateTimeToUtcIso(form.scheduledAt),
-          durationMinutes: 30,
+          // The slot carries the doctor's consultation length; open schedules keep 30 minutes.
+          durationMinutes: form.durationMinutes,
           notes: form.notes,
         });
         if (attachments.length > 0) {
@@ -426,7 +427,7 @@ function PatientRequestForm({
                       <button
                         key={time.startsAt}
                         type="button"
-                        onClick={() => onChange({ ...form, scheduledAt: localValue })}
+                        onClick={() => onChange({ ...form, scheduledAt: localValue, durationMinutes: time.durationMinutes })}
                         className={`flex h-11 items-center justify-center gap-1.5 rounded-lg border text-sm font-bold transition ${
                           isSelected
                             ? "border-teal-600 bg-teal-600 text-white"

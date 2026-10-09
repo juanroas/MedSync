@@ -217,16 +217,40 @@ public sealed record DoctorAvailabilitySlotResponse(
     Guid Id,
     DayOfWeek DayOfWeek,
     TimeOnly StartTime,
-    TimeOnly EndTime);
+    TimeOnly EndTime,
+    ConsultationModality Modality);
 
 public sealed record CreateDoctorAvailabilitySlotRequest(
     DayOfWeek DayOfWeek,
     TimeOnly StartTime,
-    TimeOnly EndTime);
+    TimeOnly EndTime,
+    ConsultationModality Modality = ConsultationModality.Online);
+
+public sealed record DoctorTimeOffResponse(
+    Guid Id,
+    DateOnly StartDate,
+    DateOnly EndDate,
+    string? Reason);
+
+public sealed record CreateDoctorTimeOffRequest(
+    DateOnly StartDate,
+    DateOnly EndDate,
+    string? Reason);
+
+public sealed record DoctorScheduleResponse(
+    int SlotMinutes,
+    int BookingWindowDays,
+    IReadOnlyList<DoctorAvailabilitySlotResponse> Windows,
+    IReadOnlyList<DoctorTimeOffResponse> TimeOff);
+
+public sealed record UpdateDoctorScheduleSettingsRequest(
+    int SlotMinutes,
+    int BookingWindowDays);
 
 public sealed record AvailableTimeResponse(
     DateTime StartsAt,
-    int DurationMinutes);
+    int DurationMinutes,
+    ConsultationModality Modality);
 
 public sealed record RoomResponse(
     Guid Id,

@@ -61,6 +61,14 @@ public enum PrivacyRequestStatus
     Rejected
 }
 
+// How a consultation happens: by video, at the clinic's address, or either (an availability window only).
+public enum ConsultationModality
+{
+    Online,
+    InPerson,
+    Both
+}
+
 public enum SupportRequestStatus
 {
     New,
@@ -134,6 +142,9 @@ public sealed class Doctor
     public string? ProfessionalAddress { get; set; }
     // CFM 2.299/2021: specialist registration number (RQE), printed on documents when the doctor has one.
     public string? Rqe { get; set; }
+    // Agenda rules: length of each bookable slot and how far ahead patients can book.
+    public int SlotMinutes { get; set; } = 30;
+    public int BookingWindowDays { get; set; } = 90;
     public ICollection<Appointment> Appointments { get; set; } = [];
 }
 
@@ -163,6 +174,20 @@ public sealed class DoctorAvailabilitySlot
     public DayOfWeek DayOfWeek { get; set; }
     public TimeOnly StartTime { get; set; }
     public TimeOnly EndTime { get; set; }
+    public ConsultationModality Modality { get; set; } = ConsultationModality.Online;
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+}
+
+// Days the doctor does not see patients (vacation, congress): no slot is offered inside the range.
+public sealed class DoctorTimeOff
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid ClinicId { get; set; }
+    public Guid DoctorId { get; set; }
+    public Doctor Doctor { get; set; } = null!;
+    public DateOnly StartDate { get; set; }
+    public DateOnly EndDate { get; set; }
+    public string? Reason { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }
 

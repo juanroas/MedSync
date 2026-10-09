@@ -2,7 +2,8 @@
 
 import { useRealtimeRefresh } from "@/lib/realtime";
 
-import { Badge, Button, Card, ErrorBanner, LoadingState, PageHeader, buttonClass, cn, inputClass } from "@/components/ui";
+import { modalityChipClass } from "@/components/doctor-schedule";
+import { Badge, Card, ErrorBanner, LoadingState, PageHeader, buttonClass, cn } from "@/components/ui";
 import { useConfirm } from "@/components/dialog";
 import { EndConsultationDialog } from "@/components/end-consultation-dialog";
 import {
@@ -14,17 +15,19 @@ import {
   isAppointmentMissed,
 } from "@/lib/appointments";
 import { formatBrazilDateInput, formatTime } from "@/lib/format";
-import type { Appointment, DoctorAvailabilitySlot, WeekDay } from "@/lib/types";
+import { MODALITY_LABELS } from "@/lib/types";
+import type { Appointment, DoctorAvailabilitySlot, DoctorTimeOff, WeekDay } from "@/lib/types";
 import { api } from "@/services/api";
-import { CheckCircle2, ChevronLeft, ChevronRight, FileText, Plus, Trash2, Video, X, XCircle } from "lucide-react";
+import { CalendarClock, CheckCircle2, ChevronLeft, ChevronRight, FileText, Video, XCircle } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
-// Agenda do médico (Fase 2): semana e dia, com os horários de atendimento desenhados na grade.
+// Agenda do médico (Fase 2): mês, semana e dia, com os horários de atendimento e as folgas desenhados na grade.
 // Mostra só as consultas em que ele é o médico designado (a API já filtra; regra C1).
 
-type View = "week" | "day";
+type View = "month" | "week" | "day";
+const VIEW_LABELS: Record<View, string> = { month: "Mês", week: "Semana", day: "Dia" };
 
 const WEEK: WeekDay[] = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 const DAY_NAMES: Record<WeekDay, string> = {
@@ -56,6 +59,22 @@ function mondayOf(key: string) {
 function dayKeyOf(iso: string) {
   return formatBrazilDateInput(new Date(iso));
 }
+function addMonths(key: string, months: number) {
+  const date = keyToDate(`${key.slice(0, 7)}-01`);
+  date.setUTCMonth(date.getUTCMonth() + months);
+  return date.toISOString().slice(0, 10);
+}
+function monthLabel(key: string) {
+  return new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric", timeZone: "UTC" }).format(keyToDate(key));
+}
+// Monday-first grid covering the whole month of `key` (5 or 6 weeks).
+function monthGrid(key: string) {
+  const first = `${key.slice(0, 7)}-01`;
+  const nextMonth = addMonths(first, 1);
+  const cells: string[] = [];
+  for (let day = mondayOf(first); day < nextMonth || cells.length % 7 !== 0; day = addDays(day, 1)) cells.push(day);
+  return cells;
+}
 function dayNumber(key: string) {
   return new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short", timeZone: "UTC" }).format(keyToDate(key));
 }
@@ -67,9 +86,9 @@ export function DoctorAgenda() {
   const [selectedDay, setSelectedDay] = useState(today);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [slots, setSlots] = useState<DoctorAvailabilitySlot[]>([]);
+  const [timeOff, setTimeOff] = useState<DoctorTimeOff[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [showSlotForm, setShowSlotForm] = useState(false);
   const [busyId, setBusyId] = useState("");
   const [concludingId, setConcludingId] = useState("");
   const [showCancelled, setShowCancelled] = useState(false);
@@ -77,9 +96,10 @@ export function DoctorAgenda() {
   const [, setTick] = useState(0);
 
   const load = useCallback(async () => {
-    const [items, windows] = await Promise.all([api.getAppointments(), api.getMyAvailability()]);
+    const [items, schedule] = await Promise.all([api.getAppointments(), api.getMySchedule()]);
     setAppointments(items);
-    setSlots(windows);
+    setSlots(schedule.windows);
+    setTimeOff(schedule.timeOff);
   }, []);
 
   useEffect(() => {
@@ -110,15 +130,31 @@ export function DoctorAgenda() {
       map.set(slot.dayOfWeek, [...(map.get(slot.dayOfWeek) ?? []), slot]);
     return map;
   }, [slots]);
+  const offReason = (key: string) => {
+    const item = timeOff.find((entry) => entry.startDate <= key && entry.endDate >= key);
+    return item ? item.reason || "Folga" : null;
+  };
 
   const cancelledOfDay = appointments.filter(
     (item) => item.status === "Cancelled" && dayKeyOf(item.scheduledAt) === selectedDay,
   );
 
   const rangeLabel =
-    view === "week"
-      ? `${dayNumber(weekStart)} – ${dayNumber(addDays(weekStart, 6))}`
-      : `${DAY_NAMES[weekDayOf(selectedDay)]}, ${dayNumber(selectedDay)}`;
+    view === "month"
+      ? monthLabel(selectedDay)
+      : view === "week"
+        ? `${dayNumber(weekStart)} – ${dayNumber(addDays(weekStart, 6))}`
+        : `${DAY_NAMES[weekDayOf(selectedDay)]}, ${dayNumber(selectedDay)}`;
+  const step = (direction: 1 | -1) =>
+    setSelectedDay(
+      view === "month" ? addMonths(selectedDay, direction) : addDays(selectedDay, (view === "week" ? 7 : 1) * direction),
+    );
+  const openDay = (key: string) => {
+    setSelectedDay(key);
+    setView("day");
+  };
+  const previousLabel = { month: "Mês anterior", week: "Semana anterior", day: "Dia anterior" }[view];
+  const nextLabel = { month: "Próximo mês", week: "Próxima semana", day: "Próximo dia" }[view];
 
   async function run(id: string, action: () => Promise<unknown>, failure: string) {
     setBusyId(id);
@@ -138,29 +174,21 @@ export function DoctorAgenda() {
       <PageHeader
         eyebrow="Portal médico"
         title="Agenda"
-        description="Suas consultas por semana ou por dia, com os horários em que você atende. Os agendamentos vêm da clínica ou do paciente."
+        description="Suas consultas por mês, semana ou dia, com os horários em que você atende. Os agendamentos vêm da clínica ou do paciente."
         action={
-          <button type="button" className={buttonClass} onClick={() => setShowSlotForm((value) => !value)}>
-            {showSlotForm ? <X size={17} /> : <Plus size={17} />} {showSlotForm ? "Fechar" : "Adicionar horário"}
-          </button>
+          <Link href="/consultas/horarios" className={buttonClass}>
+            <CalendarClock size={17} /> Horários de atendimento
+          </Link>
         }
       />
       {error && <ErrorBanner message={error} />}
-      {showSlotForm && (
-        <AvailabilityForm
-          onCreated={(slot) => {
-            setSlots((items) => [...items, slot]);
-            setShowSlotForm(false);
-          }}
-        />
-      )}
 
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <button
             type="button"
-            aria-label={view === "week" ? "Semana anterior" : "Dia anterior"}
-            onClick={() => setSelectedDay(addDays(selectedDay, view === "week" ? -7 : -1))}
+            aria-label={previousLabel}
+            onClick={() => step(-1)}
             className="grid size-10 place-items-center rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
           >
             <ChevronLeft size={18} />
@@ -174,16 +202,16 @@ export function DoctorAgenda() {
           </button>
           <button
             type="button"
-            aria-label={view === "week" ? "Próxima semana" : "Próximo dia"}
-            onClick={() => setSelectedDay(addDays(selectedDay, view === "week" ? 7 : 1))}
+            aria-label={nextLabel}
+            onClick={() => step(1)}
             className="grid size-10 place-items-center rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
           >
             <ChevronRight size={18} />
           </button>
-          <p className="ml-2 text-sm font-bold text-ink">{rangeLabel}</p>
+          <p className="ml-2 text-sm font-bold text-ink first-letter:uppercase">{rangeLabel}</p>
         </div>
         <div className="inline-flex rounded-lg border border-slate-200 bg-white p-1" role="tablist" aria-label="Visão da agenda">
-          {(["week", "day"] as View[]).map((option) => (
+          {(["month", "week", "day"] as View[]).map((option) => (
             <button
               key={option}
               type="button"
@@ -195,7 +223,7 @@ export function DoctorAgenda() {
                 view === option ? "bg-teal-50 text-teal-800 ring-1 ring-teal-100" : "text-slate-500 hover:text-ink",
               )}
             >
-              {option === "week" ? "Semana" : "Dia"}
+              {VIEW_LABELS[option]}
             </button>
           ))}
         </div>
@@ -203,6 +231,15 @@ export function DoctorAgenda() {
 
       {loading ? (
         <LoadingState label="Carregando agenda..." />
+      ) : view === "month" ? (
+        <MonthGrid
+          monthKey={selectedDay}
+          today={today}
+          byDay={byDay}
+          slotsByDay={slotsByDay}
+          offReason={offReason}
+          onOpenDay={openDay}
+        />
       ) : view === "week" ? (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
           {days.map((key) => (
@@ -210,12 +247,10 @@ export function DoctorAgenda() {
               key={key}
               dayKey={key}
               isToday={key === today}
-              windows={slotsByDay.get(weekDayOf(key)) ?? []}
+              windows={offReason(key) ? [] : (slotsByDay.get(weekDayOf(key)) ?? [])}
+              off={offReason(key)}
               appointments={byDay.get(key) ?? []}
-              onOpenDay={() => {
-                setSelectedDay(key);
-                setView("day");
-              }}
+              onOpenDay={() => openDay(key)}
             />
           ))}
         </div>
@@ -223,10 +258,19 @@ export function DoctorAgenda() {
         <Card className="overflow-hidden">
           <div className="border-b border-slate-100 px-6 py-4">
             <p className="text-xs font-bold uppercase tracking-[0.08em] text-teal-700">Horários de atendimento</p>
-            <p className="mt-1 text-sm text-slate-600">
-              {(slotsByDay.get(weekDayOf(selectedDay)) ?? []).map((slot) => `${slot.startTime.slice(0, 5)}–${slot.endTime.slice(0, 5)}`).join(" · ") ||
-                "Nenhum horário cadastrado para este dia da semana."}
-            </p>
+            {offReason(selectedDay) ? (
+              <p className="mt-1 text-sm font-semibold text-amber-700">Folga: {offReason(selectedDay)}. Pacientes não marcam neste dia.</p>
+            ) : (slotsByDay.get(weekDayOf(selectedDay)) ?? []).length === 0 ? (
+              <p className="mt-1 text-sm text-slate-600">Nenhum horário cadastrado para este dia da semana.</p>
+            ) : (
+              <div className="mt-2 flex flex-wrap gap-2">
+                {(slotsByDay.get(weekDayOf(selectedDay)) ?? []).map((slot) => (
+                  <span key={slot.id} className={cn("rounded-lg border px-2.5 py-1 text-xs font-semibold", modalityChipClass[slot.modality])}>
+                    {slot.startTime.slice(0, 5)}–{slot.endTime.slice(0, 5)} · {MODALITY_LABELS[slot.modality]}
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
           {(byDay.get(selectedDay) ?? []).length === 0 ? (
             <p className="px-6 py-12 text-center text-sm text-slate-400">Nenhuma consulta neste dia.</p>
@@ -288,16 +332,76 @@ export function DoctorAgenda() {
         />
       )}
       {confirmDialog}
-
-      {!loading && (
-        <AvailabilityList
-          slots={slots}
-          onRemoved={(id) => setSlots((items) => items.filter((slot) => slot.id !== id))}
-          onError={setError}
-          confirm={confirm}
-        />
-      )}
     </>
+  );
+}
+
+function MonthGrid({
+  monthKey,
+  today,
+  byDay,
+  slotsByDay,
+  offReason,
+  onOpenDay,
+}: {
+  monthKey: string;
+  today: string;
+  byDay: Map<string, Appointment[]>;
+  slotsByDay: Map<WeekDay, DoctorAvailabilitySlot[]>;
+  offReason: (key: string) => string | null;
+  onOpenDay: (key: string) => void;
+}) {
+  const month = monthKey.slice(0, 7);
+  return (
+    <Card className="overflow-hidden">
+      <div className="grid grid-cols-7 border-b border-slate-100 bg-slate-50 text-center text-[11px] font-bold uppercase text-slate-400">
+        {WEEK.map((day) => (
+          <span key={day} className="py-2">
+            {DAY_NAMES[day].slice(0, 3)}
+          </span>
+        ))}
+      </div>
+      <div className="grid grid-cols-7">
+        {monthGrid(monthKey).map((key) => {
+          const inMonth = key.startsWith(month);
+          const items = byDay.get(key) ?? [];
+          const off = offReason(key);
+          const windows = off ? [] : (slotsByDay.get(weekDayOf(key)) ?? []);
+          const modalities = Array.from(new Set(windows.map((window) => window.modality)));
+          return (
+            <button
+              key={key}
+              type="button"
+              onClick={() => onOpenDay(key)}
+              aria-label={`${DAY_NAMES[weekDayOf(key)]} ${dayNumber(key)}: ${items.length} consulta(s)${off ? `, ${off}` : ""}`}
+              className={cn(
+                "flex min-h-24 flex-col items-start gap-1 border-b border-r border-slate-100 p-2 text-left transition hover:bg-teal-50/50 sm:min-h-28",
+                !inMonth && "bg-slate-50/60",
+                key === today && "ring-2 ring-inset ring-teal-300",
+              )}
+            >
+              <span className={cn("text-sm font-bold", inMonth ? "text-ink" : "text-slate-300", key === today && "text-teal-700")}>
+                {Number(key.slice(8))}
+              </span>
+              {inMonth && items.length > 0 && (
+                <span className="rounded bg-ink px-1.5 py-0.5 text-[11px] font-bold text-white">
+                  {items.length} {items.length === 1 ? "consulta" : "consultas"}
+                </span>
+              )}
+              {inMonth && off && (
+                <span className="max-w-full truncate rounded bg-amber-50 px-1.5 py-0.5 text-[11px] font-semibold text-amber-800">{off}</span>
+              )}
+              {inMonth &&
+                modalities.map((modality) => (
+                  <span key={modality} className={cn("hidden rounded border px-1.5 py-0.5 text-[10px] font-semibold sm:inline", modalityChipClass[modality])}>
+                    {MODALITY_LABELS[modality]}
+                  </span>
+                ))}
+            </button>
+          );
+        })}
+      </div>
+    </Card>
   );
 }
 
@@ -305,12 +409,14 @@ function DayColumn({
   dayKey,
   isToday,
   windows,
+  off,
   appointments,
   onOpenDay,
 }: {
   dayKey: string;
   isToday: boolean;
   windows: DoctorAvailabilitySlot[];
+  off: string | null;
   appointments: Appointment[];
   onOpenDay: () => void;
 }) {
@@ -328,9 +434,10 @@ function DayColumn({
         </p>
         <p className="text-sm font-bold text-ink">{dayNumber(dayKey)}</p>
       </button>
+      {off && <p className="mb-1 rounded bg-amber-50 px-2 py-1 text-[11px] font-semibold text-amber-800">{off}</p>}
       {windows.map((slot) => (
-        <p key={slot.id} className="mb-1 rounded bg-teal-50 px-2 py-1 text-[11px] font-semibold text-teal-800">
-          {slot.startTime.slice(0, 5)}–{slot.endTime.slice(0, 5)} atende
+        <p key={slot.id} className={cn("mb-1 rounded border px-2 py-1 text-[11px] font-semibold", modalityChipClass[slot.modality])}>
+          {slot.startTime.slice(0, 5)}–{slot.endTime.slice(0, 5)} · {MODALITY_LABELS[slot.modality]}
         </p>
       ))}
       <div className="mt-1 space-y-1.5">
@@ -349,7 +456,7 @@ function DayColumn({
           </button>
         ))}
       </div>
-      {windows.length === 0 && appointments.length === 0 && <p className="text-xs text-slate-300">Livre</p>}
+      {!off && windows.length === 0 && appointments.length === 0 && <p className="text-xs text-slate-300">Livre</p>}
     </section>
   );
 }
@@ -425,137 +532,6 @@ function DayRow({
         )}
       </div>
     </li>
-  );
-}
-
-function AvailabilityForm({ onCreated }: { onCreated: (slot: DoctorAvailabilitySlot) => void }) {
-  const [form, setForm] = useState<{ dayOfWeek: WeekDay; startTime: string; endTime: string }>({
-    dayOfWeek: "Monday",
-    startTime: "09:00",
-    endTime: "12:00",
-  });
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
-
-  async function submit(event: FormEvent) {
-    event.preventDefault();
-    setError("");
-    if (form.startTime >= form.endTime) {
-      setError("O horário inicial precisa ser antes do final.");
-      return;
-    }
-    setSaving(true);
-    try {
-      onCreated(
-        await api.createMyAvailabilitySlot({
-          dayOfWeek: form.dayOfWeek,
-          startTime: `${form.startTime}:00`,
-          endTime: `${form.endTime}:00`,
-        }),
-      );
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Não foi possível salvar o horário.");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  return (
-    <Card className="mb-6 p-6">
-      <h2 className="font-bold text-ink">Novo horário de atendimento</h2>
-      <p className="mt-1 text-xs leading-5 text-slate-500">
-        Pacientes só conseguem marcar dentro destes horários. Sem nenhum horário cadastrado, sua agenda fica sem restrição.
-      </p>
-      {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
-      <form onSubmit={submit} className="mt-4 grid gap-4 sm:grid-cols-[1.4fr_1fr_1fr_auto] sm:items-end">
-        <label className="block">
-          <span className="mb-2 block text-xs font-bold text-slate-600">Dia da semana</span>
-          <select
-            className={inputClass}
-            value={form.dayOfWeek}
-            onChange={(event) => setForm({ ...form, dayOfWeek: event.target.value as WeekDay })}
-          >
-            {WEEK.map((day) => (
-              <option key={day} value={day}>
-                {DAY_NAMES[day]}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="block">
-          <span className="mb-2 block text-xs font-bold text-slate-600">Início</span>
-          <input className={inputClass} type="time" value={form.startTime} onChange={(event) => setForm({ ...form, startTime: event.target.value })} required />
-        </label>
-        <label className="block">
-          <span className="mb-2 block text-xs font-bold text-slate-600">Fim</span>
-          <input className={inputClass} type="time" value={form.endTime} onChange={(event) => setForm({ ...form, endTime: event.target.value })} required />
-        </label>
-        <Button type="submit" isLoading={saving}>
-          Salvar horário
-        </Button>
-      </form>
-    </Card>
-  );
-}
-
-function AvailabilityList({
-  slots,
-  onRemoved,
-  onError,
-  confirm,
-}: {
-  slots: DoctorAvailabilitySlot[];
-  onRemoved: (id: string) => void;
-  onError: (message: string) => void;
-  confirm: ReturnType<typeof useConfirm>[0];
-}) {
-  const sorted = [...slots].sort((a, b) => {
-    const day = WEEK.indexOf(a.dayOfWeek) - WEEK.indexOf(b.dayOfWeek);
-    return day !== 0 ? day : a.startTime.localeCompare(b.startTime);
-  });
-
-  async function remove(slot: DoctorAvailabilitySlot) {
-    const label = `${DAY_NAMES[slot.dayOfWeek]} ${slot.startTime.slice(0, 5)}–${slot.endTime.slice(0, 5)}`;
-    const ok = await confirm({
-      title: "Remover horário de atendimento?",
-      description: `${label}. Consultas já marcadas nesse horário continuam valendo.`,
-      confirmLabel: "Remover horário",
-      danger: true,
-    });
-    if (!ok) return;
-    try {
-      await api.deleteMyAvailabilitySlot(slot.id);
-      onRemoved(slot.id);
-    } catch (err) {
-      onError(err instanceof Error ? err.message : "Não foi possível remover o horário.");
-    }
-  }
-
-  return (
-    <Card className="mt-7 p-6">
-      <h2 className="font-bold text-ink">Meus horários de atendimento</h2>
-      {sorted.length === 0 ? (
-        <p className="mt-2 text-sm text-slate-500">Nenhum horário cadastrado: pacientes podem pedir qualquer horário.</p>
-      ) : (
-        <ul className="mt-4 flex flex-wrap gap-2">
-          {sorted.map((slot) => (
-            <li key={slot.id} className="flex items-center gap-2 rounded-lg border border-slate-100 bg-slate-50 py-1.5 pl-3 pr-1.5 text-sm">
-              <span className="font-semibold text-ink">
-                {DAY_NAMES[slot.dayOfWeek]} {slot.startTime.slice(0, 5)}–{slot.endTime.slice(0, 5)}
-              </span>
-              <button
-                type="button"
-                onClick={() => remove(slot)}
-                aria-label={`Remover ${DAY_NAMES[slot.dayOfWeek]} ${slot.startTime.slice(0, 5)}`}
-                className="grid size-7 place-items-center rounded text-slate-400 hover:bg-white hover:text-red-600"
-              >
-                <Trash2 size={14} />
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
-    </Card>
   );
 }
 

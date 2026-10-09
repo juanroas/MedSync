@@ -11,6 +11,7 @@ public sealed class MedSyncDbContext(DbContextOptions<MedSyncDbContext> options)
     public DbSet<Doctor> Doctors => Set<Doctor>();
     public DbSet<Patient> Patients => Set<Patient>();
     public DbSet<DoctorAvailabilitySlot> DoctorAvailabilitySlots => Set<DoctorAvailabilitySlot>();
+    public DbSet<DoctorTimeOff> DoctorTimeOffs => Set<DoctorTimeOff>();
     public DbSet<Appointment> Appointments => Set<Appointment>();
     public DbSet<ConsultationRoom> ConsultationRooms => Set<ConsultationRoom>();
     public DbSet<ConsentRecord> ConsentRecords => Set<ConsentRecord>();
@@ -93,8 +94,17 @@ public sealed class MedSyncDbContext(DbContextOptions<MedSyncDbContext> options)
         modelBuilder.Entity<DoctorAvailabilitySlot>(entity =>
         {
             entity.HasIndex(x => new { x.DoctorId, x.DayOfWeek });
+            entity.Property(x => x.Modality).HasConversion<string>().HasMaxLength(20);
             entity.HasOne(x => x.Clinic).WithMany().HasForeignKey(x => x.ClinicId)
                 .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(x => x.Doctor).WithMany().HasForeignKey(x => x.DoctorId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<DoctorTimeOff>(entity =>
+        {
+            entity.HasIndex(x => new { x.DoctorId, x.StartDate });
+            entity.Property(x => x.Reason).HasMaxLength(120);
             entity.HasOne(x => x.Doctor).WithMany().HasForeignKey(x => x.DoctorId)
                 .OnDelete(DeleteBehavior.Cascade);
         });

@@ -54,6 +54,10 @@ public static partial class ApiEndpoints
         protectedApi.MapGet("/doctors/me/availability", GetMyAvailability);
         protectedApi.MapPost("/doctors/me/availability", CreateMyAvailabilitySlot);
         protectedApi.MapDelete("/doctors/me/availability/{id:guid}", DeleteMyAvailabilitySlot);
+        protectedApi.MapGet("/doctors/me/schedule", GetMySchedule);
+        protectedApi.MapPut("/doctors/me/schedule/settings", UpdateMyScheduleSettings);
+        protectedApi.MapPost("/doctors/me/time-off", CreateMyTimeOff);
+        protectedApi.MapDelete("/doctors/me/time-off/{id:guid}", DeleteMyTimeOff);
         protectedApi.MapGet("/doctors/{id:guid}/available-times", GetAvailableTimes);
         protectedApi.MapGet("/doctors/{id:guid}/available-days", GetAvailableDays);
         protectedApi.MapGet("/care/specialties", GetCareSpecialties);
@@ -1506,12 +1510,147 @@ public static partial class ApiEndpoints
         var slots = await db.DoctorAvailabilitySlots.AsNoTracking()
             .Where(x => x.DoctorId == doctor.Id)
             .OrderBy(x => x.DayOfWeek).ThenBy(x => x.StartTime)
-            .Select(x => new DoctorAvailabilitySlotResponse(x.Id, x.DayOfWeek, x.StartTime, x.EndTime))
+            .Select(x => new DoctorAvailabilitySlotResponse(x.Id, x.DayOfWeek, x.StartTime, x.EndTime, x.Modality))
             .ToListAsync(cancellationToken);
 
         audit.Add(actor, "DoctorAvailability.List", "DoctorAvailabilitySlot", null);
         await db.SaveChangesAsync(cancellationToken);
         return Results.Ok(slots);
+    }
+
+    // Everything the "Horários de atendimento" screen edits: weekly windows, slot length, booking window, days off.
+    private static async Task<IResult> GetMySchedule(
+        ClaimsPrincipal principal,
+        MedSyncDbContext db,
+        CancellationToken cancellationToken)
+    {
+        var actor = RequestContext.From(principal);
+        if (!actor.HasAny(ClinicRole.Doctor))
+            return Results.Forbid();
+
+        var doctor = await FindOwnDoctorAsync(db, actor, cancellationToken);
+        if (doctor is null)
+            return Results.NotFound(new { message = "Perfil médico não encontrado nesta clínica." });
+
+        return Results.Ok(await ScheduleResponseAsync(db, doctor, cancellationToken));
+    }
+
+    private static async Task<DoctorScheduleResponse> ScheduleResponseAsync(
+        MedSyncDbContext db,
+        Doctor doctor,
+        CancellationToken cancellationToken)
+    {
+        var windows = await db.DoctorAvailabilitySlots.AsNoTracking()
+            .Where(x => x.DoctorId == doctor.Id)
+            .OrderBy(x => x.DayOfWeek).ThenBy(x => x.StartTime)
+            .Select(x => new DoctorAvailabilitySlotResponse(x.Id, x.DayOfWeek, x.StartTime, x.EndTime, x.Modality))
+            .ToListAsync(cancellationToken);
+        var today = DateOnly.FromDateTime(DateTime.UtcNow + BrazilUtcOffset);
+        var timeOff = await db.DoctorTimeOffs.AsNoTracking()
+            .Where(x => x.DoctorId == doctor.Id && x.EndDate >= today)
+            .OrderBy(x => x.StartDate)
+            .Select(x => new DoctorTimeOffResponse(x.Id, x.StartDate, x.EndDate, x.Reason))
+            .ToListAsync(cancellationToken);
+        return new DoctorScheduleResponse(doctor.SlotMinutes, doctor.BookingWindowDays, windows, timeOff);
+    }
+
+    private static readonly int[] AllowedSlotMinutes = [15, 20, 30, 45, 60];
+
+    private static async Task<IResult> UpdateMyScheduleSettings(
+        UpdateDoctorScheduleSettingsRequest request,
+        ClaimsPrincipal principal,
+        MedSyncDbContext db,
+        AuditWriter audit,
+        CancellationToken cancellationToken)
+    {
+        var actor = RequestContext.From(principal);
+        if (!actor.HasAny(ClinicRole.Doctor))
+            return Results.Forbid();
+
+        var doctor = await FindOwnDoctorAsync(db, actor, cancellationToken);
+        if (doctor is null)
+            return Results.NotFound(new { message = "Perfil médico não encontrado nesta clínica." });
+
+        if (!AllowedSlotMinutes.Contains(request.SlotMinutes))
+            return Validation("slotMinutes", "Escolha uma duração de 15, 20, 30, 45 ou 60 minutos.");
+        if (request.BookingWindowDays is < 7 or > 180)
+            return Validation("bookingWindowDays", "Os pacientes podem marcar de 7 a 180 dias à frente.");
+
+        doctor.SlotMinutes = request.SlotMinutes;
+        doctor.BookingWindowDays = request.BookingWindowDays;
+        audit.Add(actor, "DoctorSchedule.UpdateSettings", "Doctor", doctor.Id);
+        await db.SaveChangesAsync(cancellationToken);
+        return Results.Ok(await ScheduleResponseAsync(db, doctor, cancellationToken));
+    }
+
+    private static async Task<IResult> CreateMyTimeOff(
+        CreateDoctorTimeOffRequest request,
+        ClaimsPrincipal principal,
+        MedSyncDbContext db,
+        AuditWriter audit,
+        CancellationToken cancellationToken)
+    {
+        var actor = RequestContext.From(principal);
+        if (!actor.HasAny(ClinicRole.Doctor))
+            return Results.Forbid();
+
+        var doctor = await FindOwnDoctorAsync(db, actor, cancellationToken);
+        if (doctor is null)
+            return Results.NotFound(new { message = "Perfil médico não encontrado nesta clínica." });
+
+        var today = DateOnly.FromDateTime(DateTime.UtcNow + BrazilUtcOffset);
+        if (request.StartDate == default || request.EndDate == default)
+            return Validation("startDate", "Informe o primeiro e o último dia da folga.");
+        if (request.EndDate < request.StartDate)
+            return Validation("endDate", "O último dia precisa ser igual ou depois do primeiro.");
+        if (request.EndDate < today)
+            return Validation("endDate", "A folga precisa incluir hoje ou uma data futura.");
+        if (request.EndDate.DayNumber - request.StartDate.DayNumber > 366)
+            return Validation("endDate", "Cadastre folgas de até um ano.");
+        var reason = string.IsNullOrWhiteSpace(request.Reason) ? null : request.Reason.Trim();
+        if (reason?.Length > 120)
+            return Validation("reason", "O motivo deve ter até 120 caracteres.");
+
+        var timeOff = new DoctorTimeOff
+        {
+            ClinicId = actor.ClinicId,
+            DoctorId = doctor.Id,
+            StartDate = request.StartDate,
+            EndDate = request.EndDate,
+            Reason = reason
+        };
+        db.DoctorTimeOffs.Add(timeOff);
+        audit.Add(actor, "DoctorSchedule.CreateTimeOff", "DoctorTimeOff", timeOff.Id);
+        await db.SaveChangesAsync(cancellationToken);
+        return Results.Created(
+            "/doctors/me/schedule",
+            new DoctorTimeOffResponse(timeOff.Id, timeOff.StartDate, timeOff.EndDate, timeOff.Reason));
+    }
+
+    private static async Task<IResult> DeleteMyTimeOff(
+        Guid id,
+        ClaimsPrincipal principal,
+        MedSyncDbContext db,
+        AuditWriter audit,
+        CancellationToken cancellationToken)
+    {
+        var actor = RequestContext.From(principal);
+        if (!actor.HasAny(ClinicRole.Doctor))
+            return Results.Forbid();
+
+        var doctor = await FindOwnDoctorAsync(db, actor, cancellationToken);
+        if (doctor is null)
+            return Results.NotFound();
+
+        var timeOff = await db.DoctorTimeOffs.SingleOrDefaultAsync(
+            x => x.Id == id && x.DoctorId == doctor.Id, cancellationToken);
+        if (timeOff is null)
+            return Results.NotFound();
+
+        db.DoctorTimeOffs.Remove(timeOff);
+        audit.Add(actor, "DoctorSchedule.DeleteTimeOff", "DoctorTimeOff", timeOff.Id);
+        await db.SaveChangesAsync(cancellationToken);
+        return Results.NoContent();
     }
 
     private static async Task<IResult> CreateMyAvailabilitySlot(
@@ -1530,9 +1669,11 @@ public static partial class ApiEndpoints
             return Results.NotFound(new { message = "Perfil medico nao encontrado para este ambiente." });
 
         if (request.StartTime >= request.EndTime)
-            return Validation("startTime", "O horario inicial precisa ser antes do horario final.");
-        if (request.EndTime.ToTimeSpan().Subtract(request.StartTime.ToTimeSpan()) < TimeSpan.FromMinutes(30))
-            return Validation("endTime", "A janela de disponibilidade precisa ter pelo menos 30 minutos.");
+            return Validation("startTime", "O horário inicial precisa ser antes do horário final.");
+        if (request.EndTime.ToTimeSpan().Subtract(request.StartTime.ToTimeSpan()) < TimeSpan.FromMinutes(doctor.SlotMinutes))
+            return Validation("endTime", $"A faixa precisa ter pelo menos {doctor.SlotMinutes} minutos, a duração de uma consulta.");
+        if (!Enum.IsDefined(request.Modality))
+            return Validation("modality", "Escolha online, presencial ou os dois.");
 
         var overlaps = await db.DoctorAvailabilitySlots.AnyAsync(
             x => x.DoctorId == doctor.Id &&
@@ -1541,7 +1682,7 @@ public static partial class ApiEndpoints
                  x.EndTime > request.StartTime,
             cancellationToken);
         if (overlaps)
-            return Results.Conflict(new { message = "Ja existe uma janela de disponibilidade que se sobrepoe a este horario." });
+            return Results.Conflict(new { message = "Já existe uma faixa neste dia que cruza com este horário." });
 
         var slot = new DoctorAvailabilitySlot
         {
@@ -1549,14 +1690,15 @@ public static partial class ApiEndpoints
             DoctorId = doctor.Id,
             DayOfWeek = request.DayOfWeek,
             StartTime = request.StartTime,
-            EndTime = request.EndTime
+            EndTime = request.EndTime,
+            Modality = request.Modality
         };
         db.DoctorAvailabilitySlots.Add(slot);
         audit.Add(actor, "DoctorAvailability.Create", "DoctorAvailabilitySlot", slot.Id);
         await db.SaveChangesAsync(cancellationToken);
         return Results.Created(
             "/doctors/me/availability",
-            new DoctorAvailabilitySlotResponse(slot.Id, slot.DayOfWeek, slot.StartTime, slot.EndTime));
+            new DoctorAvailabilitySlotResponse(slot.Id, slot.DayOfWeek, slot.StartTime, slot.EndTime, slot.Modality));
     }
 
     private static async Task<IResult> DeleteMyAvailabilitySlot(
@@ -1605,6 +1747,12 @@ public static partial class ApiEndpoints
         if (date == default)
             return Validation("date", "Informe a data desejada.");
 
+        var today = DateOnly.FromDateTime(DateTime.UtcNow + BrazilUtcOffset);
+        if (date.DayNumber - today.DayNumber >= doctor.BookingWindowDays ||
+            await db.DoctorTimeOffs.AnyAsync(
+                x => x.DoctorId == doctor.Id && x.StartDate <= date && x.EndDate >= date, cancellationToken))
+            return Results.Ok(Array.Empty<AvailableTimeResponse>());
+
         var dayOfWeek = date.DayOfWeek;
         var windows = await db.DoctorAvailabilitySlots.AsNoTracking()
             .Where(x => x.DoctorId == doctor.Id && x.DayOfWeek == dayOfWeek)
@@ -1618,7 +1766,7 @@ public static partial class ApiEndpoints
             .Select(x => new { x.ScheduledAt, x.DurationMinutes })
             .ToListAsync(cancellationToken);
 
-        var available = FreeSlots(date, windows, busy.Select(x => (x.ScheduledAt, x.DurationMinutes)).ToList(), DateTime.UtcNow);
+        var available = FreeSlots(date, windows, busy.Select(x => (x.ScheduledAt, x.DurationMinutes)).ToList(), DateTime.UtcNow, doctor.SlotMinutes);
 
         audit.Add(actor, "DoctorAvailability.AvailableTimes", "Doctor", doctor.Id);
         await db.SaveChangesAsync(cancellationToken);
@@ -1627,6 +1775,7 @@ public static partial class ApiEndpoints
 
     // Days with at least one free slot, so the patient's calendar only offers dates that can be booked.
     // A doctor with no availability windows has an open schedule (Restricted = false), as before.
+    // The range never goes past the doctor's booking window, and days off offer nothing.
     private static async Task<IResult> GetAvailableDays(
         Guid id,
         DateOnly? from,
@@ -1647,7 +1796,12 @@ public static partial class ApiEndpoints
         var now = DateTime.UtcNow;
         var today = DateOnly.FromDateTime(now + BrazilUtcOffset);
         var start = from is { } requested && requested > today ? requested : today;
-        var end = start.AddDays(Math.Clamp(days ?? 60, 1, 92) - 1);
+        var lastBookable = today.AddDays(doctor.BookingWindowDays - 1);
+        var end = start.AddDays(Math.Clamp(days ?? doctor.BookingWindowDays, 1, 180) - 1);
+        if (end > lastBookable)
+            end = lastBookable;
+        if (end < start)
+            return Results.Ok(new AvailableDaysResponse(true, start, start, []));
 
         var windows = await db.DoctorAvailabilitySlots.AsNoTracking()
             .Where(x => x.DoctorId == doctor.Id)
@@ -1669,11 +1823,18 @@ public static partial class ApiEndpoints
             .Select(x => (x.ScheduledAt, x.DurationMinutes))
             .ToList();
 
+        var timeOff = await db.DoctorTimeOffs.AsNoTracking()
+            .Where(x => x.DoctorId == doctor.Id && x.StartDate <= end && x.EndDate >= start)
+            .Select(x => new { x.StartDate, x.EndDate })
+            .ToListAsync(cancellationToken);
+
         var open = new List<DateOnly>();
         for (var date = start; date <= end; date = date.AddDays(1))
         {
+            if (timeOff.Any(x => x.StartDate <= date && x.EndDate >= date))
+                continue;
             var dayWindows = windows.Where(x => x.DayOfWeek == date.DayOfWeek).ToList();
-            if (dayWindows.Count > 0 && FreeSlots(date, dayWindows, busy, now).Count > 0)
+            if (dayWindows.Count > 0 && FreeSlots(date, dayWindows, busy, now, doctor.SlotMinutes).Count > 0)
                 open.Add(date);
         }
 
@@ -1684,9 +1845,9 @@ public static partial class ApiEndpoints
         DateOnly date,
         IReadOnlyCollection<DoctorAvailabilitySlot> windows,
         IReadOnlyCollection<(DateTime ScheduledAt, int DurationMinutes)> busy,
-        DateTime nowUtc)
+        DateTime nowUtc,
+        int slotMinutes)
     {
-        const int slotMinutes = 30;
         var available = new List<AvailableTimeResponse>();
         foreach (var window in windows)
         {
@@ -1701,7 +1862,7 @@ public static partial class ApiEndpoints
                     a.ScheduledAt < endsAtUtc && a.ScheduledAt.AddMinutes(a.DurationMinutes) > startsAtUtc);
 
                 if (!conflicts)
-                    available.Add(new AvailableTimeResponse(startsAtUtc, slotMinutes));
+                    available.Add(new AvailableTimeResponse(startsAtUtc, slotMinutes, window.Modality));
 
                 cursor = cursor.AddMinutes(slotMinutes);
             }
@@ -1799,10 +1960,14 @@ public static partial class ApiEndpoints
         var brazilStartTime = TimeOnly.FromDateTime(brazilLocal);
         var brazilEndTime = TimeOnly.FromDateTime((brazilLocal + (scheduledEndsAt - scheduledAt)));
         var specialtyKey = specialty.ToLowerInvariant();
+        var brazilDate = DateOnly.FromDateTime(brazilLocal);
+        var daysAhead = brazilDate.DayNumber - DateOnly.FromDateTime(DateTime.UtcNow + BrazilUtcOffset).DayNumber;
         var doctorQuery = db.Doctors
             .Where(x =>
                 x.Specialty.ToLower() == specialtyKey &&
                 x.ClinicId == actor.ClinicId &&
+                x.BookingWindowDays > daysAhead &&
+                !db.DoctorTimeOffs.Any(t => t.DoctorId == x.Id && t.StartDate <= brazilDate && t.EndDate >= brazilDate) &&
                 !db.Appointments.Any(a =>
                     a.DoctorId == x.Id &&
                     a.Status != AppointmentStatus.Cancelled &&

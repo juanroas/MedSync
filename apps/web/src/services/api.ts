@@ -18,6 +18,9 @@ import type {
   ConsultationRoom,
   Doctor,
   DoctorAvailabilitySlot,
+  DoctorSchedule,
+  DoctorTimeOff,
+  ConsultationModality,
   LoginResponse,
   MfaEnrollResponse,
   MfaRequiredResponse,
@@ -269,13 +272,25 @@ export const api = {
 
   getDoctors: () => request<Doctor[]>("/doctors"),
   getMyAvailability: () => request<DoctorAvailabilitySlot[]>("/doctors/me/availability"),
-  createMyAvailabilitySlot: (slot: { dayOfWeek: WeekDay; startTime: string; endTime: string }) =>
+  createMyAvailabilitySlot: (slot: { dayOfWeek: WeekDay; startTime: string; endTime: string; modality: ConsultationModality }) =>
     request<DoctorAvailabilitySlot>("/doctors/me/availability", {
       method: "POST",
       body: JSON.stringify(slot),
     }),
   deleteMyAvailabilitySlot: (id: string) =>
     request<void>(`/doctors/me/availability/${id}`, { method: "DELETE" }),
+  getMySchedule: () => request<DoctorSchedule>("/doctors/me/schedule"),
+  updateMyScheduleSettings: (settings: { slotMinutes: number; bookingWindowDays: number }) =>
+    request<DoctorSchedule>("/doctors/me/schedule/settings", {
+      method: "PUT",
+      body: JSON.stringify(settings),
+    }),
+  createMyTimeOff: (timeOff: { startDate: string; endDate: string; reason?: string }) =>
+    request<DoctorTimeOff>("/doctors/me/time-off", {
+      method: "POST",
+      body: JSON.stringify(timeOff),
+    }),
+  deleteMyTimeOff: (id: string) => request<void>(`/doctors/me/time-off/${id}`, { method: "DELETE" }),
   getAvailableDays: (doctorId: string) => request<AvailableDays>(`/doctors/${doctorId}/available-days`),
   getAvailableTimes: (doctorId: string, date: string) =>
     request<AvailableTime[]>(`/doctors/${doctorId}/available-times?date=${date}`),
