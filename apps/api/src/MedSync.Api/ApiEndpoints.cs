@@ -1732,6 +1732,7 @@ public static partial class ApiEndpoints
     private static async Task<IResult> GetAvailableTimes(
         Guid id,
         DateOnly date,
+        ConsultationModality? modality,
         ClaimsPrincipal principal,
         MedSyncDbContext db,
         AuditWriter audit,
@@ -1756,9 +1757,11 @@ public static partial class ApiEndpoints
             return Results.Ok(Array.Empty<AvailableTimeResponse>());
 
         var dayOfWeek = date.DayOfWeek;
-        var windows = await db.DoctorAvailabilitySlots.AsNoTracking()
-            .Where(x => x.DoctorId == doctor.Id && x.DayOfWeek == dayOfWeek)
-            .ToListAsync(cancellationToken);
+        var windows = (await db.DoctorAvailabilitySlots.AsNoTracking()
+                .Where(x => x.DoctorId == doctor.Id && x.DayOfWeek == dayOfWeek)
+                .ToListAsync(cancellationToken))
+            .Where(x => Offers(x, modality))
+            .ToList();
 
         var busy = await db.Appointments.AsNoTracking()
             .Where(x =>
@@ -1782,6 +1785,7 @@ public static partial class ApiEndpoints
         Guid id,
         DateOnly? from,
         int? days,
+        ConsultationModality? modality,
         ClaimsPrincipal principal,
         MedSyncDbContext db,
         CancellationToken cancellationToken)
@@ -1805,11 +1809,12 @@ public static partial class ApiEndpoints
         if (end < start)
             return Results.Ok(new AvailableDaysResponse(true, start, start, []));
 
-        var windows = await db.DoctorAvailabilitySlots.AsNoTracking()
+        var allWindows = await db.DoctorAvailabilitySlots.AsNoTracking()
             .Where(x => x.DoctorId == doctor.Id)
             .ToListAsync(cancellationToken);
-        if (windows.Count == 0)
+        if (allWindows.Count == 0)
             return Results.Ok(new AvailableDaysResponse(false, start, end, []));
+        var windows = allWindows.Where(x => Offers(x, modality)).ToList();
 
         var rangeStartUtc = DateTime.SpecifyKind(start.ToDateTime(TimeOnly.MinValue) - BrazilUtcOffset, DateTimeKind.Utc);
         var rangeEndUtc = DateTime.SpecifyKind(end.AddDays(1).ToDateTime(TimeOnly.MinValue) - BrazilUtcOffset, DateTimeKind.Utc);
@@ -1842,6 +1847,12 @@ public static partial class ApiEndpoints
 
         return Results.Ok(new AvailableDaysResponse(true, start, end, open));
     }
+
+    // A window serves the requested modality when it is that modality or both; no filter means any.
+    private static bool Offers(DoctorAvailabilitySlot window, ConsultationModality? modality) =>
+        modality is null or ConsultationModality.Both ||
+        window.Modality == modality ||
+        window.Modality == ConsultationModality.Both;
 
     private static List<AvailableTimeResponse> FreeSlots(
         DateOnly date,
@@ -1890,6 +1901,8 @@ public static partial class ApiEndpoints
             return Results.Conflict(new { message = ClinicNotActiveMessage });
         }
 
+        var clinic = await db.Clinics.AsNoTracking().SingleAsync(x => x.Id == actor.ClinicId, cancellationToken);
+        var clinicAddress = clinic.FormattedAddress();
         var doctorsWithAvailability = await db.Doctors.AsNoTracking()
             .Where(x => x.ClinicId == actor.ClinicId)
             .Select(x => new
@@ -1897,7 +1910,13 @@ public static partial class ApiEndpoints
                 x.Id,
                 x.Name,
                 x.Specialty,
-                HasAvailability = db.DoctorAvailabilitySlots.Any(s => s.DoctorId == x.Id),
+                x.Crm,
+                x.CrmUf,
+                WindowModalities = db.DoctorAvailabilitySlots
+                    .Where(s => s.DoctorId == x.Id)
+                    .Select(s => s.Modality)
+                    .Distinct()
+                    .ToList(),
             })
             .ToListAsync(cancellationToken);
 
@@ -1908,13 +1927,52 @@ public static partial class ApiEndpoints
                 group.Key,
                 group.Count(),
                 group.OrderBy(doctor => doctor.Name)
-                    .Select(doctor => new CareDoctorOptionResponse(doctor.Id, doctor.Name, doctor.HasAvailability))
+                    .Select(doctor => new CareDoctorOptionResponse(
+                        doctor.Id,
+                        doctor.Name,
+                        doctor.WindowModalities.Count > 0,
+                        $"{doctor.Crm}/{doctor.CrmUf}",
+                        OfferedModalities(doctor.WindowModalities, clinicAddress is not null),
+                        clinic.Name,
+                        clinicAddress))
                     .ToList()))
             .ToList();
 
         audit.Add(actor, "CareSpecialty.List", "Doctor", null);
         await db.SaveChangesAsync(cancellationToken);
         return Results.Ok(specialties);
+    }
+
+    private static List<ConsultationModality> OfferedModalities(
+        IReadOnlyCollection<ConsultationModality> windowModalities,
+        bool clinicHasAddress)
+    {
+        var offered = new List<ConsultationModality>();
+        var openSchedule = windowModalities.Count == 0;
+        if (openSchedule || windowModalities.Any(x => x is ConsultationModality.Online or ConsultationModality.Both))
+            offered.Add(ConsultationModality.Online);
+        if (clinicHasAddress &&
+            (openSchedule || windowModalities.Any(x => x is ConsultationModality.InPerson or ConsultationModality.Both)))
+            offered.Add(ConsultationModality.InPerson);
+        return offered;
+    }
+
+    // In person needs the clinic's address; Both is only a window setting, never an appointment.
+    private static async Task<(string? Location, IResult? Error)> ResolveLocationAsync(
+        MedSyncDbContext db,
+        Guid clinicId,
+        ConsultationModality modality,
+        CancellationToken cancellationToken)
+    {
+        if (modality == ConsultationModality.Online)
+            return (null, null);
+        if (modality != ConsultationModality.InPerson)
+            return (null, Validation("modality", "Escolha consulta online ou presencial."));
+        var clinic = await db.Clinics.AsNoTracking().SingleAsync(x => x.Id == clinicId, cancellationToken);
+        var address = clinic.FormattedAddress();
+        return address is null
+            ? (null, Results.Conflict(new { message = "A clínica ainda não cadastrou o endereço de atendimento presencial." }))
+            : ($"{clinic.Name} — {address}", null);
     }
 
     private static async Task<IResult> RequestAppointment(
@@ -1942,6 +2000,10 @@ public static partial class ApiEndpoints
         var scheduledAt = request.ScheduledAt.ToUniversalTime();
         if (scheduledAt < DateTime.UtcNow + MinBookingNotice)
             return Validation("scheduledAt", "Escolha um horário que comece daqui a pelo menos 15 minutos.");
+        var (location, locationError) = await ResolveLocationAsync(db, actor.ClinicId, request.Modality, cancellationToken);
+        if (locationError is not null)
+            return locationError;
+        var modality = request.Modality;
 
         var patient = await db.Patients.SingleOrDefaultAsync(
             x => x.ClinicId == actor.ClinicId && x.UserId == actor.UserId,
@@ -1983,7 +2045,8 @@ public static partial class ApiEndpoints
                      s.DoctorId == x.Id &&
                      s.DayOfWeek == brazilDayOfWeek &&
                      s.StartTime <= brazilStartTime &&
-                     s.EndTime >= brazilEndTime)));
+                     s.EndTime >= brazilEndTime &&
+                     (s.Modality == modality || s.Modality == ConsultationModality.Both))));
 
         if (request.DoctorId is { } doctorId)
             doctorQuery = doctorQuery.Where(x => x.Id == doctorId);
@@ -2007,6 +2070,8 @@ public static partial class ApiEndpoints
             PatientId = patient.Id,
             ScheduledAt = scheduledAt,
             DurationMinutes = request.DurationMinutes,
+            Modality = modality,
+            Location = location,
             Notes = string.IsNullOrWhiteSpace(request.Notes)
                 ? $"Solicitacao do paciente por especialidade: {specialty}."
                 : request.Notes.Trim(),
@@ -2056,6 +2121,9 @@ public static partial class ApiEndpoints
             cancellationToken);
         if (doctor is null || !patientExists)
             return Results.BadRequest(new { message = "Médico ou paciente inválido." });
+        var (location, locationError) = await ResolveLocationAsync(db, actor.ClinicId, request.Modality, cancellationToken);
+        if (locationError is not null)
+            return locationError;
         var scheduledEndsAt = scheduledAt.AddMinutes(request.DurationMinutes);
         var hasConflict = await db.Appointments.AnyAsync(
             x => x.ClinicId == actor.ClinicId &&
@@ -2075,6 +2143,8 @@ public static partial class ApiEndpoints
             PatientId = request.PatientId,
             ScheduledAt = scheduledAt,
             DurationMinutes = request.DurationMinutes,
+            Modality = request.Modality,
+            Location = location,
             Notes = request.Notes?.Trim(),
             Price = request.Price,
             PaymentRequired = request.PaymentRequired
@@ -2525,6 +2595,8 @@ public static partial class ApiEndpoints
             return Results.NotFound();
         if (!IsAssignedDoctor(actor, appointment))
             return Results.Forbid();
+        if (appointment.Modality == ConsultationModality.InPerson)
+            return Results.Conflict(new { message = "Consulta presencial não usa sala de vídeo." });
         if (!InJoinWindow(appointment))
             return Results.Conflict(new { message = "A consulta está fora da janela permitida." });
         if (appointment.Status == AppointmentStatus.Cancelled)
@@ -2688,12 +2760,14 @@ public static partial class ApiEndpoints
     {
         var actor = RequestContext.From(principal);
         var appointment = await LoadAppointment(db, actor, appointmentId, cancellationToken);
+        var noShow = string.Equals(request?.Outcome, "NoShow", StringComparison.OrdinalIgnoreCase);
+        if (appointment?.Modality == ConsultationModality.InPerson)
+            return await EndInPersonConsultationAsync(appointment, noShow, actor, db, audit, realtime, cancellationToken);
         if (appointment?.ConsultationRoom is null)
             return Results.NotFound();
         if (!IsAssignedDoctor(actor, appointment))
             return Results.Forbid();
         // "Não compareceu" only when the doctor was in the call and the patient never joined it.
-        var noShow = string.Equals(request?.Outcome, "NoShow", StringComparison.OrdinalIgnoreCase);
         if (noShow && (appointment.ConsultationRoom.DoctorJoinedAt is null || appointment.ConsultationRoom.PatientJoinedAt is not null))
             return Validation("outcome", "Só é possível registrar não comparecimento se você entrou na sala e o paciente não entrou.");
         var deleteResult = await liveKit.DeleteAsync(appointment.ConsultationRoom.RoomName);
@@ -2713,6 +2787,30 @@ public static partial class ApiEndpoints
             deleteResult == LiveKitDeleteRoomResult.Deleted ? null : $"LiveKit delete result: {deleteResult}.");
         await db.SaveChangesAsync(cancellationToken);
         await realtime.AppointmentChangedAsync(appointmentId, cancellationToken);
+        return Results.NoContent();
+    }
+
+    // In person: the doctor records the outcome once the consultation time has started (no room to close).
+    private static async Task<IResult> EndInPersonConsultationAsync(
+        Appointment appointment,
+        bool noShow,
+        RequestContext actor,
+        MedSyncDbContext db,
+        AuditWriter audit,
+        RealtimeNotifier realtime,
+        CancellationToken cancellationToken)
+    {
+        if (!IsAssignedDoctor(actor, appointment))
+            return Results.Forbid();
+        if (appointment.Status is not (AppointmentStatus.Scheduled or AppointmentStatus.InProgress))
+            return Results.Conflict(new { message = "Esta consulta já foi encerrada ou cancelada." });
+        if (DateTime.UtcNow < appointment.ScheduledAt.AddMinutes(-15))
+            return Results.Conflict(new { message = "A consulta presencial só pode ser concluída a partir do horário marcado." });
+
+        appointment.Status = noShow ? AppointmentStatus.NoShow : AppointmentStatus.Completed;
+        audit.Add(actor, noShow ? "Consultation.NoShow" : "Consultation.End", "Appointment", appointment.Id);
+        await db.SaveChangesAsync(cancellationToken);
+        await realtime.AppointmentChangedAsync(appointment.Id, cancellationToken);
         return Results.NoContent();
     }
 
@@ -2885,7 +2983,9 @@ public static partial class ApiEndpoints
                 x.ConsultationRoom == null ? null : x.ConsultationRoom.Status,
                 isDoctor && x.Doctor.UserId == actorUserId ? x.Patient.ContinuousMedications : null,
                 x.ConsultationRoom != null && x.ConsultationRoom.DoctorJoinedAt != null,
-                x.ConsultationRoom != null && x.ConsultationRoom.PatientJoinedAt != null));
+                x.ConsultationRoom != null && x.ConsultationRoom.PatientJoinedAt != null,
+                x.Modality,
+                x.Location));
     }
 
 

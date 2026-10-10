@@ -46,6 +46,14 @@ public sealed class MedSyncDbContext(DbContextOptions<MedSyncDbContext> options)
             entity.Property(x => x.LegalName).HasMaxLength(180);
             entity.Property(x => x.TaxId).HasMaxLength(14);
             entity.Property(x => x.ActivationStatus).HasConversion<string>().HasMaxLength(20);
+            entity.Property(x => x.AddressZipCode).HasMaxLength(9);
+            entity.Property(x => x.AddressStreet).HasMaxLength(160);
+            entity.Property(x => x.AddressNumber).HasMaxLength(20);
+            entity.Property(x => x.AddressComplement).HasMaxLength(80);
+            entity.Property(x => x.AddressDistrict).HasMaxLength(80);
+            entity.Property(x => x.AddressCity).HasMaxLength(80);
+            entity.Property(x => x.AddressState).HasMaxLength(2);
+            entity.Property(x => x.Phone).HasMaxLength(20);
             entity.Property(x => x.PlanName).HasMaxLength(120);
             entity.Property(x => x.MonthlyFee).HasPrecision(12, 2);
         });
@@ -113,6 +121,8 @@ public sealed class MedSyncDbContext(DbContextOptions<MedSyncDbContext> options)
         {
             entity.HasIndex(x => new { x.ClinicId, x.ScheduledAt });
             entity.Property(x => x.Status).HasConversion<string>().HasMaxLength(30);
+            entity.Property(x => x.Modality).HasConversion<string>().HasMaxLength(20);
+            entity.Property(x => x.Location).HasMaxLength(300);
             entity.Property(x => x.Price).HasPrecision(12, 2);
             entity.HasOne(x => x.Clinic).WithMany().HasForeignKey(x => x.ClinicId)
                 .OnDelete(DeleteBehavior.Restrict);

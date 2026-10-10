@@ -22,7 +22,8 @@ export function isAppointmentMissed(appointment: Appointment) {
 }
 
 export function isAppointmentRoomJoinable(appointment: Appointment) {
-  return appointment.status === "InProgress" &&
+  return !isInPerson(appointment) &&
+    appointment.status === "InProgress" &&
     appointment.videoStatus !== "Completed" &&
     appointment.videoStatus !== "Cancelled" &&
     appointment.videoStatus !== "Expired" &&
@@ -35,9 +36,14 @@ export function isAppointmentStaleInProgress(appointment: Appointment) {
   return appointment.status === "InProgress" && isAppointmentJoinWindowClosed(appointment);
 }
 
+export function isInPerson(appointment: Appointment) {
+  return appointment.modality === "InPerson";
+}
+
 // Doctor side: the room can be started once the join window opens, or re-entered while the video is still live.
+// In-person consultations have no video room.
 export function canStartRoom(appointment: Appointment) {
-  if (appointment.roomName || !["Scheduled", "InProgress"].includes(appointment.status)) {
+  if (isInPerson(appointment) || appointment.roomName || !["Scheduled", "InProgress"].includes(appointment.status)) {
     return false;
   }
 
@@ -45,7 +51,8 @@ export function canStartRoom(appointment: Appointment) {
 }
 
 export function canDoctorEnterExistingRoom(appointment: Appointment) {
-  return Boolean(appointment.roomName) &&
+  return !isInPerson(appointment) &&
+    Boolean(appointment.roomName) &&
     ["Scheduled", "InProgress"].includes(appointment.status) &&
     appointment.videoStatus !== "Completed" &&
     appointment.videoStatus !== "Cancelled" &&
@@ -61,6 +68,7 @@ export function canDoctorOpenRoom(appointment: Appointment) {
 // One wording for how a consultation ended, everywhere (agenda, painel, lista do paciente):
 // "Não compareceu" is only what the doctor registered; a room nobody opened is "Não realizada".
 export function appointmentStatusLabel(appointment: Appointment) {
+  if (isInPerson(appointment) && isAppointmentMissed(appointment)) return "Aguardando conclusão";
   if (isAppointmentMissed(appointment)) return "Não realizada";
   if (isAppointmentStaleInProgress(appointment)) {
     return appointment.doctorJoined && !appointment.patientJoined ? "Paciente não entrou" : "Sala expirada";
@@ -74,6 +82,11 @@ export function appointmentStatusTone(appointment: Appointment) {
 }
 
 // The doctor can close it while the room exists and was not ended (during the call or after the window).
+// In person there is no room: from 15 minutes before the time on, while it is still open.
 export function canConcludeConsultation(appointment: Appointment) {
+  if (isInPerson(appointment)) {
+    return ["Scheduled", "InProgress"].includes(appointment.status) &&
+      Date.now() >= new Date(appointment.scheduledAt).getTime() - 15 * 60 * 1000;
+  }
   return appointment.status === "InProgress";
 }

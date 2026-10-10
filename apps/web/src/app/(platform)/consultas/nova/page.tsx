@@ -1,11 +1,12 @@
 "use client";
 
-import { ErrorBanner, LoadingState, PageHeader, buttonClass, inputClass } from "@/components/ui";
+import { ErrorBanner, LoadingState, PageHeader, buttonClass, cn, inputClass } from "@/components/ui";
 import { formatBrazilDateTimeInput } from "@/lib/format";
-import type { AvailableDays, AvailableTime, CareSpecialty, Doctor, Patient } from "@/lib/types";
+import { MODALITY_LABELS } from "@/lib/types";
+import type { AvailableDays, AvailableTime, CareSpecialty, ConsultationModality, Doctor, Patient } from "@/lib/types";
 import { brazilLocalDateTimeToUtcIso, isFutureBrazilLocalDateTime } from "@/lib/validation";
 import { api, getSession } from "@/services/api";
-import { ArrowLeft, CalendarPlus, CheckCircle2, Clock, Paperclip, X } from "lucide-react";
+import { ArrowLeft, CalendarPlus, CheckCircle2, Clock, MapPin, Paperclip, Video, X } from "lucide-react";
 import Link from "next/link";
 import { AvailabilityCalendar } from "@/components/availability-calendar";
 import { useRouter } from "next/navigation";
@@ -22,7 +23,7 @@ export default function NewAppointmentPage() {
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [patients, setPatients] = useState<Patient[]>([]);
   const [specialties, setSpecialties] = useState<CareSpecialty[]>([]);
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<AppointmentForm>({
     doctorId: "",
     patientId: "",
     specialty: "",
@@ -31,6 +32,7 @@ export default function NewAppointmentPage() {
     notes: "",
     price: "",
     paymentRequired: false,
+    modality: "Online",
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -51,6 +53,7 @@ export default function NewAppointmentPage() {
             ...current,
             specialty: data[0]?.specialty ?? "",
             doctorId: data[0]?.doctors[0]?.id ?? "",
+            modality: data[0]?.doctors[0]?.modalities[0] ?? "Online",
           }));
         })
         .catch((err) => setError(err instanceof Error ? err.message : "Erro ao carregar especialidades."))
@@ -107,6 +110,7 @@ export default function NewAppointmentPage() {
           // The slot carries the doctor's consultation length; open schedules keep 30 minutes.
           durationMinutes: form.durationMinutes,
           notes: form.notes,
+          modality: form.modality,
         });
         if (attachments.length > 0) {
           await Promise.all(
@@ -122,6 +126,7 @@ export default function NewAppointmentPage() {
           notes: form.notes,
           price: form.price ? Number(form.price) : undefined,
           paymentRequired: form.paymentRequired,
+          modality: form.modality,
         });
       }
       router.push("/consultas");
@@ -195,7 +200,58 @@ type AppointmentForm = {
   notes: string;
   price: string;
   paymentRequired: boolean;
+  modality: ConsultationModality;
 };
+
+const BOOKABLE_MODALITIES: ConsultationModality[] = ["Online", "InPerson"];
+
+function ModalityPicker({
+  value,
+  options,
+  onChange,
+  label = "Como quer ser atendido",
+}: {
+  label?: string;
+  value: ConsultationModality;
+  options: ConsultationModality[];
+  onChange: (modality: ConsultationModality) => void;
+}) {
+  return (
+    <fieldset className="block sm:col-span-2">
+      <legend className="mb-2 block text-sm font-bold text-slate-700">{label}</legend>
+      <div className="inline-flex rounded-lg border border-slate-200 bg-white p-1">
+        {BOOKABLE_MODALITIES.map((modality) => {
+          const offered = options.includes(modality);
+          return (
+            <button
+              key={modality}
+              type="button"
+              aria-pressed={value === modality}
+              disabled={!offered}
+              onClick={() => onChange(modality)}
+              className={cn(
+                "inline-flex h-10 items-center gap-2 rounded-md px-4 text-sm font-bold transition disabled:cursor-not-allowed disabled:text-slate-300",
+                value === modality ? "bg-teal-50 text-teal-800 ring-1 ring-teal-200" : "text-slate-500 hover:text-ink",
+              )}
+            >
+              {modality === "Online" ? <Video size={15} /> : <MapPin size={15} />}
+              {MODALITY_LABELS[modality]}
+            </button>
+          );
+        })}
+      </div>
+      {options.length === 1 && (
+        <span className="mt-2 block text-xs text-slate-400">
+          Nesta especialidade só há atendimento {options[0] === "Online" ? "online" : "presencial"}.
+        </span>
+      )}
+    </fieldset>
+  );
+}
+
+function mapsLink(address: string) {
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`;
+}
 
 function PatientRequestForm({
   form,
@@ -220,7 +276,11 @@ function PatientRequestForm({
     () => specialties.find((item) => item.specialty === form.specialty) ?? specialties[0],
     [form.specialty, specialties],
   );
-  const availableDoctors = selectedSpecialty?.doctors ?? [];
+  const specialtyDoctors = selectedSpecialty?.doctors ?? [];
+  const specialtyModalities = BOOKABLE_MODALITIES.filter((modality) =>
+    specialtyDoctors.some((doctor) => doctor.modalities.includes(modality)),
+  );
+  const availableDoctors = specialtyDoctors.filter((doctor) => doctor.modalities.includes(form.modality));
   const selectedDoctor = availableDoctors.find((doctor) => doctor.id === form.doctorId);
   const doctorHasAvailability = selectedDoctor?.hasAvailability ?? false;
   const otherDoctorsInSpecialty = availableDoctors.filter((doctor) => doctor.id !== form.doctorId);
@@ -239,7 +299,7 @@ function PatientRequestForm({
     let active = true;
     setDaysLoading(true);
     api
-      .getAvailableDays(form.doctorId)
+      .getAvailableDays(form.doctorId, form.modality)
       .then((result) => {
         if (!active) return;
         setAvailableDays(result);
@@ -254,7 +314,7 @@ function PatientRequestForm({
     return () => {
       active = false;
     };
-  }, [doctorHasAvailability, form.doctorId]);
+  }, [doctorHasAvailability, form.doctorId, form.modality]);
   const [availableTimes, setAvailableTimes] = useState<AvailableTime[]>([]);
   const [slotsLoading, setSlotsLoading] = useState(false);
   const [slotsError, setSlotsError] = useState("");
@@ -268,7 +328,7 @@ function PatientRequestForm({
     setSlotsLoading(true);
     setSlotsError("");
     api
-      .getAvailableTimes(form.doctorId, slotDate)
+      .getAvailableTimes(form.doctorId, slotDate, form.modality)
       .then((times) => {
         if (active) setAvailableTimes(times);
       })
@@ -281,7 +341,7 @@ function PatientRequestForm({
     return () => {
       active = false;
     };
-  }, [doctorHasAvailability, form.doctorId, slotDate]);
+  }, [doctorHasAvailability, form.doctorId, form.modality, slotDate]);
 
   if (specialties.length === 0) {
     return (
@@ -337,10 +397,15 @@ function PatientRequestForm({
               value={form.specialty}
               onChange={(event) => {
                 const nextSpecialty = specialties.find((item) => item.specialty === event.target.value);
+                const nextDoctors = nextSpecialty?.doctors ?? [];
+                const modality = nextDoctors.some((doctor) => doctor.modalities.includes(form.modality))
+                  ? form.modality
+                  : (nextDoctors[0]?.modalities[0] ?? "Online");
                 onChange({
                   ...form,
                   specialty: event.target.value,
-                  doctorId: nextSpecialty?.doctors[0]?.id ?? "",
+                  modality,
+                  doctorId: nextDoctors.find((doctor) => doctor.modalities.includes(modality))?.id ?? "",
                   scheduledAt: "",
                 });
               }}
@@ -353,6 +418,18 @@ function PatientRequestForm({
               ))}
             </select>
           </label>
+          <ModalityPicker
+            value={form.modality}
+            options={specialtyModalities}
+            onChange={(modality) =>
+              onChange({
+                ...form,
+                modality,
+                doctorId: specialtyDoctors.find((doctor) => doctor.modalities.includes(modality))?.id ?? "",
+                scheduledAt: "",
+              })
+            }
+          />
           <label className="block sm:col-span-2">
             <span className="mb-2 block text-sm font-bold text-slate-700">Médico disponível</span>
             <select
@@ -364,7 +441,6 @@ function PatientRequestForm({
               {availableDoctors.map((doctor) => (
                 <option key={doctor.id} value={doctor.id}>
                   {doctor.name}
-                  {doctor.hasAvailability ? " (agenda fixa)" : ""}
                 </option>
               ))}
             </select>
@@ -372,6 +448,32 @@ function PatientRequestForm({
               {availableDoctors.length} {availableDoctors.length === 1 ? "opção" : "opções"} nesta especialidade.
             </span>
           </label>
+          {selectedDoctor && (
+            <div className="rounded-xl border border-slate-100 bg-slate-50 px-4 py-3 text-sm sm:col-span-2" data-testid="doctor-location">
+              <p className="font-bold text-ink">
+                {selectedDoctor.name} <span className="font-medium text-slate-500">· CRM {selectedDoctor.crm}</span>
+              </p>
+              {form.modality === "InPerson" && selectedDoctor.clinicAddress ? (
+                <p className="mt-1 text-slate-600">
+                  <MapPin size={14} className="mr-1 inline text-sky-700" />
+                  <strong>{selectedDoctor.clinicName}</strong> — {selectedDoctor.clinicAddress}{" "}
+                  <a
+                    href={mapsLink(`${selectedDoctor.clinicName}, ${selectedDoctor.clinicAddress}`)}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="whitespace-nowrap text-xs font-bold text-teal-700 hover:text-teal-900"
+                  >
+                    Ver no mapa
+                  </a>
+                </p>
+              ) : (
+                <p className="mt-1 text-slate-600">
+                  <Video size={14} className="mr-1 inline text-teal-700" />
+                  Por vídeo, pelo MedSync. O link da sala aparece em Minhas consultas.
+                </p>
+              )}
+            </div>
+          )}
           {doctorHasAvailability ? (
             <div className="block sm:col-span-2">
               <span className="mb-2 block text-sm font-bold text-slate-700">Escolha o dia e o horário (Brasília)</span>
@@ -393,7 +495,7 @@ function PatientRequestForm({
                 </div>
               ) : (
                 <p className="mb-4 rounded-xl border border-amber-100 bg-amber-50 px-4 py-3 text-xs font-semibold text-amber-800">
-                  {selectedDoctor?.name ?? "Este médico"} não tem horários livres nos próximos 60 dias.
+                  {selectedDoctor?.name ?? "Este médico"} não tem horários livres {form.modality === "InPerson" ? "presenciais" : "online"} no período aberto para marcação.
                 </p>
               )}
               {slotsError && <p className="mb-3 text-xs font-semibold text-red-600">{slotsError}</p>}
@@ -568,6 +670,12 @@ function OperationalScheduleForm({
               ))}
             </select>
           </label>
+          <ModalityPicker
+            value={form.modality}
+            options={BOOKABLE_MODALITIES}
+            label="Modalidade"
+            onChange={(modality) => onChange({ ...form, modality })}
+          />
           <label className="block sm:col-span-2">
             <span className="mb-2 block text-sm font-bold text-slate-700">Data e horário (Brasília)</span>
             <input
@@ -609,7 +717,7 @@ function OperationalScheduleForm({
               onChange={(event) => onChange({ ...form, paymentRequired: event.target.checked })}
             />
             <span className="text-sm font-bold text-slate-700">
-              Exigir pagamento antes da videochamada
+              {form.modality === "InPerson" ? "Exigir pagamento antes da consulta" : "Exigir pagamento antes da videochamada"}
             </span>
           </label>
           <label className="block sm:col-span-2">

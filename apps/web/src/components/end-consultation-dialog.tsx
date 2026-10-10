@@ -9,7 +9,7 @@ import { CheckCircle2, UserX } from "lucide-react";
 import { useEffect, useState } from "react";
 
 // Encerrar a consulta, de dentro da sala ou pela agenda. "Paciente não compareceu" só aparece quando o médico
-// entrou na chamada e o paciente não (a API confere a mesma regra).
+// entrou na chamada e o paciente não (a API confere a mesma regra). Na presencial não há chamada: o médico registra.
 export function EndConsultationDialog({
   appointmentId,
   open,
@@ -45,7 +45,9 @@ export function EndConsultationDialog({
     }
   }
 
-  const canMarkNoShow = Boolean(appointment?.doctorJoined && !appointment?.patientJoined);
+  const inPerson = appointment?.modality === "InPerson";
+  const canMarkNoShow = inPerson || Boolean(appointment?.doctorJoined && !appointment?.patientJoined);
+  const consequence = inPerson ? "Consulta presencial." : "Quem estiver na chamada será desconectado.";
 
   return (
     <Dialog
@@ -54,10 +56,10 @@ export function EndConsultationDialog({
       description={
         appointment ? (
           <>
-            {appointment.patientName} · {formatTime(appointment.scheduledAt)}. Quem estiver na chamada será desconectado.
+            {appointment.patientName} · {formatTime(appointment.scheduledAt)}. {consequence}
           </>
         ) : (
-          "Quem estiver na chamada será desconectado."
+          consequence
         )
       }
       onClose={onClose}

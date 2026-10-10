@@ -163,7 +163,12 @@ public sealed record CareSpecialtyResponse(
 public sealed record CareDoctorOptionResponse(
     Guid Id,
     string Name,
-    bool HasAvailability);
+    bool HasAvailability,
+    string Crm,
+    // What the doctor's windows offer; an open schedule offers online, and in person when the clinic has an address.
+    IReadOnlyList<ConsultationModality> Modalities,
+    string ClinicName,
+    string? ClinicAddress);
 
 public sealed record UpdateDoctorRequest(
     string Name,
@@ -183,14 +188,16 @@ public sealed record CreateAppointmentRequest(
     int DurationMinutes,
     string? Notes,
     decimal? Price,
-    bool PaymentRequired);
+    bool PaymentRequired,
+    ConsultationModality Modality = ConsultationModality.Online);
 
 public sealed record RequestAppointmentRequest(
     string Specialty,
     Guid? DoctorId,
     DateTime ScheduledAt,
     int DurationMinutes,
-    string? Notes);
+    string? Notes,
+    ConsultationModality Modality = ConsultationModality.Online);
 
 public sealed record AppointmentResponse(
     Guid Id,
@@ -211,7 +218,9 @@ public sealed record AppointmentResponse(
     VideoSessionStatus? VideoStatus,
     string? PatientContinuousMedications = null,
     bool DoctorJoined = false,
-    bool PatientJoined = false);
+    bool PatientJoined = false,
+    ConsultationModality Modality = ConsultationModality.Online,
+    string? Location = null);
 
 public sealed record DoctorAvailabilitySlotResponse(
     Guid Id,

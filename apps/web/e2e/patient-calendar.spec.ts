@@ -21,7 +21,7 @@ test.describe("calendario de solicitacao de consulta", () => {
     try {
       await loginByUi(page, users.patient);
       await page.goto("/consultas/nova");
-      await page.getByLabel(/m[eé]dico dispon[ií]vel/i).selectOption({ label: "Dra. Marina Costa (agenda fixa)" });
+      await page.getByLabel(/m[eé]dico dispon[ií]vel/i).selectOption({ label: "Dra. Marina Costa" });
 
       const calendar = page.getByRole("grid", { name: /dias disponíveis/i });
       await expect(calendar).toBeVisible();

@@ -148,6 +148,17 @@ public static class DatabaseSeeder
         clinic.ActivatedAt ??= DateTime.UtcNow;
         clinic.PlanName = demo.PlanName;
         clinic.MonthlyFee = demo.MonthlyFee;
+        if (!clinic.HasAddress && DemoAddresses.TryGetValue(demo.Slug, out var address))
+        {
+            clinic.AddressZipCode = address.ZipCode;
+            clinic.AddressStreet = address.Street;
+            clinic.AddressNumber = address.Number;
+            clinic.AddressComplement = address.Complement;
+            clinic.AddressDistrict = address.District;
+            clinic.AddressCity = address.City;
+            clinic.AddressState = address.State;
+            clinic.Phone ??= address.Phone;
+        }
 
         var users = new Dictionary<ClinicRole, User>();
         foreach (var account in demo.Accounts)
@@ -347,6 +358,24 @@ public static class DatabaseSeeder
             return TimeZoneInfo.FindSystemTimeZoneById("America/Sao_Paulo");
         }
     }
+
+    // Fictitious demo addresses for the in-person flow.
+    private static readonly Dictionary<string, DemoAddress> DemoAddresses = new()
+    {
+        ["clinica-demo"] = new("01310-100", "Avenida Paulista", "1000", "sala 32", "Bela Vista", "São Paulo", "SP", "(11) 3000-0000"),
+        ["clinica-alfa"] = new("01304-000", "Rua Augusta", "500", null, "Consolação", "São Paulo", "SP", "(11) 3000-0001"),
+        ["clinica-beta"] = new("20040-002", "Avenida Rio Branco", "100", "4º andar", "Centro", "Rio de Janeiro", "RJ", "(21) 3000-0002"),
+    };
+
+    private sealed record DemoAddress(
+        string ZipCode,
+        string Street,
+        string Number,
+        string? Complement,
+        string District,
+        string City,
+        string State,
+        string Phone);
 
     private sealed record DemoClinic(
         Guid ClinicId,

@@ -110,8 +110,34 @@ public sealed class Clinic
     public DateTime? ActivatedAt { get; set; }
     public string? PlanName { get; set; }
     public decimal? MonthlyFee { get; set; }
+    // Where in-person consultations happen; shown to the patient and printed on documents.
+    public string? AddressZipCode { get; set; }
+    public string? AddressStreet { get; set; }
+    public string? AddressNumber { get; set; }
+    public string? AddressComplement { get; set; }
+    public string? AddressDistrict { get; set; }
+    public string? AddressCity { get; set; }
+    public string? AddressState { get; set; }
+    public string? Phone { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public ICollection<ClinicMembership> Memberships { get; set; } = [];
+
+    public bool HasAddress =>
+        !string.IsNullOrWhiteSpace(AddressStreet) &&
+        !string.IsNullOrWhiteSpace(AddressCity) &&
+        !string.IsNullOrWhiteSpace(AddressState);
+
+    // "Av. Paulista, 1000, sala 32 — Bela Vista, São Paulo/SP · CEP 01310-100"
+    public string? FormattedAddress()
+    {
+        if (!HasAddress)
+            return null;
+        var street = string.Join(", ", new[] { AddressStreet, AddressNumber, AddressComplement }
+            .Where(x => !string.IsNullOrWhiteSpace(x)).Select(x => x!.Trim()));
+        var district = string.IsNullOrWhiteSpace(AddressDistrict) ? "" : $" — {AddressDistrict.Trim()}";
+        var zip = string.IsNullOrWhiteSpace(AddressZipCode) ? "" : $" · CEP {AddressZipCode.Trim()}";
+        return $"{street}{district}, {AddressCity!.Trim()}/{AddressState!.Trim()}{zip}";
+    }
 }
 
 public sealed class ClinicMembership
@@ -202,6 +228,10 @@ public sealed class Appointment
     public Patient Patient { get; set; } = null!;
     public DateTime ScheduledAt { get; set; }
     public int DurationMinutes { get; set; } = 60;
+    // Online (video room) or InPerson; Both is only for availability windows.
+    public ConsultationModality Modality { get; set; } = ConsultationModality.Online;
+    // In-person: the clinic address when it was booked, so a later address change does not rewrite history.
+    public string? Location { get; set; }
     public AppointmentStatus Status { get; set; } = AppointmentStatus.Scheduled;
     public string? Notes { get; set; }
     public decimal? Price { get; set; }

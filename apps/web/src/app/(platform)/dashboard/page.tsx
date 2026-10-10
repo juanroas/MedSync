@@ -21,6 +21,7 @@ import {
   isAppointmentMissed,
   isAppointmentRoomJoinable,
   isAppointmentStaleInProgress,
+  isInPerson,
 } from "@/lib/appointments";
 import { formatDateTime, formatTime, statusClass, statusLabel } from "@/lib/format";
 import type {
@@ -41,6 +42,7 @@ import {
   FileText,
   ListChecks,
   LockKeyhole,
+  MapPin,
   ShieldCheck,
   Stethoscope,
   UserRound,
@@ -868,6 +870,9 @@ function careBlockReason(appointment: Appointment) {
   if (appointment.paymentRequired && appointment.paymentStatus !== "Paid") {
     return "Entrada aguardando confirmacao de pagamento.";
   }
+  if (isInPerson(appointment)) {
+    return `Consulta presencial: ${appointment.location ?? "no endereço da clínica"}.`;
+  }
   if (isAppointmentMissed(appointment)) {
     return "Horario de entrada encerrado. Solicite um novo atendimento se necessario.";
   }
@@ -895,6 +900,16 @@ function patientCareStep(appointment: Appointment) {
       primary: false,
       icon: <Clock3 size={17} />,
       badgeClass: "bg-amber-50 text-amber-700",
+    };
+  }
+
+  if (isInPerson(appointment) && ["Scheduled", "InProgress"].includes(appointment.status) && !isAppointmentMissed(appointment)) {
+    return {
+      cta: "Consulta presencial",
+      status: "Presencial",
+      primary: false,
+      icon: <MapPin size={17} />,
+      badgeClass: "bg-sky-50 text-sky-700",
     };
   }
 

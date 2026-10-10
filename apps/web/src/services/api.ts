@@ -291,9 +291,10 @@ export const api = {
       body: JSON.stringify(timeOff),
     }),
   deleteMyTimeOff: (id: string) => request<void>(`/doctors/me/time-off/${id}`, { method: "DELETE" }),
-  getAvailableDays: (doctorId: string) => request<AvailableDays>(`/doctors/${doctorId}/available-days`),
-  getAvailableTimes: (doctorId: string, date: string) =>
-    request<AvailableTime[]>(`/doctors/${doctorId}/available-times?date=${date}`),
+  getAvailableDays: (doctorId: string, modality?: ConsultationModality) =>
+    request<AvailableDays>(`/doctors/${doctorId}/available-days${modality ? `?modality=${modality}` : ""}`),
+  getAvailableTimes: (doctorId: string, date: string, modality?: ConsultationModality) =>
+    request<AvailableTime[]>(`/doctors/${doctorId}/available-times?date=${date}${modality ? `&modality=${modality}` : ""}`),
   getCareSpecialties: () => request<CareSpecialty[]>("/care/specialties"),
   createDoctor: (doctor: {
     name: string;
@@ -385,6 +386,7 @@ export const api = {
     notes?: string;
     price?: number;
     paymentRequired: boolean;
+    modality: ConsultationModality;
   }) =>
     request<Appointment>("/appointments", {
       method: "POST",
@@ -396,6 +398,7 @@ export const api = {
     scheduledAt: string;
     durationMinutes: number;
     notes?: string;
+    modality: ConsultationModality;
   }) =>
     request<Appointment>("/appointments/request", {
       method: "POST",

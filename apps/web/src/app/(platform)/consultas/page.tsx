@@ -13,11 +13,12 @@ import {
   isAppointmentMissed,
   isAppointmentRoomJoinable,
   isAppointmentStaleInProgress,
+  isInPerson,
 } from "@/lib/appointments";
 import { formatDateTime, statusClass, statusLabel } from "@/lib/format";
 import type { Appointment } from "@/lib/types";
 import { api, getSession } from "@/services/api";
-import { CalendarDays, Clock3, FileText, Plus, Stethoscope, UserRound, Video, XCircle } from "lucide-react";
+import { CalendarDays, Clock3, FileText, MapPin, Plus, Stethoscope, UserRound, Video, XCircle } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -226,7 +227,7 @@ function AppointmentsList() {
           >
             <Clock3 size={15} /> {endingId === appointment.id ? "Encerrando..." : "Encerrar"}
           </button>
-        ) : isPatient && !appointment.consentAccepted && ["Scheduled", "InProgress"].includes(appointment.status) ? (
+        ) : isPatient && !isInPerson(appointment) && !appointment.consentAccepted && ["Scheduled", "InProgress"].includes(appointment.status) ? (
           <Link
             href={`/sala/${appointment.id}`}
             className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-teal-200 bg-teal-50 px-4 text-xs font-bold text-teal-700 hover:bg-teal-100"
@@ -373,7 +374,9 @@ function AppointmentsList() {
                     )}
                     <div>
                       <p className="text-sm font-semibold text-ink">{formatDateTime(appointment.scheduledAt)}</p>
-                      <p className="mt-1 text-xs text-slate-400">Horario de Brasilia</p>
+                      <p className="mt-1 text-xs text-slate-400">
+                        {isInPerson(appointment) ? `Presencial · ${appointment.location ?? "na clínica"}` : "Online · horário de Brasília"}
+                      </p>
                     </div>
                     <span
                       className={`w-fit rounded-full px-2.5 py-1.5 text-[11px] font-bold ${appointmentStatusClass(appointment)}`}
@@ -411,7 +414,15 @@ function DoctorRoomNextStep({ appointment }: { appointment: Appointment }) {
   if (appointment.status === "Scheduled") {
     return (
       <span className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-slate-50 px-3 text-xs font-bold text-slate-500">
-        <Clock3 size={15} /> Sala abre 15 min antes
+        {isInPerson(appointment) ? (
+          <>
+            <MapPin size={15} /> Presencial
+          </>
+        ) : (
+          <>
+            <Clock3 size={15} /> Sala abre 15 min antes
+          </>
+        )}
       </span>
     );
   }
@@ -425,6 +436,14 @@ function getAppointmentNextStep(appointment: Appointment) {
       label: "Pagamento pendente",
       icon: <Clock3 size={15} />,
       className: "bg-amber-50 text-amber-700",
+    };
+  }
+
+  if (isInPerson(appointment) && ["Scheduled", "InProgress"].includes(appointment.status)) {
+    return {
+      label: "Presencial na clínica",
+      icon: <MapPin size={15} />,
+      className: "bg-sky-50 text-sky-700",
     };
   }
 

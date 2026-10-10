@@ -190,6 +190,10 @@ export type CareSpecialty = {
     id: string;
     name: string;
     hasAvailability: boolean;
+    crm: string;
+    modalities: ConsultationModality[];
+    clinicName: string;
+    clinicAddress?: string | null;
   }>;
 };
 
@@ -238,6 +242,8 @@ export type Appointment = {
   patientContinuousMedications?: string;
   doctorJoined?: boolean;
   patientJoined?: boolean;
+  modality: ConsultationModality;
+  location?: string | null;
 };
 
 export type ConsultationRoom = {

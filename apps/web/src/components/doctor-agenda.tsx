@@ -13,6 +13,7 @@ import {
   canDoctorEnterExistingRoom,
   canStartRoom,
   isAppointmentMissed,
+  isInPerson,
 } from "@/lib/appointments";
 import { formatBrazilDateInput, formatTime } from "@/lib/format";
 import { MODALITY_LABELS } from "@/lib/types";
@@ -450,6 +451,7 @@ function DayColumn({
           >
             <span className="block text-xs font-bold text-ink">{formatTime(appointment.scheduledAt)}</span>
             <span className="block truncate text-xs text-slate-600">{appointment.patientName}</span>
+            {isInPerson(appointment) && <span className="block text-[10px] font-semibold text-sky-700">Presencial</span>}
             <span className={cn("mt-1 inline-block rounded-full px-1.5 py-0.5 text-[10px] font-bold", rowStatusClass(appointment))}>
               {rowStatusText(appointment)}
             </span>
@@ -481,8 +483,9 @@ function DayRow({
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-bold text-ink">{appointment.patientName}</p>
         <p className="mt-0.5 text-xs text-slate-500">
-          {appointment.specialty} · {appointment.durationMinutes} min ·{" "}
-          {appointment.consentAccepted ? "termo aceito" : "termo de telemedicina pendente"}
+          {isInPerson(appointment)
+            ? `Presencial · ${appointment.durationMinutes} min · ${appointment.location ?? "na clínica"}`
+            : `Online · ${appointment.durationMinutes} min · ${appointment.consentAccepted ? "termo aceito" : "termo de telemedicina pendente"}`}
         </p>
       </div>
       <Badge className={rowStatusClass(appointment)}>{rowStatusText(appointment)}</Badge>
