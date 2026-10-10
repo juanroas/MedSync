@@ -295,6 +295,7 @@ public static class DatabaseSeeder
                 Phone = phone
             };
             db.Patients.Add(patient);
+            FillDemoIdentification(patient);
             return patient;
         }
 
@@ -303,7 +304,25 @@ public static class DatabaseSeeder
         patient.Name = patientUser.Name;
         patient.Email = patientUser.Email;
         patient.Cpf = cpf;
+        FillDemoIdentification(patient);
         return patient;
+    }
+
+    // Fictitious identification so the demo prescriptions come out complete; kept if someone edited it.
+    private static void FillDemoIdentification(Patient patient)
+    {
+        if (patient.MotherName is null && !patient.MotherNameUndeclared)
+            patient.MotherName = $"Maria {patient.Name.Split(' ').Last()}";
+        if (patient.AddressStreet is null)
+        {
+            patient.AddressZipCode = "04547-000";
+            patient.AddressStreet = "Rua Demonstração";
+            patient.AddressNumber = "100";
+            patient.AddressComplement = "ap. 41";
+            patient.AddressDistrict = "Vila Olímpia";
+            patient.AddressCity = "São Paulo";
+            patient.AddressState = "SP";
+        }
     }
 
     private static async Task EnsureAppointmentAsync(

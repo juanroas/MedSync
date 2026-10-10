@@ -252,7 +252,7 @@ export const api = {
       body: JSON.stringify(input),
     }),
 
-  getPatients: () => request<Patient[]>("/patients"),
+  getPatients: (cpf?: string) => request<Patient[]>(cpf ? `/patients?cpf=${cpf}` : "/patients"),
   createPatient: (patient: {
     name: string;
     email: string;

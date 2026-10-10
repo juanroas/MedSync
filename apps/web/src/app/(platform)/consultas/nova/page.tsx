@@ -9,6 +9,7 @@ import { api, getSession } from "@/services/api";
 import { ArrowLeft, CalendarPlus, CheckCircle2, Clock, MapPin, Paperclip, Video, X } from "lucide-react";
 import Link from "next/link";
 import { AvailabilityCalendar } from "@/components/availability-calendar";
+import { ReceptionBookingForm } from "@/components/reception-booking";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
@@ -85,11 +86,6 @@ export default function NewAppointmentPage() {
       setSaving(false);
       return;
     }
-    if (!isPatient && (!form.doctorId || !form.patientId)) {
-      setError("Selecione paciente e medico.");
-      setSaving(false);
-      return;
-    }
     if (!isFutureBrazilLocalDateTime(form.scheduledAt)) {
       setError("Escolha uma data e um horário futuros (horário de Brasília).");
       setSaving(false);
@@ -101,33 +97,21 @@ export default function NewAppointmentPage() {
       return;
     }
 
+    // Only the patient submits here; the reception has its own form (ReceptionBookingForm).
     try {
-      if (isPatient) {
-        const appointment = await api.requestAppointment({
-          specialty: form.specialty,
-          doctorId: form.doctorId,
-          scheduledAt: brazilLocalDateTimeToUtcIso(form.scheduledAt),
-          // The slot carries the doctor's consultation length; open schedules keep 30 minutes.
-          durationMinutes: form.durationMinutes,
-          notes: form.notes,
-          modality: form.modality,
-        });
-        if (attachments.length > 0) {
-          await Promise.all(
-            attachments.map((file) => api.uploadClinicalRecordAttachment(appointment.id, file)),
-          );
-        }
-      } else {
-        await api.createAppointment({
-          doctorId: form.doctorId,
-          patientId: form.patientId,
-          scheduledAt: brazilLocalDateTimeToUtcIso(form.scheduledAt),
-          durationMinutes: form.durationMinutes,
-          notes: form.notes,
-          price: form.price ? Number(form.price) : undefined,
-          paymentRequired: form.paymentRequired,
-          modality: form.modality,
-        });
+      const appointment = await api.requestAppointment({
+        specialty: form.specialty,
+        doctorId: form.doctorId,
+        scheduledAt: brazilLocalDateTimeToUtcIso(form.scheduledAt),
+        // The slot carries the doctor's consultation length; open schedules keep 30 minutes.
+        durationMinutes: form.durationMinutes,
+        notes: form.notes,
+        modality: form.modality,
+      });
+      if (attachments.length > 0) {
+        await Promise.all(
+          attachments.map((file) => api.uploadClinicalRecordAttachment(appointment.id, file)),
+        );
       }
       router.push("/consultas");
     } catch (err) {
@@ -148,7 +132,7 @@ export default function NewAppointmentPage() {
         description={
           isPatient
             ? "Escolha a especialidade, o médico e um horário livre."
-            : "Escolha o medico, o paciente e o melhor horario. A sala sera preparada no momento do acesso."
+            : "Para quem liga ou chega no balcão: busque o paciente, escolha o médico, a modalidade e um horário livre."
         }
       />
       {error && !(isPatient && isNoDoctorAvailableError(error)) && <ErrorBanner message={error} />}
@@ -169,19 +153,12 @@ export default function NewAppointmentPage() {
           attachments={attachments}
           onAttachmentsChange={setAttachments}
         />
-      ) : doctors.length === 0 || patients.length === 0 ? (
+      ) : doctors.length === 0 ? (
         <div className="rounded-3xl border border-amber-100 bg-amber-50 p-6 text-sm text-amber-800">
-          Cadastre ao menos um medico e um paciente antes de criar uma consulta.
+          Cadastre ao menos um médico antes de agendar.
         </div>
       ) : (
-        <OperationalScheduleForm
-          form={form}
-          doctors={doctors}
-          patients={patients}
-          saving={saving}
-          onChange={setForm}
-          onSubmit={submit}
-        />
+        <ReceptionBookingForm doctors={doctors} patients={patients} onBooked={() => router.push("/consultas")} />
       )}
     </>
   );
@@ -617,133 +594,6 @@ function PatientRequestForm({
           "Você escolhe a especialidade e o horário.",
           "O médico recebe a solicitação na agenda dele.",
           "A consulta aparece em Minhas consultas.",
-        ]}
-      />
-    </form>
-  );
-}
-
-function OperationalScheduleForm({
-  form,
-  doctors,
-  patients,
-  saving,
-  onChange,
-  onSubmit,
-}: {
-  form: AppointmentForm;
-  doctors: Doctor[];
-  patients: Patient[];
-  saving: boolean;
-  onChange: (form: AppointmentForm) => void;
-  onSubmit: (event: FormEvent) => void;
-}) {
-  return (
-    <form onSubmit={onSubmit} className="grid gap-6 xl:grid-cols-[1.2fr_.7fr]">
-      <section className="rounded-3xl border border-slate-100 bg-white p-6 shadow-sm sm:p-8">
-        <div className="grid gap-6 sm:grid-cols-2">
-          <label className="block">
-            <span className="mb-2 block text-sm font-bold text-slate-700">Paciente</span>
-            <select
-              className={inputClass}
-              value={form.patientId}
-              onChange={(event) => onChange({ ...form, patientId: event.target.value })}
-              required
-            >
-              {patients.map((patient) => (
-                <option key={patient.id} value={patient.id}>{patient.name}</option>
-              ))}
-            </select>
-          </label>
-          <label className="block">
-            <span className="mb-2 block text-sm font-bold text-slate-700">Medico</span>
-            <select
-              className={inputClass}
-              value={form.doctorId}
-              onChange={(event) => onChange({ ...form, doctorId: event.target.value })}
-              required
-            >
-              {doctors.map((doctor) => (
-                <option key={doctor.id} value={doctor.id}>
-                  {doctor.name} - {doctor.specialty}
-                </option>
-              ))}
-            </select>
-          </label>
-          <ModalityPicker
-            value={form.modality}
-            options={BOOKABLE_MODALITIES}
-            label="Modalidade"
-            onChange={(modality) => onChange({ ...form, modality })}
-          />
-          <label className="block sm:col-span-2">
-            <span className="mb-2 block text-sm font-bold text-slate-700">Data e horário (Brasília)</span>
-            <input
-              className={inputClass}
-              type="datetime-local"
-              value={form.scheduledAt}
-              onChange={(event) => onChange({ ...form, scheduledAt: event.target.value })}
-              min={formatBrazilDateTimeInput()}
-              required
-            />
-          </label>
-          <label className="block">
-            <span className="mb-2 block text-sm font-bold text-slate-700">Duracao</span>
-            <select
-              className={inputClass}
-              value={form.durationMinutes}
-              onChange={(event) => onChange({ ...form, durationMinutes: Number(event.target.value) })}
-            >
-              {[10, 15, 30, 45, 60, 90, 120].map((minutes) => (
-                <option key={minutes} value={minutes}>{minutes} minutos</option>
-              ))}
-            </select>
-          </label>
-          <label className="block">
-            <span className="mb-2 block text-sm font-bold text-slate-700">Valor (R$)</span>
-            <input
-              className={inputClass}
-              type="number"
-              min="0"
-              step="0.01"
-              value={form.price}
-              onChange={(event) => onChange({ ...form, price: event.target.value })}
-            />
-          </label>
-          <label className="flex items-center gap-3 sm:col-span-2">
-            <input
-              type="checkbox"
-              checked={form.paymentRequired}
-              onChange={(event) => onChange({ ...form, paymentRequired: event.target.checked })}
-            />
-            <span className="text-sm font-bold text-slate-700">
-              {form.modality === "InPerson" ? "Exigir pagamento antes da consulta" : "Exigir pagamento antes da videochamada"}
-            </span>
-          </label>
-          <label className="block sm:col-span-2">
-            <span className="mb-2 block text-sm font-bold text-slate-700">Observacoes</span>
-            <textarea
-              className={`${inputClass} h-28 resize-none py-3`}
-              placeholder="Motivo da consulta ou informacao breve..."
-              value={form.notes}
-              onChange={(event) => onChange({ ...form, notes: event.target.value })}
-            />
-          </label>
-        </div>
-        <div className="mt-7 flex justify-end">
-          <button className={buttonClass} disabled={saving}>
-            <CalendarPlus size={17} />
-            {saving ? "Agendando..." : "Confirmar agendamento"}
-          </button>
-        </div>
-      </section>
-
-      <AsideSteps
-        title="O que acontece depois?"
-        steps={[
-          "A consulta aparece na agenda.",
-          "Ao entrar, a API cria a sala segura.",
-          "Cada participante recebe um acesso temporário à sala.",
         ]}
       />
     </form>

@@ -1223,6 +1223,7 @@ public static partial class ApiEndpoints
     }
 
     private static async Task<IResult> GetPatients(
+        string? cpf,
         ClaimsPrincipal principal,
         MedSyncDbContext db,
         AuditWriter audit,
@@ -1245,6 +1246,13 @@ public static partial class ApiEndpoints
         else
         {
             return Results.Forbid();
+        }
+
+        // Reception looks a person up by the full CPF (the list only shows it masked).
+        if (!string.IsNullOrWhiteSpace(cpf))
+        {
+            var digits = DigitsOnly(cpf);
+            query = query.Where(x => x.Cpf == digits);
         }
 
         var patients = await query.OrderBy(x => x.Name).ToListAsync(cancellationToken);
