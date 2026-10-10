@@ -97,6 +97,8 @@ public static partial class ApiEndpoints
 
     // Brasil nao usa horario de verao desde 2019; deslocamento fixo em relacao ao UTC.
     private static readonly TimeSpan BrazilUtcOffset = TimeSpan.FromHours(-3);
+    // Patients book at least this long before the slot starts, so the doctor sees the booking in time.
+    private static readonly TimeSpan MinBookingNotice = TimeSpan.FromMinutes(15);
 
     private static readonly ClinicRole[] PlatformStaffRoles =
     [
@@ -1858,7 +1860,7 @@ public static partial class ApiEndpoints
                 var startsAtUtc = DateTime.SpecifyKind(startsAtLocal - BrazilUtcOffset, DateTimeKind.Utc);
                 var endsAtUtc = startsAtUtc.AddMinutes(slotMinutes);
 
-                var conflicts = startsAtUtc <= nowUtc || busy.Any(a =>
+                var conflicts = startsAtUtc < nowUtc + MinBookingNotice || busy.Any(a =>
                     a.ScheduledAt < endsAtUtc && a.ScheduledAt.AddMinutes(a.DurationMinutes) > startsAtUtc);
 
                 if (!conflicts)
@@ -1938,8 +1940,8 @@ public static partial class ApiEndpoints
             return Validation("notes", "Observacao deve ter ate 240 caracteres.");
 
         var scheduledAt = request.ScheduledAt.ToUniversalTime();
-        if (scheduledAt <= DateTime.UtcNow)
-            return Validation("scheduledAt", "Nao e permitido solicitar consulta no passado.");
+        if (scheduledAt < DateTime.UtcNow + MinBookingNotice)
+            return Validation("scheduledAt", "Escolha um horário que comece daqui a pelo menos 15 minutos.");
 
         var patient = await db.Patients.SingleOrDefaultAsync(
             x => x.ClinicId == actor.ClinicId && x.UserId == actor.UserId,
