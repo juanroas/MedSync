@@ -312,6 +312,34 @@ export type ClinicalRecordAttachment = {
   canDelete: boolean;
 };
 
+export type ClinicalAccessReason = "QualityAudit" | "Incident" | "DataSubjectRequest" | "CourtOrder";
+
+export const CLINICAL_ACCESS_REASON_LABELS: Record<ClinicalAccessReason, string> = {
+  QualityAudit: "Auditoria de qualidade ou de conduta",
+  Incident: "Incidente ou reclamação",
+  DataSubjectRequest: "Pedido do próprio paciente (titular dos dados)",
+  CourtOrder: "Requisição judicial ou de autoridade",
+};
+
+export type ClinicalAccessPatient = { patientId: string; name: string; cpfMasked: string; clinicName: string };
+
+export type ClinicalAccessGrant = {
+  id: string;
+  patientId: string;
+  patientName: string;
+  clinicName: string;
+  actorName: string;
+  reason: ClinicalAccessReason;
+  justification: string;
+  createdAt: string;
+  expiresAt: string;
+  active: boolean;
+};
+
+export type ClinicalAccessRecords = { grant: ClinicalAccessGrant; records: PatientClinicalRecord[] };
+
+export type PatientClinicalAccessEntry = { at: string; actorName: string; actorRole: string; reason: ClinicalAccessReason };
+
 export type PatientClinicalRecord = ClinicalRecord & {
   patientId: string;
   patientName: string;

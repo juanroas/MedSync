@@ -351,6 +351,40 @@ public sealed record ClinicalRecordAttachmentResponse(
     DateTime CreatedAt,
     bool CanDelete);
 
+public sealed record ClinicalAccessPatientResponse(
+    Guid PatientId,
+    string Name,
+    string CpfMasked,
+    string ClinicName);
+
+public sealed record CreateClinicalAccessRequest(
+    Guid PatientId,
+    ClinicalAccessReason Reason,
+    string Justification,
+    bool Declaration);
+
+public sealed record ClinicalAccessGrantResponse(
+    Guid Id,
+    Guid PatientId,
+    string PatientName,
+    string ClinicName,
+    string ActorName,
+    ClinicalAccessReason Reason,
+    string Justification,
+    DateTime CreatedAt,
+    DateTime ExpiresAt,
+    bool Active);
+
+public sealed record ClinicalAccessRecordsResponse(
+    ClinicalAccessGrantResponse Grant,
+    IReadOnlyList<PatientClinicalRecordResponse> Records);
+
+public sealed record PatientClinicalAccessEntry(
+    DateTime At,
+    string ActorName,
+    string ActorRole,
+    ClinicalAccessReason Reason);
+
 public sealed record PatientClinicalRecordResponse(
     Guid Id,
     Guid AppointmentId,

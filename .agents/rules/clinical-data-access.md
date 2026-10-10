@@ -26,7 +26,9 @@ perfis sem acesso clínico **não carrega** o campo clínico (padrão já usado 
 ## C3 — Acesso com justificativa (Médico ADM)
 Abrir prontuário que não é do próprio atendimento exige motivo (lista fechada: auditoria de qualidade, incidente,
 pedido do titular, ordem judicial) + texto curto. O acesso gera evento de auditoria com o motivo, visível para o DPO.
-Sem exportação em massa pela interface.
+Sem exportação em massa pela interface. Implementado em `ApiEndpoints.ClinicalAccess.cs` (`/clinical-access`): busca
+só por CPF completo, acesso de 30 minutos e somente leitura, cada leitura auditada (`ClinicalRecord.ReadByGrant`);
+o DPO lista todos os acessos e o paciente vê os acessos ao próprio prontuário (`/me/clinical-access`).
 
 ## C4 — Todo acesso deixa rastro
 Leitura de conteúdo clínico gera `audit.Add(...)` (padrão `ClinicalRecord.Read`). Tentativa negada também

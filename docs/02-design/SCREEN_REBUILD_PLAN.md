@@ -79,7 +79,7 @@ Pontos levantados pelo usuário em 25/09 (homologação), para esta fase:
 | Início | ⬜ | — | Pendências: clínicas a ativar, CRMs a verificar |
 | Clínicas | 🟨 | Ativar clínica | Tela própria `/clinicas` (Fase 0); falta ficha da clínica e responsável técnico |
 | Médicos | ⬜ | Verificar CRM | — |
-| Auditoria clínica | ⬜ | Abrir prontuário com justificativa | Regra de acesso do ADR-0003 |
+| Acessos ao prontuário (`/acessos-prontuario`) | ✅ | Solicitar acesso (CPF, motivo, finalidade, declaração; 30 min) | Regra C3; DPO vê a lista; paciente vê em Meu cadastro |
 
 ## Fase 6 — Suporte e DPO
 | Tela | Status | Ação principal |

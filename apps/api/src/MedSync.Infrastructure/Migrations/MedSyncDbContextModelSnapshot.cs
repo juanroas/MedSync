@@ -269,6 +269,51 @@ namespace MedSync.Infrastructure.Migrations
                     b.ToTable("ClinicMemberships", "medsync");
                 });
 
+            modelBuilder.Entity("MedSync.Domain.ClinicalAccessGrant", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ActorName")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<Guid>("ActorUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Justification")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<Guid>("PatientClinicId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("PatientId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ActorUserId", "CreatedAt");
+
+                    b.HasIndex("PatientId", "CreatedAt");
+
+                    b.ToTable("ClinicalAccessGrants", "medsync");
+                });
+
             modelBuilder.Entity("MedSync.Domain.ClinicalRecord", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1168,6 +1213,17 @@ namespace MedSync.Infrastructure.Migrations
                     b.Navigation("Clinic");
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("MedSync.Domain.ClinicalAccessGrant", b =>
+                {
+                    b.HasOne("MedSync.Domain.Patient", "Patient")
+                        .WithMany()
+                        .HasForeignKey("PatientId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Patient");
                 });
 
             modelBuilder.Entity("MedSync.Domain.ClinicalRecord", b =>

@@ -21,6 +21,11 @@ import type {
   Address,
   AddressResponse,
   ClinicProfile,
+  ClinicalAccessGrant,
+  ClinicalAccessPatient,
+  ClinicalAccessReason,
+  ClinicalAccessRecords,
+  PatientClinicalAccessEntry,
   DoctorSchedule,
   DoctorTimeOff,
   ConsultationModality,
@@ -289,6 +294,13 @@ export const api = {
     }),
   lookupZipCode: (zip: string) => request<AddressResponse>(`/address/zip/${zip}`),
   getMyClinic: () => request<ClinicProfile>("/clinics/me"),
+  findPatientForClinicalAccess: (cpf: string) =>
+    request<ClinicalAccessPatient[]>(`/clinical-access/patients?cpf=${cpf}`),
+  createClinicalAccess: (input: { patientId: string; reason: ClinicalAccessReason; justification: string; declaration: boolean }) =>
+    request<ClinicalAccessGrant>("/clinical-access", { method: "POST", body: JSON.stringify(input) }),
+  getClinicalAccessGrants: () => request<ClinicalAccessGrant[]>("/clinical-access/grants"),
+  getClinicalAccessRecords: (grantId: string) => request<ClinicalAccessRecords>(`/clinical-access/grants/${grantId}/records`),
+  getMyClinicalAccessLog: () => request<PatientClinicalAccessEntry[]>("/me/clinical-access"),
   updateMyClinic: (clinic: {
     name: string;
     phone?: string;

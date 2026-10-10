@@ -6,6 +6,7 @@ import { ROLE_LABELS, type ClinicRole, type User } from "@/lib/types";
 import { api, clearSession, getSession, saveSession } from "@/services/api";
 import {
   Building2,
+  FileLock2,
   CalendarDays,
   ChevronRight,
   LayoutDashboard,
@@ -39,6 +40,7 @@ const navigation: Array<{
   { href: "/clinica", label: "Dados da clínica", icon: Building2, roles: ["ClinicAdmin"] },
   { href: "/acessos", label: "Equipe e acessos", icon: UserCog, roles: ["ClinicAdmin", "MedicalDirector"] },
   { href: "/auditoria", label: "Auditoria", icon: ListChecks, roles: ["ClinicAdmin", "DataProtectionOfficer"] },
+  { href: "/acessos-prontuario", label: "Acessos ao prontuário", icon: FileLock2, roles: ["MedicalDirector", "DataProtectionOfficer"] },
   { href: "/ajuda", label: "Ajuda", icon: LifeBuoy },
   { href: "/privacidade", label: "Privacidade", icon: ShieldCheck, roles: ["DataProtectionOfficer"] },
 ];
@@ -111,7 +113,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
         <nav className="mt-6 space-y-1.5">
           {visibleNavigation.map(({ href, label, icon: Icon }) => {
-            const active = pathname === href || (href !== "/dashboard" && pathname.startsWith(href));
+            const active = pathname === href || (href !== "/dashboard" && pathname.startsWith(`${href}/`));
             const displayLabel = navigationLabel(href, label, user.roles);
             return (
               <Link

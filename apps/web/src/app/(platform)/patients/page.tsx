@@ -5,7 +5,8 @@ import { DoctorPatients } from "@/components/doctor-patients";
 import { PersonForm } from "@/components/person-form";
 import { ErrorBanner, EmptyState, LoadingState, PageHeader, SearchField, buttonClass, inputClass } from "@/components/ui";
 import { formatDate, formatDateTime, statusClass, statusLabel } from "@/lib/format";
-import type { Address, Appointment, AppointmentStatus, Patient } from "@/lib/types";
+import { CLINICAL_ACCESS_REASON_LABELS } from "@/lib/types";
+import type { Address, Appointment, AppointmentStatus, Patient, PatientClinicalAccessEntry } from "@/lib/types";
 import { isValidOptionalPhone } from "@/lib/validation";
 import { api, getSession, saveSession } from "@/services/api";
 import { Mail, MapPin, Phone, Pill, Plus, UserRound } from "lucide-react";
@@ -289,6 +290,7 @@ function PatientsRegistry() {
           </div>
         </form>
       )}
+      {isPatient && <ClinicalAccessLog />}
       {isDoctor && (
         <div className="mb-5 rounded-lg border border-blue-100 bg-blue-50 p-5 text-sm text-blue-800">
           O medico nao ve uma base geral de pacientes. Esta lista e filtrada por vinculo de consulta.
@@ -431,5 +433,33 @@ function PatientsRegistry() {
         </section>
       )}
     </>
+  );
+}
+
+// Rule C3: the patient sees every justified access to their record by the MedSync medical team.
+function ClinicalAccessLog() {
+  const [entries, setEntries] = useState<PatientClinicalAccessEntry[] | null>(null);
+  useEffect(() => {
+    api.getMyClinicalAccessLog().then(setEntries).catch(() => setEntries([]));
+  }, []);
+  if (entries === null) return null;
+  return (
+    <section className="mb-7 rounded-lg border border-slate-200 bg-white p-6 shadow-sm" aria-label="Quem acessou meu prontuário">
+      <h2 className="font-bold text-ink">Quem acessou meu prontuário</h2>
+      <p className="mt-1 text-xs leading-5 text-slate-500">
+        Além dos médicos que atenderam você, só o Médico ADM MedSync pode abrir seu prontuário, com motivo registrado.
+      </p>
+      {entries.length === 0 ? (
+        <p className="mt-3 text-sm text-slate-500">Nenhum acesso da equipe médica MedSync até agora.</p>
+      ) : (
+        <ul className="mt-3 divide-y divide-slate-100 text-sm">
+          {entries.map((entry) => (
+            <li key={entry.at} className="py-2">
+              <b>{formatDateTime(entry.at)}</b> · {entry.actorName} ({entry.actorRole}) · {CLINICAL_ACCESS_REASON_LABELS[entry.reason]}
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
   );
 }

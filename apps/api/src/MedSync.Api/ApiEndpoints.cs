@@ -94,6 +94,7 @@ public static partial class ApiEndpoints
         protectedApi.MapGet("/appointments/{appointmentId:guid}/payments", GetPayment);
 
         MapPrescriptionEndpoints(protectedApi);
+        MapClinicalAccessEndpoints(protectedApi);
         MapSignatureCallback(app);
 
         return app;

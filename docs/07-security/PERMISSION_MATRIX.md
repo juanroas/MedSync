@@ -29,7 +29,7 @@ empresa/benefício foi removido (tabelas apagadas pela migração `RemoveCompany
 | Paciente | R/U próprio/A | N | C (solicitar)/R/D próprias/A | R próprio | R quando designado/A | C/R próprio | N | N | C/R próprias | C/R próprias |
 | Médico | R/U próprio; R pacientes vinculados | N | R designadas; disponibilidade C/D | C/R/U quando designado/A | R quando designado/A | R designadas | N | N | C/R próprias | N |
 | ADM da clínica | C/R/U pacientes e médicos da clínica/A | R status da própria | C/R/D da clínica/A | **N** (mesmo se também for médico, só vê as consultas que atende) | N | R da clínica | R da clínica | C/R/U ADM da clínica/A | C/R próprias | N |
-| Médico ADM MedSync | R/U próprio | C/R/U todas; **só ele ativa/suspende**/A | N | **N até a Fase 5** (acesso com justificativa, regra C3) | N | N | N | C/R/U Médico ADM, Suporte, DPO/A | R/U fila de todas/A | N |
+| Médico ADM MedSync | R/U próprio | C/R/U todas; **só ele ativa/suspende**/A | N | R **só com justificativa** (motivo + finalidade + declaração; 30 min, leitura; `/clinical-access`, regra C3)/A | N | N | N | C/R/U Médico ADM, Suporte, DPO/A | R/U fila de todas/A | N |
 | Suporte MedSync | R/U próprio | C (onboarding)/R todas/A | N | N | N | N | N | N | R/U fila de todas/A | N |
 | DPO MedSync | R/U próprio | N | N | N | N | N | R todas (só metadados) | N | C/R próprias | C/R/U fila de todas/A |
 
@@ -56,7 +56,8 @@ Regras de acesso ao conteúdo clínico: [`.agents/rules/clinical-data-access.md`
 
 ## Decisões pendentes
 
-- Fase 5: acesso do Médico ADM ao prontuário com justificativa registrada e auditoria reforçada.
+- Fase 5 (feito): acesso do Médico ADM ao prontuário com justificativa. O DPO vê todos os acessos com a finalidade
+  (sem conteúdo clínico); o paciente vê em "Meu cadastro" quem acessou e por quê.
 - Vínculo médico ↔ várias clínicas (feito pelo Suporte) e troca de local após o login.
 - Break-glass e matriz de base legal por finalidade, a validar com jurídico e DPO.
 

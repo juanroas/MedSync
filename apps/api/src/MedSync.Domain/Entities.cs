@@ -450,6 +450,29 @@ public sealed class PrescriptionItem
     public bool ContinuousUse { get; set; }
 }
 
+// Rule C3: why the Médico ADM MedSync opened a record outside their own care.
+public enum ClinicalAccessReason
+{
+    QualityAudit,
+    Incident,
+    DataSubjectRequest,
+    CourtOrder
+}
+
+public sealed class ClinicalAccessGrant
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid ActorUserId { get; set; }
+    public required string ActorName { get; set; }
+    public Guid PatientId { get; set; }
+    public Patient Patient { get; set; } = null!;
+    public Guid PatientClinicId { get; set; }
+    public ClinicalAccessReason Reason { get; set; }
+    public required string Justification { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime ExpiresAt { get; set; }
+}
+
 public sealed class AuditEvent
 {
     public Guid Id { get; set; } = Guid.NewGuid();
