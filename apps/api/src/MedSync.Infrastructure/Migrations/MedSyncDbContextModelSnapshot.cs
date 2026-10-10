@@ -947,6 +947,10 @@ namespace MedSync.Infrastructure.Migrations
                         .HasMaxLength(120)
                         .HasColumnType("character varying(120)");
 
+                    b.Property<string>("Route")
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)");
+
                     b.HasKey("Id");
 
                     b.HasIndex("PrescriptionId");

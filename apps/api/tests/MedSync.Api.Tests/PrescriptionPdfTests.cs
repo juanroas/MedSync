@@ -1,3 +1,4 @@
+using MedSync.Application;
 using System.Security.Cryptography;
 using System.Security.Cryptography.Pkcs;
 using System.Security.Cryptography.X509Certificates;
@@ -60,6 +61,28 @@ public class PrescriptionPdfTests
     [InlineData("crm/rj 777", "RJ", "CRM 777/RJ")]
     public void Crm_prints_once_whatever_way_it_was_stored(string crm, string uf, string expected) =>
         Assert.Equal(expected, PrescriptionPdf.FormatCrm(crm, uf));
+
+    [Theory]
+    [InlineData(PrescriptionKind.Simple, 1)]
+    [InlineData(PrescriptionKind.Antimicrobial, 2)]
+    [InlineData(PrescriptionKind.ControlledSpecial, 2)]
+    public void Controlled_and_antimicrobial_print_two_copies_on_the_special_model(PrescriptionKind kind, int pages)
+    {
+        var data = SampleData(kind) with
+        {
+            Special = new SpecialPrescriptionIdentification(
+                "Clínica Demo", "Clínica Demo MedSync Ltda", "12345678000190", "Avenida Paulista, 1000 — Bela Vista, São Paulo/SP",
+                "(11) 3000-0000", null, "Maria Oliveira", new DateOnly(1990, 5, 14), "M", "Rua Demonstração, 100 — Vila Olímpia, São Paulo/SP")
+        };
+        var document = PrescriptionPdf.Render(data);
+        Assert.Equal(pages, document.PageCount);
+        using var output = new MemoryStream();
+        document.Save(output, false);
+        Assert.True(output.Length > 1000);
+        // Set MEDSYNC_PDF_SAMPLE_DIR to look at the layout by eye.
+        if (Environment.GetEnvironmentVariable("MEDSYNC_PDF_SAMPLE_DIR") is { Length: > 0 } dir)
+            File.WriteAllBytes(Path.Combine(dir, $"receita-{kind}.pdf"), output.ToArray());
+    }
 
     private static PrescriptionPdfData SampleData(PrescriptionKind kind) =>
         new(

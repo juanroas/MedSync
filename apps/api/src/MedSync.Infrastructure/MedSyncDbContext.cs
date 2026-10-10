@@ -238,6 +238,7 @@ public sealed class MedSyncDbContext(DbContextOptions<MedSyncDbContext> options)
 
         modelBuilder.Entity<PrescriptionItem>(entity =>
         {
+            entity.Property(x => x.Route).HasMaxLength(60);
             entity.Property(x => x.MedicationName).HasMaxLength(200);
             entity.Property(x => x.Dosage).HasMaxLength(120);
             entity.Property(x => x.Instructions).HasMaxLength(500);

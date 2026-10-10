@@ -276,8 +276,9 @@ public static partial class ApiEndpoints
             appointment.Patient.Cpf,
             IsAssignedDoctor(actor, appointment) ? appointment.Patient.Phone : null,
             appointment.ScheduledAt,
-            MissingForSignature(prescription, appointment.Doctor),
-            providers.Current is not null));
+            MissingForSignature(prescription, appointment.Doctor, appointment.Patient, appointment.Clinic),
+            providers.Current is not null,
+            IsSpecialKind(prescription.Kind) ? SpecialIdentification(appointment.Clinic, appointment.Patient) : null));
     }
 
     private static async Task<IResult> SignPrescription(
@@ -301,7 +302,8 @@ public static partial class ApiEndpoints
         if (prescription.Status != PrescriptionStatus.Draft)
             return Results.Conflict(new { message = "Esta receita já foi assinada." });
 
-        var missing = MissingForSignature(prescription, prescription.Appointment.Doctor);
+        var missing = MissingForSignature(
+            prescription, prescription.Appointment.Doctor, prescription.Appointment.Patient, prescription.Appointment.Clinic);
         if (missing.Count > 0)
             return Validation("prescription", $"Antes de assinar: {string.Join("; ", missing)}.");
 
@@ -469,7 +471,8 @@ public static partial class ApiEndpoints
             prescription.Notes,
             signedAt,
             prescription.Items.ToList(),
-            session.Simulated));
+            session.Simulated,
+            IsSpecialKind(prescription.Kind) ? SpecialIdentification(appointment.Clinic, appointment.Patient) : null));
         var pdf = await PrescriptionPdf.SignAsync(
             document, provider.CreatePdfSigner(session, cancellationToken), prescription.PatientLocation!);
         var (storageKey, sha256) = await storage.SaveGeneratedAsync(
@@ -606,8 +609,14 @@ public static partial class ApiEndpoints
         if (request.Notes?.Length > 1000)
             return Validation("notes", "As orientações podem ter até 1000 caracteres.");
 
+        if (!Enum.IsDefined(request.Kind))
+            return Validation("kind", "Escolha o tipo de receita.");
         foreach (var item in request.Items)
         {
+            if (IsSpecialKind(request.Kind) && string.IsNullOrWhiteSpace(item.Quantity))
+                return Validation("items", $"Informe a quantidade de {item.MedicationName?.Trim()} (obrigatória em controle especial e antimicrobiano).");
+            if (item.Route?.Length > 60)
+                return Validation("items", "A via de administração pode ter até 60 caracteres.");
             if (string.IsNullOrWhiteSpace(item.MedicationName) || item.MedicationName.Trim().Length > 200)
                 return Validation("items", "Cada item precisa do nome do medicamento (até 200 caracteres).");
             if (string.IsNullOrWhiteSpace(item.Instructions) || item.Instructions.Trim().Length > 500)
@@ -635,15 +644,44 @@ public static partial class ApiEndpoints
                 Dosage = string.IsNullOrWhiteSpace(item.Dosage) ? null : item.Dosage.Trim(),
                 Instructions = item.Instructions.Trim(),
                 Quantity = string.IsNullOrWhiteSpace(item.Quantity) ? null : item.Quantity.Trim(),
+                Route = string.IsNullOrWhiteSpace(item.Route) ? null : item.Route.Trim(),
                 ContinuousUse = item.ContinuousUse
             });
         }
     }
 
     // CFM 2.314 art. 13 (rule D2): what the document still lacks before it can be signed.
-    private static List<string> MissingForSignature(Prescription prescription, Doctor doctor)
+    private static bool IsSpecialKind(PrescriptionKind kind) =>
+        kind is PrescriptionKind.Antimicrobial or PrescriptionKind.ControlledSpecial;
+
+    private static SpecialPrescriptionIdentification SpecialIdentification(Clinic clinic, Patient patient) =>
+        new(
+            clinic.Name,
+            clinic.LegalName,
+            clinic.TaxId,
+            clinic.FormattedAddress(),
+            clinic.Phone,
+            patient.SocialName,
+            patient.MotherName,
+            patient.BirthDate,
+            patient.Sex,
+            patient.FormattedAddress());
+
+    private static List<string> MissingForSignature(Prescription prescription, Doctor doctor, Patient patient, Clinic clinic)
     {
         var missing = new List<string>();
+        // Rule D6 (.agents/rules/medical-documents.md): controlled drugs only through a service integrated with
+        // Anvisa's SNCR. The model can be drafted and printed as a draft, never signed, until that integration exists.
+        if (prescription.Kind == PrescriptionKind.ControlledSpecial)
+            missing.Add("receita de controle especial (Portaria 344) só pode ser assinada no MedSync depois da integração com o SNCR da Anvisa");
+        if (IsSpecialKind(prescription.Kind))
+        {
+            // The two-copy model identifies the issuer's address and the patient's address (Portaria 344; RDC 471).
+            if (!clinic.HasAddress)
+                missing.Add("a clínica precisa cadastrar o endereço em Dados da clínica");
+            if (!patient.HasAddress)
+                missing.Add("complete o endereço do paciente no cadastro dele");
+        }
         if (string.IsNullOrWhiteSpace(doctor.Crm) || string.IsNullOrWhiteSpace(doctor.CrmUf))
             missing.Add("cadastre seu CRM e UF em Meu perfil");
         if (string.IsNullOrWhiteSpace(doctor.ProfessionalAddress))
@@ -668,6 +706,6 @@ public static partial class ApiEndpoints
             prescription.SignatureSimulated,
             prescription.Items
                 .OrderBy(x => x.Position)
-                .Select(x => new PrescriptionItemResponse(x.Id, x.CatalogItemId, x.MedicationName, x.Dosage, x.Instructions, x.Quantity, x.ContinuousUse))
+                .Select(x => new PrescriptionItemResponse(x.Id, x.CatalogItemId, x.MedicationName, x.Dosage, x.Instructions, x.Quantity, x.ContinuousUse, x.Route))
                 .ToList());
 }

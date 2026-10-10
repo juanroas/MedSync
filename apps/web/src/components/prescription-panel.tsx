@@ -24,6 +24,7 @@ const emptyItem: PrescriptionItemInput = {
   dosage: "",
   instructions: "",
   quantity: "",
+  route: "",
   continuousUse: false,
 };
 
@@ -39,7 +40,11 @@ type Draft = {
 const kindLabel: Record<PrescriptionKind, string> = {
   Simple: "Receita simples",
   Antimicrobial: "Antimicrobiano (2 vias, validade 10 dias)",
+  ControlledSpecial: "Controle especial — Portaria 344 (assinatura só após o SNCR)",
 };
+
+// Anvisa therapeutic classes that make it an antimicrobial prescription (RDC 471/2021).
+const antimicrobialClass = /antibacterian|antimicrob|antibi[oó]tic/i;
 
 // canIssue: a cancelled consultation keeps its history but takes no new prescription (the API refuses it too).
 export function PrescriptionPanel({
@@ -305,7 +310,12 @@ function PrescriptionForm({
           >
             <option value="Simple">{kindLabel.Simple}</option>
             <option value="Antimicrobial">{kindLabel.Antimicrobial}</option>
+            <option value="ControlledSpecial">{kindLabel.ControlledSpecial}</option>
           </SelectInput>
+          <span className="mt-1.5 block text-[11px] leading-4 text-slate-400">
+            Antibacteriano da base Anvisa muda o tipo para antimicrobiano sozinho. Controlado (Portaria 344, ex.: lista C1): o
+            modelo já sai em 2 vias, mas só pode ser assinado quando o MedSync estiver integrado ao SNCR da Anvisa.
+          </span>
         </label>
         <label className="block">
           <span className="mb-1.5 block text-xs font-bold text-slate-600">Onde o paciente está agora</span>
@@ -336,12 +346,14 @@ function PrescriptionForm({
             </div>
             <MedicationPicker
               value={item.medicationName}
-              onPick={(picked) =>
-                updateItem(index, { medicationName: picked.name, catalogItemId: picked.id })
-              }
+              onPick={(picked) => {
+                updateItem(index, { medicationName: picked.name, catalogItemId: picked.id });
+                if (antimicrobialClass.test(picked.therapeuticClass ?? ""))
+                  onChange((current) => (current.kind === "Simple" ? { ...current, kind: "Antimicrobial" } : current));
+              }}
               onType={(value) => updateItem(index, { medicationName: value, catalogItemId: null })}
             />
-            <div className="mt-3 grid gap-3 sm:grid-cols-[1fr_2fr_1fr]">
+            <div className="mt-3 grid gap-3 sm:grid-cols-[1fr_2fr_1fr_1fr]">
               <label className="block">
                 <span className="mb-1.5 block text-xs font-bold text-slate-600">Dose</span>
                 <TextInput
@@ -366,8 +378,18 @@ function PrescriptionForm({
                 <TextInput
                   value={item.quantity ?? ""}
                   onChange={(event) => updateItem(index, { quantity: event.target.value })}
-                  placeholder="30 comprimidos"
+                  placeholder={draft.kind === "Simple" ? "30 comprimidos" : "30 (trinta) comprimidos"}
                   maxLength={120}
+                  required={draft.kind !== "Simple"}
+                />
+              </label>
+              <label className="block">
+                <span className="mb-1.5 block text-xs font-bold text-slate-600">Via</span>
+                <TextInput
+                  value={item.route ?? ""}
+                  onChange={(event) => updateItem(index, { route: event.target.value })}
+                  placeholder="oral"
+                  maxLength={60}
                 />
               </label>
             </div>

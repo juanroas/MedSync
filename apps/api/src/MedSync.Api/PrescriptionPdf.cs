@@ -1,5 +1,6 @@
 using System.Globalization;
 using MedSync.Domain;
+using MedSync.Application;
 using PdfSharp.Drawing;
 using PdfSharp.Fonts;
 using PdfSharp.Pdf;
@@ -24,7 +25,8 @@ public sealed record PrescriptionPdfData(
     string? Notes,
     DateTime IssuedAtUtc,
     IReadOnlyList<PrescriptionItem> Items,
-    bool Simulated = false);
+    bool Simulated = false,
+    SpecialPrescriptionIdentification? Special = null);
 
 // Builds the prescription PDF on the server and signs it through any IDigitalSigner (PAdES with PDFsharp).
 // The signer is the doctor's ICP-Brasil cloud certificate in production (rule D1); tests use a local certificate.
@@ -43,12 +45,16 @@ public static class PrescriptionPdf
         document.Info.Author = data.DoctorName;
         document.Info.Creator = "MedSync";
 
-        // Antimicrobial prescriptions go in two copies (RDC Anvisa 471/2021).
-        var copies = data.Kind == PrescriptionKind.Antimicrobial
-            ? new[] { "1ª via — farmácia", "2ª via — paciente" }
-            : new string?[] { null };
-        foreach (var copy in copies)
-            RenderPage(document.AddPage(), data, copy);
+        // Antimicrobial (RDC Anvisa 471/2021) and controlled (Portaria 344/1998) prescriptions: two copies on the
+        // "Receita de Controle Especial" model, with blank buyer and supplier boxes the pharmacy fills in.
+        if (data.Kind is PrescriptionKind.Antimicrobial or PrescriptionKind.ControlledSpecial)
+        {
+            foreach (var copy in new[] { "1ª via — Retenção da Farmácia ou Drogaria", "2ª via — Orientação ao Paciente" })
+                RenderSpecialPage(document.AddPage(), data, copy);
+            return document;
+        }
+
+        RenderPage(document.AddPage(), data, null);
         return document;
     }
 
@@ -123,6 +129,143 @@ public static class PrescriptionPdf
             ? "SIMULAÇÃO: assinatura de demonstração, SEM VALIDADE JURÍDICA. Não use em farmácia."
             : "Assinada digitalmente com certificado ICP-Brasil. Confira em validar.iti.gov.br.", small, muted, Margin, y, width);
         Write(graphics, $"Documento {data.PrescriptionId}", small, muted, Margin, y, width);
+    }
+
+    private static void RenderSpecialPage(PdfPage page, PrescriptionPdfData data, string copy)
+    {
+        page.Size = PdfSharp.PageSize.A4;
+        using var graphics = XGraphics.FromPdfPage(page);
+        var width = page.Width.Point - 2 * Margin;
+        var left = Margin;
+        var title = new XFont(FontFamily, 14, XFontStyleEx.Bold);
+        var boxTitle = new XFont(FontFamily, 9.5, XFontStyleEx.Bold);
+        var strong = new XFont(FontFamily, 10, XFontStyleEx.Bold);
+        var body = new XFont(FontFamily, 9.5, XFontStyleEx.Regular);
+        var small = new XFont(FontFamily, 7.5, XFontStyleEx.Regular);
+        var ink = XBrushes.Black;
+        var muted = new XSolidBrush(XColor.FromArgb(90, 100, 110));
+        var line = new XPen(XColor.FromArgb(70, 80, 90), 0.8);
+        var special = data.Special;
+        var y = Margin - 16;
+        if (data.Simulated)
+            DrawSimulationWatermark(graphics, page);
+
+        // Header: issuing unit and the generator line.
+        y = Write(graphics, special?.ClinicName ?? data.ClinicName, title, ink, left, y, width);
+        if (!string.IsNullOrWhiteSpace(special?.ClinicLegalName))
+            y = Write(graphics, special.ClinicLegalName!, small, muted, left, y, width);
+        graphics.DrawString($"Emitido por {data.DoctorName} | MedSync", small, muted, new XRect(left, y, width, 10), XStringFormats.TopRight);
+        y += 12;
+        graphics.DrawLine(line, left, y, left + width, y);
+        y += 8;
+        graphics.DrawString("Receita de Controle Especial", title, ink, new XRect(left, y, width, 18), XStringFormats.TopCenter);
+        y += 20;
+        graphics.DrawString(copy, strong, ink, new XRect(left, y, width, 14), XStringFormats.TopRight);
+        y += 20;
+
+        // Issuer box.
+        var issuer = new List<string>
+        {
+            $"Unidade: {special?.ClinicName ?? data.ClinicName}" +
+                (string.IsNullOrWhiteSpace(special?.ClinicTaxId) ? "" : $"    CNPJ: {FormatCnpj(special.ClinicTaxId!)}"),
+            $"End.: {special?.ClinicAddress ?? data.DoctorProfessionalAddress}",
+            $"Telefone: {special?.ClinicPhone ?? "—"}",
+            $"Médico: {data.DoctorName} · {FormatCrm(data.DoctorCrm, data.DoctorCrmUf)}" +
+                (string.IsNullOrWhiteSpace(data.DoctorRqe) ? "" : $" · RQE {data.DoctorRqe}"),
+        };
+        y = DrawBox(graphics, "IDENTIFICAÇÃO DO EMITENTE", issuer, boxTitle, body, line, left, y, width) + 12;
+
+        // Patient.
+        y = Write(graphics, "Dados do Paciente", strong, ink, left, y, width);
+        var issuedAt = TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(data.IssuedAtUtc, DateTimeKind.Utc), BrazilTime);
+        var patientLines = new List<string> { $"Nome: {data.PatientName}" };
+        if (!string.IsNullOrWhiteSpace(special?.PatientSocialName))
+            patientLines.Add($"Nome social: {special.PatientSocialName}");
+        patientLines.Add($"CPF: {FormatCpf(data.PatientCpf)}");
+        patientLines.Add($"Nome da mãe: {(string.IsNullOrWhiteSpace(special?.PatientMotherName) ? "não declarado" : special.PatientMotherName)}");
+        if (special is not null)
+        {
+            var birth = special.PatientBirthDate;
+            var age = issuedAt.Year - birth.Year - (DateOnly.FromDateTime(issuedAt) < birth.AddYears(issuedAt.Year - birth.Year) ? 1 : 0);
+            var sex = special.PatientSex switch { "F" => "Feminino", "M" => "Masculino", _ => "não informado" };
+            patientLines.Add($"Nascimento: {birth:dd/MM/yyyy} · Idade: {age} anos · Sexo: {sex}");
+            patientLines.Add($"Endereço: {special.PatientAddress ?? "—"}");
+        }
+        foreach (var text in patientLines)
+            y = Write(graphics, text, body, ink, left, y, width);
+        y += 6;
+        graphics.DrawLine(line, left, y, left + width, y);
+        y += 8;
+
+        // Prescription.
+        foreach (var item in data.Items.OrderBy(x => x.Position))
+        {
+            var name = item.MedicationName + (item.Dosage is null ? "" : $" {item.Dosage}");
+            if (!string.IsNullOrWhiteSpace(item.Route))
+                graphics.DrawString($"VIA {item.Route!.ToUpperInvariant()}", strong, ink, new XRect(left, y, width, 14), XStringFormats.TopRight);
+            y = Write(graphics, name, strong, ink, left, y, width - 120);
+            y = Write(graphics, $"Posologia: {item.Instructions}" + (item.ContinuousUse ? " (uso contínuo)" : ""), body, ink, left, y, width);
+            y = Write(graphics, $"Quantidade: {item.Quantity ?? "—"}", body, ink, left, y, width) + 8;
+        }
+        if (!string.IsNullOrWhiteSpace(data.Notes))
+            y = Write(graphics, $"Orientações: {data.Notes}", body, ink, left, y, width) + 6;
+
+        // Signature and date, then the pharmacy boxes at the bottom of the page.
+        var boxesTop = page.Height.Point - Margin - 150;
+        var signatureY = Math.Max(y + 30, boxesTop - 56);
+        graphics.DrawLine(line, left, signatureY, left + 260, signatureY);
+        Write(graphics, data.DoctorName.ToUpperInvariant(), small, ink, left, signatureY + 3, 260);
+        Write(graphics, FormatCrm(data.DoctorCrm, data.DoctorCrmUf), small, ink, left, signatureY + 13, 260);
+        graphics.DrawString($"Data: {issuedAt:dd/MM/yyyy}", strong, ink, new XRect(left, signatureY + 3, width, 14), XStringFormats.TopRight);
+
+        var buyerWidth = width * 0.56;
+        DrawBox(graphics, "IDENTIFICAÇÃO DO COMPRADOR",
+            ["Nome:", "CPF ou Passaporte (estrangeiro):", "End.:", "Cidade:                                        UF:", "Telefone:"],
+            boxTitle, body, line, left, boxesTop, buyerWidth, ruled: true);
+        var supplierLeft = left + buyerWidth + 8;
+        var supplierWidth = width - buyerWidth - 8;
+        var supplierBottom = DrawBox(graphics, "IDENTIFICAÇÃO DO FORNECEDOR", ["", "", "", ""], boxTitle, body, line, supplierLeft, boxesTop, supplierWidth);
+        graphics.DrawString("Data: ____/____/______", small, muted, new XRect(supplierLeft + 8, supplierBottom - 52, supplierWidth - 16, 10), XStringFormats.TopRight);
+        graphics.DrawLine(line, supplierLeft + 8, supplierBottom - 22, supplierLeft + supplierWidth - 8, supplierBottom - 22);
+        graphics.DrawString("Assinatura do farmacêutico", small, muted, new XRect(supplierLeft + 8, supplierBottom - 19, supplierWidth - 16, 10), XStringFormats.TopCenter);
+
+        // Footer.
+        var validity = data.Kind == PrescriptionKind.Antimicrobial
+            ? "Validade: 10 dias a partir da emissão (RDC Anvisa 471/2021)."
+            : "Validade: 30 dias a partir da emissão (Portaria SVS/MS 344/1998).";
+        var footerY = page.Height.Point - Margin + 8;
+        footerY = Write(graphics, $"Emitida em modalidade de telemedicina (Res. CFM 2.314/2022) em {issuedAt:dd/MM/yyyy HH:mm} (Brasília). {validity}", small, muted, left, footerY, width);
+        Write(graphics, (data.Simulated
+            ? "SIMULAÇÃO: assinatura de demonstração, SEM VALIDADE JURÍDICA. Não use em farmácia."
+            : "Assinada digitalmente com certificado ICP-Brasil. Confira em validar.iti.gov.br.") + $" Documento {data.PrescriptionId}", small, muted, left, footerY, width);
+    }
+
+    // A titled box with one text line per row; ruled boxes get a line under each row for handwriting.
+    private static double DrawBox(
+        XGraphics graphics, string heading, IReadOnlyList<string> rows, XFont headingFont, XFont font, XPen pen,
+        double x, double y, double width, bool ruled = false)
+    {
+        var rowHeight = font.GetHeight() * 1.55;
+        var headingHeight = headingFont.GetHeight() * 1.6;
+        var height = headingHeight + rows.Count * rowHeight + 4;
+        graphics.DrawRectangle(pen, x, y, width, height);
+        graphics.DrawString(heading, headingFont, XBrushes.Black, new XRect(x, y + 3, width, headingHeight), XStringFormats.TopCenter);
+        graphics.DrawLine(pen, x, y + headingHeight, x + width, y + headingHeight);
+        var rowY = y + headingHeight + 2;
+        foreach (var row in rows)
+        {
+            graphics.DrawString(row, font, XBrushes.Black, new XRect(x + 6, rowY + 2, width - 12, rowHeight), XStringFormats.TopLeft);
+            rowY += rowHeight;
+            if (ruled)
+                graphics.DrawLine(pen, x, rowY, x + width, rowY);
+        }
+        return y + height;
+    }
+
+    private static string FormatCnpj(string value)
+    {
+        var d = new string(value.Where(char.IsDigit).ToArray());
+        return d.Length == 14 ? $"{d[..2]}.{d[2..5]}.{d[5..8]}/{d[8..12]}-{d[12..]}" : value;
     }
 
     private static void DrawSimulationWatermark(XGraphics graphics, PdfPage page)

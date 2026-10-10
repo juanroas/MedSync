@@ -380,7 +380,7 @@ export type MedicationSearchItem = {
   source: "Anvisa" | "Custom";
 };
 
-export type PrescriptionKind = "Simple" | "Antimicrobial";
+export type PrescriptionKind = "Simple" | "Antimicrobial" | "ControlledSpecial";
 export type PrescriptionStatus = "Draft" | "Signed" | "Cancelled";
 
 export type PrescriptionItemInput = {
@@ -389,10 +389,24 @@ export type PrescriptionItemInput = {
   dosage?: string | null;
   instructions: string;
   quantity?: string | null;
+  route?: string | null;
   continuousUse: boolean;
 };
 
 export type PrescriptionItem = PrescriptionItemInput & { id: string };
+
+export type SpecialPrescriptionIdentification = {
+  clinicName: string;
+  clinicLegalName?: string | null;
+  clinicTaxId?: string | null;
+  clinicAddress?: string | null;
+  clinicPhone?: string | null;
+  patientSocialName?: string | null;
+  patientMotherName?: string | null;
+  patientBirthDate: string;
+  patientSex?: "F" | "M" | null;
+  patientAddress?: string | null;
+};
 
 export type Prescription = {
   id: string;
@@ -432,6 +446,7 @@ export type PrescriptionDocument = {
   appointmentAt: string;
   missingForSignature: string[];
   signatureAvailable: boolean;
+  special?: SpecialPrescriptionIdentification | null;
 };
 
 export type MedicationInUse = {

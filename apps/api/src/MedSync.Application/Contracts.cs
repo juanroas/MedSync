@@ -472,7 +472,8 @@ public sealed record PrescriptionItemRequest(
     string? Dosage,
     string Instructions,
     string? Quantity,
-    bool ContinuousUse);
+    bool ContinuousUse,
+    string? Route = null);
 
 public sealed record SavePrescriptionRequest(
     PrescriptionKind Kind,
@@ -488,7 +489,8 @@ public sealed record PrescriptionItemResponse(
     string? Dosage,
     string Instructions,
     string? Quantity,
-    bool ContinuousUse);
+    bool ContinuousUse,
+    string? Route = null);
 
 public sealed record PrescriptionResponse(
     Guid Id,
@@ -523,7 +525,21 @@ public sealed record PrescriptionDocumentResponse(
     string? PatientPhone,
     DateTime AppointmentAt,
     IReadOnlyList<string> MissingForSignature,
-    bool SignatureAvailable);
+    bool SignatureAvailable,
+    // Identification printed on the controlled-drug / antimicrobial model (two copies).
+    SpecialPrescriptionIdentification? Special = null);
+
+public sealed record SpecialPrescriptionIdentification(
+    string ClinicName,
+    string? ClinicLegalName,
+    string? ClinicTaxId,
+    string? ClinicAddress,
+    string? ClinicPhone,
+    string? PatientSocialName,
+    string? PatientMotherName,
+    DateOnly PatientBirthDate,
+    string? PatientSex,
+    string? PatientAddress);
 
 public sealed record MedicationInUseResponse(
     string MedicationName,

@@ -84,7 +84,11 @@ function PrescriptionDocument() {
     await api.endSigningSession().catch(() => undefined);
     setSession(await api.getSigningSession().catch(() => null));
   }
-  const copies = prescription.kind === "Antimicrobial" ? ["1ª via — farmácia", "2ª via — paciente"] : [null];
+  const special = prescription.kind === "Antimicrobial" || prescription.kind === "ControlledSpecial";
+  const copies = special
+    ? ["1ª via — Retenção da Farmácia ou Drogaria", "2ª via — Orientação ao Paciente"]
+    : [null];
+  const watermark = !signed || prescription.signatureSimulated ? (signed ? "Simulação — sem validade" : "Sem validade — rascunho") : null;
 
   return (
     <main className="min-h-screen bg-mist py-8 print:bg-white print:py-0">
@@ -200,7 +204,12 @@ function PrescriptionDocument() {
         )}
       </div>
 
-      {copies.map((copy) => (
+      {special &&
+        copies.map((copy) => (
+          <SpecialCopy key={copy} document={document} copy={copy!} signed={signed} watermark={watermark} />
+        ))}
+
+      {!special && copies.map((copy) => (
         <article
           key={copy ?? "unica"}
           className="relative mx-auto mb-8 max-w-[820px] overflow-hidden bg-white px-12 py-12 shadow-soft print:mb-0 print:max-w-none print:break-after-page print:shadow-none"
@@ -289,6 +298,153 @@ function PrescriptionDocument() {
       ))}
     </main>
   );
+}
+
+// "Receita de Controle Especial" (Portaria 344/1998; RDC 471/2021 for antimicrobials), same layout as the signed PDF.
+function SpecialCopy({
+  document,
+  copy,
+  signed,
+  watermark,
+}: {
+  document: PrescriptionDocument;
+  copy: string;
+  signed: boolean;
+  watermark: string | null;
+}) {
+  const { prescription, special } = document;
+  const issuedAt = prescription.signedAt ?? prescription.updatedAt;
+  const birth = special?.patientBirthDate;
+  const age = birth ? ageOn(birth, issuedAt) : null;
+  const sex = special?.patientSex === "F" ? "Feminino" : special?.patientSex === "M" ? "Masculino" : "não informado";
+  const validity =
+    prescription.kind === "Antimicrobial"
+      ? "Validade: 10 dias a partir da emissão (RDC Anvisa 471/2021)."
+      : "Validade: 30 dias a partir da emissão (Portaria SVS/MS 344/1998).";
+  const box = "border border-slate-500";
+  const boxTitle = "border-b border-slate-500 py-1 text-center text-xs font-bold uppercase tracking-wide";
+  const row = "border-b border-slate-300 px-2 py-1 last:border-b-0";
+
+  return (
+    <article
+      className="relative mx-auto mb-8 max-w-[820px] overflow-hidden bg-white px-10 py-10 text-[13px] text-ink shadow-soft print:mb-0 print:max-w-none print:break-after-page print:shadow-none"
+      data-testid="special-copy"
+    >
+      {watermark && (
+        <div aria-hidden className="pointer-events-none absolute inset-0 grid place-items-center [print-color-adjust:exact]">
+          <span className="-rotate-[30deg] whitespace-nowrap text-5xl font-black uppercase tracking-widest text-red-500/15">{watermark}</span>
+        </div>
+      )}
+      <header className="flex items-end justify-between border-b border-slate-400 pb-2">
+        <div>
+          <p className="text-lg font-bold">{special?.clinicName ?? document.clinicName}</p>
+          {special?.clinicLegalName && <p className="text-[11px] text-slate-500">{special.clinicLegalName}</p>}
+        </div>
+        <p className="text-[10px] text-slate-500">Emitido por {document.doctorName} | MedSync</p>
+      </header>
+      <h1 className="mt-3 text-center text-xl font-bold">Receita de Controle Especial</h1>
+      <p className="text-right text-xs font-bold">{copy}</p>
+
+      <section className={`mt-3 ${box}`}>
+        <p className={boxTitle}>Identificação do emitente</p>
+        <p className={row}>
+          <b>Unidade:</b> {special?.clinicName ?? document.clinicName}
+          {special?.clinicTaxId && <span className="ml-6"><b>CNPJ:</b> {formatCnpj(special.clinicTaxId)}</span>}
+        </p>
+        <p className={row}><b>End.:</b> {special?.clinicAddress ?? "endereço da clínica não cadastrado"}</p>
+        <p className={row}><b>Telefone:</b> {special?.clinicPhone ?? "—"}</p>
+        <p className={row}>
+          <b>Médico:</b> {document.doctorName} · {formatCrm(document.doctorCrm, document.doctorCrmUf)}
+          {document.doctorRqe ? ` · RQE ${document.doctorRqe}` : ""}
+        </p>
+      </section>
+
+      <section className="mt-4 space-y-0.5">
+        <p className="font-bold italic underline">Dados do Paciente</p>
+        <p><b>Nome:</b> {document.patientName}</p>
+        {special?.patientSocialName && <p><b>Nome social:</b> {special.patientSocialName}</p>}
+        <p><b>CPF:</b> {formatCpf(document.patientCpf)}</p>
+        <p><b>Nome da mãe:</b> {special?.patientMotherName ?? "não declarado"}</p>
+        {birth && (
+          <p>
+            <b>Nascimento:</b> {birth.split("-").reverse().join("/")} · <b>Idade:</b> {age} anos · <b>Sexo:</b> {sex}
+          </p>
+        )}
+        <p><b>Endereço:</b> {special?.patientAddress ?? "endereço do paciente não cadastrado"}</p>
+      </section>
+
+      <ol className="mt-4 min-h-40 space-y-3 border-t border-slate-400 pt-3">
+        {prescription.items.map((item) => (
+          <li key={item.id}>
+            <p className="flex justify-between gap-4 font-bold">
+              <span>
+                {item.medicationName}
+                {item.dosage ? ` ${item.dosage}` : ""}
+              </span>
+              {item.route && <span>VIA {item.route.toUpperCase()}</span>}
+            </p>
+            <p><b>Posologia:</b> {item.instructions}{item.continuousUse ? " (uso contínuo)" : ""}</p>
+            <p><b>Quantidade:</b> {item.quantity ?? "—"}</p>
+          </li>
+        ))}
+        {prescription.notes && (
+          <li><b>Orientações:</b> {prescription.notes}</li>
+        )}
+      </ol>
+
+      <div className="mt-8 flex items-end justify-between">
+        <div className="w-72 border-t border-slate-500 pt-1 text-[11px]">
+          <p className="uppercase">{document.doctorName}</p>
+          <p>{formatCrm(document.doctorCrm, document.doctorCrmUf)}</p>
+        </div>
+        <p className="font-bold">Data: {new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo" }).format(new Date(issuedAt))}</p>
+      </div>
+
+      <div className="mt-5 grid grid-cols-[1.3fr_1fr] gap-3">
+        <section className={box}>
+          <p className={boxTitle}>Identificação do comprador</p>
+          {["Nome:", "CPF ou Passaporte (estrangeiro):", "End.:", "Cidade:                    UF:", "Telefone:"].map((label) => (
+            <p key={label} className={`${row} whitespace-pre`}>{label}</p>
+          ))}
+        </section>
+        <section className={`${box} flex flex-col`}>
+          <p className={boxTitle}>Identificação do fornecedor</p>
+          <p className="mt-auto px-2 text-right text-[11px] text-slate-500">Data: ____/____/______</p>
+          <p className="mx-2 mb-2 mt-6 border-t border-slate-500 pt-1 text-center text-[11px] text-slate-500">Assinatura do farmacêutico</p>
+        </section>
+      </div>
+
+      <footer className="mt-4 text-[10px] leading-4 text-slate-500">
+        <p>
+          Emitida em modalidade de telemedicina (Res. CFM 2.314/2022) em {formatDateTime(issuedAt)} (Brasília). {validity}
+        </p>
+        <p>
+          {signed && prescription.signatureSimulated
+            ? "SIMULAÇÃO: assinatura de demonstração, SEM VALIDADE JURÍDICA. Não use em farmácia."
+            : signed
+              ? "Assinada digitalmente com certificado ICP-Brasil. Confira em validar.iti.gov.br."
+              : "Assinatura digital: pendente."}{" "}
+          Documento {prescription.id}
+        </p>
+      </footer>
+    </article>
+  );
+}
+
+function ageOn(birthDate: string, at: string) {
+  const birth = new Date(`${birthDate}T12:00:00Z`);
+  const when = new Date(at);
+  let age = when.getUTCFullYear() - birth.getUTCFullYear();
+  const beforeBirthday =
+    when.getUTCMonth() < birth.getUTCMonth() ||
+    (when.getUTCMonth() === birth.getUTCMonth() && when.getUTCDate() < birth.getUTCDate());
+  if (beforeBirthday) age -= 1;
+  return age;
+}
+
+function formatCnpj(value: string) {
+  const d = value.replace(/\D/g, "");
+  return d.length === 14 ? `${d.slice(0, 2)}.${d.slice(2, 5)}.${d.slice(5, 8)}/${d.slice(8, 12)}-${d.slice(12)}` : value;
 }
 
 const buttonLinkClass =

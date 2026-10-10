@@ -204,6 +204,21 @@ public sealed class Patient
     public string? AddressState { get; set; }
     public string? ContinuousMedications { get; set; }
     public ICollection<Appointment> Appointments { get; set; } = [];
+
+    public bool HasAddress =>
+        !string.IsNullOrWhiteSpace(AddressStreet) &&
+        !string.IsNullOrWhiteSpace(AddressCity) &&
+        !string.IsNullOrWhiteSpace(AddressState);
+
+    public string? FormattedAddress()
+    {
+        if (!HasAddress)
+            return null;
+        var street = string.Join(", ", new[] { AddressStreet, AddressNumber, AddressComplement }
+            .Where(x => !string.IsNullOrWhiteSpace(x)).Select(x => x!.Trim()));
+        var district = string.IsNullOrWhiteSpace(AddressDistrict) ? "" : $" — {AddressDistrict.Trim()}";
+        return $"{street}{district}, {AddressCity!.Trim()}/{AddressState!.Trim()}";
+    }
 }
 
 public sealed class DoctorAvailabilitySlot
@@ -381,7 +396,10 @@ public enum MedicationSource
 public enum PrescriptionKind
 {
     Simple,
-    Antimicrobial
+    // RDC Anvisa 471/2021: two copies, valid 10 days.
+    Antimicrobial,
+    // Portaria SVS/MS 344/1998 (lists C1, C5 and the like): "Receita de Controle Especial", two copies, valid 30 days.
+    ControlledSpecial
 }
 
 public enum PrescriptionStatus
@@ -427,6 +445,8 @@ public sealed class PrescriptionItem
     public string? Dosage { get; set; }
     public required string Instructions { get; set; }
     public string? Quantity { get; set; }
+    // Route of administration ("oral", "intramuscular"), printed on the controlled-drug model.
+    public string? Route { get; set; }
     public bool ContinuousUse { get; set; }
 }
 

@@ -43,6 +43,48 @@ test.describe("receita do atendimento", () => {
     await expect(doc.getByText(/assinatura digital ICP-Brasil \(VIDaaS\) ainda não está ativa/i)).toBeVisible();
   });
 
+  test("controle especial sai em 2 vias no modelo com comprador e fornecedor", async ({ page }) => {
+    const api = await request.newContext({ baseURL: baseApiURL });
+    await loginByApi(api, users.doctor);
+    const appointments = ((await (await api.get("/appointments")).json()) as Array<{ id: string; status: string }>).filter(
+      (item) => item.status !== "Cancelled",
+    );
+    await api.dispose();
+    test.skip(appointments.length === 0, "sem consulta do medico");
+    const medication = `Controlado E2E ${Date.now().toString().slice(-6)}`;
+
+    await loginByUi(page, users.doctor);
+    await page.goto(`/prontuario/${appointments[0].id}`);
+    await page.getByRole("button", { name: /nova receita/i }).click();
+    await page.getByLabel("Tipo").selectOption("ControlledSpecial");
+    await page.getByRole("combobox", { name: "Medicamento" }).fill(medication);
+    await page.getByRole("button", { name: new RegExp(`incluir “${medication}”`, "i") }).click();
+    await page.getByPlaceholder("50 mg").fill("0,5 mg/ml");
+    await page.getByPlaceholder("1 comprimido pela manhã").fill("Dar 1 ml 2x ao dia");
+    await page.getByPlaceholder("30 (trinta) comprimidos").fill("1 (um) frasco");
+    await page.getByPlaceholder("oral").fill("oral");
+    await page.getByPlaceholder("Cidade/UF informada na consulta").fill("São Paulo/SP");
+    await page.getByRole("button", { name: /salvar rascunho/i }).click();
+    await expect(page.getByText(/rascunho salvo/i)).toBeVisible();
+
+    const row = page.locator("li").filter({ hasText: medication }).filter({ hasText: "Rascunho" });
+    const documentPage = page.waitForEvent("popup");
+    await row.getByRole("link", { name: /ver e imprimir/i }).click();
+    const doc = await documentPage;
+    const copies = doc.getByTestId("special-copy");
+    await expect(copies).toHaveCount(2);
+    await expect(copies.first()).toContainText("1ª via — Retenção da Farmácia ou Drogaria");
+    await expect(copies.nth(1)).toContainText("2ª via — Orientação ao Paciente");
+    await expect(copies.first()).toContainText("Identificação do comprador");
+    await expect(copies.first()).toContainText("Identificação do fornecedor");
+    await expect(copies.first()).toContainText("VIA ORAL");
+    await expect(copies.first()).toContainText("Nome da mãe:");
+    await expect(copies.first()).toContainText("Validade: 30 dias");
+    // Regra D6: controlado não é assinado antes da integração com o SNCR.
+    await expect(doc.getByText(/integração com o SNCR/i)).toBeVisible();
+    await expect(doc.getByRole("button", { name: /assinar/i })).toBeDisabled();
+  });
+
   test("simulador: aprova uma vez, assina com um clique e encerra a liberacao", async ({ page }) => {
     test.skip(process.env.MEDSYNC_E2E_SIGNING !== "1", "defina MEDSYNC_E2E_SIGNING=1 com SIGNATURE_PROVIDER=simulator na API");
     const api = await request.newContext({ baseURL: baseApiURL });

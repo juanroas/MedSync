@@ -34,5 +34,7 @@ Documento emitido aparece em "Meus documentos" do paciente (art. 3º §6: direit
 só um link que exige login; nunca o PDF anexado.
 
 ## D6 — Controlados ficam de fora até o SNCR
-Receita de controle especial e notificações A/B só por serviço integrado ao SNCR da Anvisa. Até lá, a tela avisa que
-controlados não são emitidos pelo MedSync.
+Receita de controle especial e notificações A/B só por serviço integrado ao SNCR da Anvisa. Até lá, o tipo
+"Controle especial" monta o rascunho no modelo de 2 vias (comprador e fornecedor em branco), mas a assinatura fica
+bloqueada com o motivo na tela; a API recusa assinar. Antimicrobiano (RDC 471/2021) usa o mesmo modelo de 2 vias e
+pode ser assinado: validade de 10 dias, quantidade obrigatória, endereço do paciente e da clínica obrigatórios.
