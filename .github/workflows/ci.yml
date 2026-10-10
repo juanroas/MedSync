@@ -66,7 +66,11 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
-      - run: npm audit --audit-level=high
+      # What ships to users (dependencies) must be free of high findings. Build-time tools are held to
+      # critical: Tailwind 3 pulls braces/micromatch, which have no patched 3.x line and only read our own
+      # glob patterns at build time. Remove the split after the move to Tailwind 4.
+      - run: npm audit --audit-level=high --omit=dev
+      - run: npm audit --audit-level=critical
       - uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
