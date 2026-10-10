@@ -19,6 +19,8 @@ public static partial class ApiEndpoints
         app.MapPost("/auth/login", Login).AllowAnonymous().RequireRateLimiting("auth");
         app.MapPost("/auth/login/mfa", LoginMfa).AllowAnonymous().RequireRateLimiting("auth");
         app.MapPost("/auth/register-clinic", RegisterClinic).AllowAnonymous().RequireRateLimiting("auth");
+        // Public (clinic sign-up has no session yet) and rate-limited like the auth routes.
+        app.MapGet("/address/zip/{zip}", LookupZipCode).AllowAnonymous().RequireRateLimiting("auth");
         app.MapPost("/payments/mercadopago/webhook", MercadoPagoWebhook).AllowAnonymous();
 
         var protectedApi = app.MapGroup(string.Empty).RequireAuthorization();
@@ -36,6 +38,8 @@ public static partial class ApiEndpoints
         protectedApi.MapPost("/staff-users/{id:guid}/reset-password", ResetStaffUserPassword);
         protectedApi.MapGet("/audit-events", GetAuditEvents);
         protectedApi.MapPost("/clinics/onboarding", CreateClinicOnboarding);
+        protectedApi.MapGet("/clinics/me", GetMyClinic);
+        protectedApi.MapPut("/clinics/me", UpdateMyClinic);
         protectedApi.MapGet("/clinics/activation", GetClinicActivations);
         protectedApi.MapPut("/clinics/{id:guid}/activation", UpdateClinicActivation);
         protectedApi.MapGet("/privacy/requests", GetPrivacyRequests);
@@ -954,6 +958,14 @@ public static partial class ApiEndpoints
             return Validation("clinicName", "Razão social deve ter até 180 caracteres.");
         if (tradeName.Length > 160)
             return Validation("tradeName", "Nome fantasia deve ter até 160 caracteres.");
+        if (request.Address is null)
+            return Validation("address", "Informe o endereço de atendimento da clínica.");
+        if (ValidateAddress(request.Address) is { } addressError)
+            return addressError;
+        if (!IsValidOptionalPhone(request.Phone))
+            return Validation("phone", "Informe um telefone válido com DDD.");
+        if (ValidateTechnicalDirector(request.TechnicalDirectorName, request.TechnicalDirectorCrm, request.TechnicalDirectorCrmUf) is { } directorError)
+            return directorError;
 
         var email = request.Email.Trim().ToLowerInvariant();
         if (await db.Users.AnyAsync(x => x.Email == email, cancellationToken))
@@ -968,8 +980,11 @@ public static partial class ApiEndpoints
             Slug = SecurityText.Slug(tradeName),
             LegalName = legalName,
             TaxId = taxId,
-            ActivationStatus = ClinicActivationStatus.Pending
+            ActivationStatus = ClinicActivationStatus.Pending,
+            Phone = request.Phone?.Trim()
         };
+        ApplyAddress(clinic, request.Address);
+        ApplyTechnicalDirector(clinic, request.TechnicalDirectorName, request.TechnicalDirectorCrm, request.TechnicalDirectorCrmUf);
         var user = new User
         {
             Name = request.Name.Trim(),
@@ -1145,6 +1160,12 @@ public static partial class ApiEndpoints
             return Validation("phone", "Informe um telefone válido com DDD.");
         if (request.ContinuousMedications?.Length > 2000)
             return Validation("continuousMedications", "Medicações de uso contínuo devem ter até 2000 caracteres.");
+        if (ValidateIdentification(request.SocialName, request.MotherName, request.MotherNameUndeclared, request.Sex, requireMother: true) is { } identificationError)
+            return identificationError;
+        if (request.Address is null)
+            return Validation("address", "Informe o endereço do paciente.");
+        if (ValidateAddress(request.Address) is { } addressError)
+            return addressError;
 
         var email = request.Email.Trim().ToLowerInvariant();
         if (await db.Patients.AnyAsync(
@@ -1192,6 +1213,8 @@ public static partial class ApiEndpoints
                 ? null
                 : request.ContinuousMedications.Trim()
         };
+        ApplyIdentification(patient, request.SocialName ?? "", request.MotherName, request.MotherNameUndeclared, request.Sex ?? "");
+        ApplyAddress(patient, request.Address);
         db.Patients.Add(patient);
 
         audit.Add(actor, "Patient.Create", "Patient", patient.Id);
@@ -1278,6 +1301,11 @@ public static partial class ApiEndpoints
             return Validation("phone", "Informe um telefone válido com DDD.");
         if (request.ContinuousMedications?.Length > 2000)
             return Validation("continuousMedications", "Medicações de uso contínuo devem ter até 2000 caracteres.");
+        var updatesMother = request.MotherName is not null || request.MotherNameUndeclared is not null;
+        if (ValidateIdentification(request.SocialName, request.MotherName, request.MotherNameUndeclared ?? false, request.Sex, requireMother: updatesMother) is { } identificationError)
+            return identificationError;
+        if (request.Address is not null && ValidateAddress(request.Address) is { } addressError)
+            return addressError;
 
         var email = request.Email.Trim().ToLowerInvariant();
         if (await db.Patients.AnyAsync(
@@ -1296,6 +1324,14 @@ public static partial class ApiEndpoints
         patient.ContinuousMedications = string.IsNullOrWhiteSpace(request.ContinuousMedications)
             ? null
             : request.ContinuousMedications.Trim();
+        ApplyIdentification(
+            patient,
+            request.SocialName,
+            updatesMother ? request.MotherName : patient.MotherName,
+            request.MotherNameUndeclared ?? patient.MotherNameUndeclared,
+            request.Sex);
+        if (request.Address is not null)
+            ApplyAddress(patient, request.Address);
         if (patient.User is not null)
         {
             patient.User.Name = name;
@@ -3208,7 +3244,19 @@ public static partial class ApiEndpoints
             SecurityText.MaskCpf(patient.Cpf),
             patient.BirthDate,
             patient.Phone,
-            includeContinuousMedications ? patient.ContinuousMedications : null);
+            includeContinuousMedications ? patient.ContinuousMedications : null,
+            patient.SocialName,
+            patient.MotherName,
+            patient.MotherNameUndeclared,
+            patient.Sex,
+            new AddressResponse(
+                patient.AddressZipCode,
+                patient.AddressStreet,
+                patient.AddressNumber,
+                patient.AddressComplement,
+                patient.AddressDistrict,
+                patient.AddressCity,
+                patient.AddressState));
 
     private static DoctorResponse ToResponse(Doctor doctor) =>
         new(doctor.Id, doctor.Name, doctor.Email, doctor.Crm, doctor.CrmUf, doctor.Specialty, doctor.Phone, doctor.ProfessionalAddress, doctor.Rqe);
@@ -3279,6 +3327,211 @@ public static partial class ApiEndpoints
             request.ResolutionNote,
             request.CreatedAt,
             request.UpdatedAt);
+
+    private static readonly HashSet<string> BrazilianStates =
+    [
+        "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG", "PA",
+        "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC", "SP", "SE", "TO"
+    ];
+
+    private static IResult? ValidateAddress(AddressInput address)
+    {
+        if (DigitsOnly(address.ZipCode ?? "").Length != 8)
+            return Validation("address.zipCode", "Informe um CEP com 8 dígitos.");
+        if (string.IsNullOrWhiteSpace(address.Street) || address.Street.Trim().Length > 160)
+            return Validation("address.street", "Informe o logradouro (até 160 caracteres).");
+        if (string.IsNullOrWhiteSpace(address.Number) || address.Number.Trim().Length > 20)
+            return Validation("address.number", "Informe o número (ou \"s/n\").");
+        if (address.Complement?.Trim().Length > 80)
+            return Validation("address.complement", "O complemento deve ter até 80 caracteres.");
+        if (string.IsNullOrWhiteSpace(address.District) || address.District.Trim().Length > 80)
+            return Validation("address.district", "Informe o bairro.");
+        if (string.IsNullOrWhiteSpace(address.City) || address.City.Trim().Length > 80)
+            return Validation("address.city", "Informe a cidade.");
+        if (!BrazilianStates.Contains((address.State ?? "").Trim().ToUpperInvariant()))
+            return Validation("address.state", "Escolha a UF.");
+        return null;
+    }
+
+    private static (string ZipCode, string Street, string Number, string? Complement, string District, string City, string State) NormalizeAddress(AddressInput address)
+    {
+        var zip = DigitsOnly(address.ZipCode);
+        return (
+            $"{zip[..5]}-{zip[5..]}",
+            address.Street.Trim(),
+            address.Number.Trim(),
+            string.IsNullOrWhiteSpace(address.Complement) ? null : address.Complement.Trim(),
+            address.District.Trim(),
+            address.City.Trim(),
+            address.State.Trim().ToUpperInvariant());
+    }
+
+    private static void ApplyAddress(Patient patient, AddressInput address)
+    {
+        var a = NormalizeAddress(address);
+        (patient.AddressZipCode, patient.AddressStreet, patient.AddressNumber, patient.AddressComplement,
+            patient.AddressDistrict, patient.AddressCity, patient.AddressState) = a;
+    }
+
+    private static void ApplyAddress(Clinic clinic, AddressInput address)
+    {
+        var a = NormalizeAddress(address);
+        (clinic.AddressZipCode, clinic.AddressStreet, clinic.AddressNumber, clinic.AddressComplement,
+            clinic.AddressDistrict, clinic.AddressCity, clinic.AddressState) = a;
+    }
+
+    private static IResult? ValidateIdentification(string? socialName, string? motherName, bool motherUndeclared, string? sex, bool requireMother)
+    {
+        if (socialName?.Trim().Length > 160)
+            return Validation("socialName", "O nome social deve ter até 160 caracteres.");
+        if (requireMother && !motherUndeclared && (string.IsNullOrWhiteSpace(motherName) || motherName.Trim().Length < 3))
+            return Validation("motherName", "Informe o nome da mãe ou marque \"Não declarado\".");
+        if (motherName?.Trim().Length > 160)
+            return Validation("motherName", "O nome da mãe deve ter até 160 caracteres.");
+        if (!string.IsNullOrEmpty(sex) && sex is not ("F" or "M"))
+            return Validation("sex", "Sexo deve ser F ou M.");
+        return null;
+    }
+
+    // Null keeps the stored value; an empty string clears social name and sex.
+    private static void ApplyIdentification(Patient patient, string? socialName, string? motherName, bool motherUndeclared, string? sex)
+    {
+        if (socialName is not null)
+            patient.SocialName = string.IsNullOrWhiteSpace(socialName) ? null : socialName.Trim();
+        patient.MotherNameUndeclared = motherUndeclared;
+        patient.MotherName = motherUndeclared || string.IsNullOrWhiteSpace(motherName) ? null : motherName.Trim();
+        if (sex is not null)
+            patient.Sex = string.IsNullOrWhiteSpace(sex) ? null : sex;
+    }
+
+    private static IResult? ValidateTechnicalDirector(string? name, string? crm, string? crmUf)
+    {
+        var any = !string.IsNullOrWhiteSpace(name) || !string.IsNullOrWhiteSpace(crm) || !string.IsNullOrWhiteSpace(crmUf);
+        if (!any)
+            return null;
+        if (string.IsNullOrWhiteSpace(name) || name.Trim().Length is < 3 or > 160)
+            return Validation("technicalDirectorName", "Informe o nome do médico responsável técnico.");
+        if (DigitsOnly(crm ?? "").Length is < 4 or > 10)
+            return Validation("technicalDirectorCrm", "Informe o número do CRM do responsável técnico.");
+        if (!BrazilianStates.Contains((crmUf ?? "").Trim().ToUpperInvariant()))
+            return Validation("technicalDirectorCrmUf", "Escolha a UF do CRM.");
+        return null;
+    }
+
+    private static void ApplyTechnicalDirector(Clinic clinic, string? name, string? crm, string? crmUf)
+    {
+        var any = !string.IsNullOrWhiteSpace(name) || !string.IsNullOrWhiteSpace(crm);
+        clinic.TechnicalDirectorName = any ? name!.Trim() : null;
+        clinic.TechnicalDirectorCrm = any ? DigitsOnly(crm!) : null;
+        clinic.TechnicalDirectorCrmUf = any ? crmUf!.Trim().ToUpperInvariant() : null;
+    }
+
+    private static ClinicProfileResponse ToProfileResponse(Clinic clinic) =>
+        new(
+            clinic.Id,
+            clinic.Name,
+            clinic.LegalName,
+            clinic.TaxId is null ? null : MaskTaxId(clinic.TaxId),
+            clinic.Phone,
+            new AddressResponse(
+                clinic.AddressZipCode,
+                clinic.AddressStreet,
+                clinic.AddressNumber,
+                clinic.AddressComplement,
+                clinic.AddressDistrict,
+                clinic.AddressCity,
+                clinic.AddressState),
+            clinic.FormattedAddress(),
+            clinic.TechnicalDirectorName,
+            clinic.TechnicalDirectorCrm,
+            clinic.TechnicalDirectorCrmUf,
+            clinic.ActivationStatus);
+
+    // "Dados da clínica": the clinic admin keeps name, phone, address and technical director up to date.
+    // CNPJ and legal name are checked by MedSync at activation, so they are read-only here.
+    private static async Task<IResult> GetMyClinic(
+        ClaimsPrincipal principal,
+        MedSyncDbContext db,
+        CancellationToken cancellationToken)
+    {
+        var actor = RequestContext.From(principal);
+        if (!actor.HasAny(ClinicRole.ClinicAdmin))
+            return Results.Forbid();
+        var clinic = await db.Clinics.AsNoTracking().SingleAsync(x => x.Id == actor.ClinicId, cancellationToken);
+        return Results.Ok(ToProfileResponse(clinic));
+    }
+
+    private static async Task<IResult> UpdateMyClinic(
+        UpdateClinicProfileRequest request,
+        ClaimsPrincipal principal,
+        MedSyncDbContext db,
+        AuditWriter audit,
+        RealtimeNotifier realtime,
+        CancellationToken cancellationToken)
+    {
+        var actor = RequestContext.From(principal);
+        if (!actor.HasAny(ClinicRole.ClinicAdmin))
+            return Results.Forbid();
+        var name = (request.Name ?? "").Trim();
+        if (name.Length is < 3 or > 160)
+            return Validation("name", "Informe o nome da clínica (3 a 160 caracteres).");
+        if (!IsValidOptionalPhone(request.Phone))
+            return Validation("phone", "Informe um telefone válido com DDD.");
+        if (request.Address is null)
+            return Validation("address", "Informe o endereço de atendimento da clínica.");
+        if (ValidateAddress(request.Address) is { } addressError)
+            return addressError;
+        if (ValidateTechnicalDirector(request.TechnicalDirectorName, request.TechnicalDirectorCrm, request.TechnicalDirectorCrmUf) is { } directorError)
+            return directorError;
+
+        var clinic = await db.Clinics.SingleAsync(x => x.Id == actor.ClinicId, cancellationToken);
+        clinic.Name = name;
+        clinic.Phone = string.IsNullOrWhiteSpace(request.Phone) ? null : request.Phone.Trim();
+        ApplyAddress(clinic, request.Address);
+        ApplyTechnicalDirector(clinic, request.TechnicalDirectorName, request.TechnicalDirectorCrm, request.TechnicalDirectorCrmUf);
+        audit.Add(actor, "Clinic.UpdateProfile", "Clinic", clinic.Id);
+        await db.SaveChangesAsync(cancellationToken);
+        await realtime.ClinicChangedAsync(clinic.Id);
+        return Results.Ok(ToProfileResponse(clinic));
+    }
+
+    // CEP lookup for the address forms. Called from the server so the third party (ViaCEP) never sees who is
+    // typing; any failure just returns 404 and the person fills the fields by hand.
+    private static async Task<IResult> LookupZipCode(
+        string zip,
+        IHttpClientFactory httpClientFactory,
+        CancellationToken cancellationToken)
+    {
+        var digits = DigitsOnly(zip);
+        if (digits.Length != 8)
+            return Validation("zip", "Informe um CEP com 8 dígitos.");
+        try
+        {
+            var client = httpClientFactory.CreateClient();
+            client.Timeout = TimeSpan.FromSeconds(4);
+            using var response = await client.GetAsync($"https://viacep.com.br/ws/{digits}/json/", cancellationToken);
+            if (!response.IsSuccessStatusCode)
+                return Results.NotFound();
+            using var json = await System.Text.Json.JsonDocument.ParseAsync(
+                await response.Content.ReadAsStreamAsync(cancellationToken), cancellationToken: cancellationToken);
+            var root = json.RootElement;
+            if (root.TryGetProperty("erro", out _))
+                return Results.NotFound();
+            string? Read(string name) => root.TryGetProperty(name, out var value) ? value.GetString() : null;
+            return Results.Ok(new AddressResponse(
+                $"{digits[..5]}-{digits[5..]}",
+                Read("logradouro"),
+                null,
+                null,
+                Read("bairro"),
+                Read("localidade"),
+                Read("uf")));
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or System.Text.Json.JsonException)
+        {
+            return Results.NotFound();
+        }
+    }
 
     private static IResult Validation(string key, string message) =>
         Results.ValidationProblem(new Dictionary<string, string[]> { [key] = [message] });

@@ -36,6 +36,7 @@ const navigation: Array<{
   { href: "/consultas", label: "Consultas", icon: CalendarDays, roles: ["Patient", "Doctor", "ClinicAdmin"] },
   { href: "/patients", label: "Pacientes", icon: Users, roles: ["Doctor", "Patient", "ClinicAdmin"] },
   { href: "/doctors", label: "Médicos", icon: Stethoscope, roles: ["Doctor", "ClinicAdmin"] },
+  { href: "/clinica", label: "Dados da clínica", icon: Building2, roles: ["ClinicAdmin"] },
   { href: "/acessos", label: "Equipe e acessos", icon: UserCog, roles: ["ClinicAdmin", "MedicalDirector"] },
   { href: "/auditoria", label: "Auditoria", icon: ListChecks, roles: ["ClinicAdmin", "DataProtectionOfficer"] },
   { href: "/ajuda", label: "Ajuda", icon: LifeBuoy },

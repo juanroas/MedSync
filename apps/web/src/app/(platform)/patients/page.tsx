@@ -1,23 +1,15 @@
 "use client";
 
+import { AddressFields, addressFromResponse, emptyAddress, isAddressComplete } from "@/components/address-fields";
 import { DoctorPatients } from "@/components/doctor-patients";
+import { PersonForm } from "@/components/person-form";
 import { ErrorBanner, EmptyState, LoadingState, PageHeader, SearchField, buttonClass, inputClass } from "@/components/ui";
 import { formatDate, formatDateTime, statusClass, statusLabel } from "@/lib/format";
-import type { Appointment, AppointmentStatus, Patient } from "@/lib/types";
-import { isValidCpf, isValidOptionalPhone, maskCpf } from "@/lib/validation";
+import type { Address, Appointment, AppointmentStatus, Patient } from "@/lib/types";
+import { isValidOptionalPhone } from "@/lib/validation";
 import { api, getSession, saveSession } from "@/services/api";
-import { Mail, Phone, Pill, Plus, UserRound } from "lucide-react";
+import { Mail, MapPin, Phone, Pill, Plus, UserRound } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useState } from "react";
-
-const initialForm = {
-  name: "",
-  email: "",
-  cpf: "",
-  birthDate: "",
-  phone: "",
-  temporaryPassword: "",
-  continuousMedications: "",
-};
 
 const initialEditForm = {
   name: "",
@@ -25,6 +17,9 @@ const initialEditForm = {
   birthDate: "",
   phone: "",
   continuousMedications: "",
+  socialName: "",
+  motherName: "",
+  motherNameUndeclared: false,
 };
 
 // Só médico: lista própria de pacientes atendidos. Paciente, ADM da clínica e quem acumula médico + ADM usam a tela abaixo.
@@ -41,14 +36,13 @@ function PatientsRegistry() {
   const canManage = roles.includes("ClinicAdmin");
   const [patients, setPatients] = useState<Patient[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
-  const [form, setForm] = useState(initialForm);
   const [editForm, setEditForm] = useState(initialEditForm);
+  const [editAddress, setEditAddress] = useState<Address>(emptyAddress);
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | AppointmentStatus>("all");
   const [specialtyFilter, setSpecialtyFilter] = useState("all");
   const [showForm, setShowForm] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
   const [updating, setUpdating] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -66,6 +60,11 @@ function PatientsRegistry() {
       .finally(() => setLoading(false));
   }, [isDoctor]);
 
+  // "Cadastrar pessoa" from the reception booking opens the form directly (?novo=1).
+  useEffect(() => {
+    if (canManage && new URLSearchParams(window.location.search).get("novo") === "1") setShowForm(true);
+  }, [canManage]);
+
   const ownPatient = isPatient ? patients[0] : undefined;
 
   useEffect(() => {
@@ -76,7 +75,11 @@ function PatientsRegistry() {
       birthDate: ownPatient.birthDate,
       phone: ownPatient.phone ?? "",
       continuousMedications: ownPatient.continuousMedications ?? "",
+      socialName: ownPatient.socialName ?? "",
+      motherName: ownPatient.motherName ?? "",
+      motherNameUndeclared: ownPatient.motherNameUndeclared ?? false,
     });
+    setEditAddress(addressFromResponse(ownPatient.address));
   }, [ownPatient]);
 
   const appointmentsByPatient = useMemo(() => {
@@ -119,42 +122,6 @@ function PatientsRegistry() {
     [appointmentsByPatient, isDoctor, patients, query, specialtyFilter, statusFilter],
   );
 
-  async function submit(event: FormEvent) {
-    event.preventDefault();
-    setSaving(true);
-    setError("");
-    if (form.name.trim().length < 3) {
-      setError("Informe o nome completo com pelo menos 3 caracteres.");
-      setSaving(false);
-      return;
-    }
-    if (!isValidCpf(form.cpf)) {
-      setError("Informe um CPF valido.");
-      setSaving(false);
-      return;
-    }
-    if (form.birthDate && new Date(`${form.birthDate}T00:00:00`).getTime() > Date.now()) {
-      setError("A data de nascimento nao pode estar no futuro.");
-      setSaving(false);
-      return;
-    }
-    if (!isValidOptionalPhone(form.phone)) {
-      setError("Informe um telefone valido com DDD.");
-      setSaving(false);
-      return;
-    }
-    try {
-      const created = await api.createPatient(form);
-      setPatients((items) => [...items, created].sort((a, b) => a.name.localeCompare(b.name)));
-      setForm(initialForm);
-      setShowForm(false);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Erro ao cadastrar paciente.");
-    } finally {
-      setSaving(false);
-    }
-  }
-
   async function submitUpdate(event: FormEvent) {
     event.preventDefault();
     if (!ownPatient) return;
@@ -176,8 +143,18 @@ function PatientsRegistry() {
       setUpdating(false);
       return;
     }
+    const addressTouched = Object.values(editAddress).some((value) => value?.trim());
+    if (addressTouched && !isAddressComplete(editAddress)) {
+      setError("Preencha o endereço completo (CEP, logradouro, número, bairro, cidade e UF).");
+      setUpdating(false);
+      return;
+    }
     try {
-      const updated = await api.updatePatient(ownPatient.id, editForm);
+      const updated = await api.updatePatient(ownPatient.id, {
+        ...editForm,
+        motherName: editForm.motherNameUndeclared ? undefined : editForm.motherName,
+        address: addressTouched ? editAddress : undefined,
+      });
       setPatients((items) => items.map((patient) => patient.id === updated.id ? updated : patient));
       saveSession(await api.me());
       setSuccess("Cadastro atualizado com seguranca.");
@@ -271,6 +248,39 @@ function PatientsRegistry() {
               maxLength={2000}
             />
           </label>
+          <div className="mt-4 grid gap-4 md:grid-cols-2">
+            <label className="block">
+              <span className="mb-2 block text-xs font-bold text-slate-600">Nome social (opcional)</span>
+              <input
+                className={inputClass}
+                value={editForm.socialName}
+                onChange={(event) => setEditForm({ ...editForm, socialName: event.target.value })}
+                maxLength={160}
+              />
+            </label>
+            <label className="block">
+              <span className="mb-2 block text-xs font-bold text-slate-600">Nome da mãe</span>
+              <input
+                className={inputClass}
+                value={editForm.motherName}
+                onChange={(event) => setEditForm({ ...editForm, motherName: event.target.value })}
+                disabled={editForm.motherNameUndeclared}
+                maxLength={160}
+              />
+              <span className="mt-2 flex items-center gap-2 text-xs text-slate-500">
+                <input
+                  type="checkbox"
+                  checked={editForm.motherNameUndeclared}
+                  onChange={(event) => setEditForm({ ...editForm, motherNameUndeclared: event.target.checked, motherName: "" })}
+                />
+                Não declarado
+              </span>
+            </label>
+          </div>
+          <div className="mt-5">
+            <h3 className="mb-3 text-xs font-bold uppercase tracking-[0.08em] text-slate-500">Endereço</h3>
+            <AddressFields value={editAddress} onChange={setEditAddress} required={false} />
+          </div>
           <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-xs text-slate-400">Atualizacoes geram trilha de auditoria.</p>
             <button className={buttonClass} disabled={updating}>
@@ -285,59 +295,22 @@ function PatientsRegistry() {
         </div>
       )}
       {showForm && (
-        <form onSubmit={submit} className="mb-7 rounded-lg border border-teal-100 bg-white p-6 shadow-soft">
+        <div className="mb-7 rounded-lg border border-teal-100 bg-white p-6 shadow-soft">
           <div className="mb-5">
             <h2 className="font-bold text-ink">Cadastrar paciente</h2>
-            <p className="mt-1 text-xs text-slate-400">Preencha os dados para criar um novo cadastro.</p>
+            <p className="mt-1 text-xs text-slate-400">Pessoa física: identificação, contato e endereço.</p>
           </div>
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {[
-              ["name", "Nome completo", "text"],
-              ["email", "E-mail", "email"],
-              ["cpf", "CPF", "text"],
-              ["birthDate", "Nascimento", "date"],
-              ["phone", "Telefone", "tel"],
-              ["temporaryPassword", "Senha temporaria", "password"],
-            ].map(([key, label, type]) => (
-              <label key={key} className="block">
-                <span className="mb-2 block text-xs font-bold text-slate-600">{label}</span>
-                <input
-                  className={inputClass}
-                  type={type}
-                  value={form[key as keyof typeof form]}
-                  onChange={(event) =>
-                    setForm({
-                      ...form,
-                      [key]: key === "cpf" ? maskCpf(event.target.value) : event.target.value,
-                    })
-                  }
-                  required={key !== "phone"}
-                  minLength={key === "temporaryPassword" ? 12 : undefined}
-                  max={key === "birthDate" ? new Date().toISOString().slice(0, 10) : undefined}
-                  maxLength={key === "cpf" ? 14 : undefined}
-                />
-              </label>
-            ))}
-          </div>
-          <label className="mt-4 block">
-            <span className="mb-2 block text-xs font-bold text-slate-600">Medicacoes de uso continuo (opcional)</span>
-            <textarea
-              className={`${inputClass} h-24 resize-none py-2.5`}
-              placeholder="Ex.: Losartana 50mg (1x ao dia), Metformina 850mg (2x ao dia)"
-              value={form.continuousMedications}
-              onChange={(event) => setForm({ ...form, continuousMedications: event.target.value })}
-              maxLength={2000}
-            />
-          </label>
-          <div className="mt-5 flex justify-end gap-3">
-            <button type="button" className="h-11 px-4 text-sm font-bold text-slate-500" onClick={() => setShowForm(false)}>
-              Cancelar
-            </button>
-            <button className={buttonClass} disabled={saving}>
-              {saving ? "Salvando..." : "Salvar paciente"}
-            </button>
-          </div>
-        </form>
+          <PersonForm
+            submitLabel="Salvar paciente"
+            onCancel={() => setShowForm(false)}
+            onCreated={(created) => {
+              setPatients((items) => [...items, created].sort((a, b) => a.name.localeCompare(b.name)));
+              setShowForm(false);
+              const back = new URLSearchParams(window.location.search).get("volta");
+              if (back?.startsWith("/")) window.location.assign(`${back}${back.includes("?") ? "&" : "?"}paciente=${created.id}`);
+            }}
+          />
+        </div>
       )}
 
       {!isPatient && (
@@ -423,6 +396,11 @@ function PatientsRegistry() {
                 <p className="flex items-center gap-2.5"><Mail size={15} className="text-teal-600" /> {patient.email}</p>
                 <p className="flex items-center gap-2.5"><Phone size={15} className="text-teal-600" /> {patient.phone || "Nao informado"}</p>
                 <p className="text-xs text-slate-400">Nascimento: {formatDate(patient.birthDate)}</p>
+                {patient.address?.city && (
+                  <p className="flex items-center gap-2.5 text-xs">
+                    <MapPin size={15} className="text-teal-600" /> {patient.address.city}/{patient.address.state}
+                  </p>
+                )}
               </div>
               {isDoctor && patient.continuousMedications && (
                 <div className="mt-4 flex gap-2.5 rounded-lg border border-amber-100 bg-amber-50/70 p-3 text-xs text-amber-800">

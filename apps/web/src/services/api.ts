@@ -18,6 +18,9 @@ import type {
   ConsultationRoom,
   Doctor,
   DoctorAvailabilitySlot,
+  Address,
+  AddressResponse,
+  ClinicProfile,
   DoctorSchedule,
   DoctorTimeOff,
   ConsultationModality,
@@ -146,6 +149,11 @@ export const api = {
     name: string;
     email: string;
     password: string;
+    address: Address;
+    phone?: string;
+    technicalDirectorName?: string;
+    technicalDirectorCrm?: string;
+    technicalDirectorCrmUf?: string;
   }) =>
     request<LoginResponse>("/auth/register-clinic", {
       method: "POST",
@@ -253,6 +261,11 @@ export const api = {
     phone?: string;
     temporaryPassword: string;
     continuousMedications?: string;
+    socialName?: string;
+    motherName?: string;
+    motherNameUndeclared: boolean;
+    sex?: string;
+    address: Address;
   }) =>
     request<Patient>("/patients", {
       method: "POST",
@@ -264,10 +277,29 @@ export const api = {
     birthDate: string;
     phone?: string;
     continuousMedications?: string;
+    socialName?: string;
+    motherName?: string;
+    motherNameUndeclared?: boolean;
+    sex?: string;
+    address?: Address;
   }) =>
     request<Patient>(`/patients/${id}`, {
       method: "PUT",
       body: JSON.stringify(patient),
+    }),
+  lookupZipCode: (zip: string) => request<AddressResponse>(`/address/zip/${zip}`),
+  getMyClinic: () => request<ClinicProfile>("/clinics/me"),
+  updateMyClinic: (clinic: {
+    name: string;
+    phone?: string;
+    address: Address;
+    technicalDirectorName?: string;
+    technicalDirectorCrm?: string;
+    technicalDirectorCrmUf?: string;
+  }) =>
+    request<ClinicProfile>("/clinics/me", {
+      method: "PUT",
+      body: JSON.stringify(clinic),
     }),
 
   getDoctors: () => request<Doctor[]>("/doctors"),

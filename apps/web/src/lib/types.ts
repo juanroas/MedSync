@@ -96,6 +96,23 @@ export type AuditEvent = {
   createdAt: string;
 };
 
+export type Address = {
+  zipCode: string;
+  street: string;
+  number: string;
+  complement?: string;
+  district: string;
+  city: string;
+  state: string;
+};
+
+export type AddressResponse = { [K in keyof Address]?: string | null };
+
+export const BRAZILIAN_STATES = [
+  "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG", "PA",
+  "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC", "SP", "SE", "TO",
+];
+
 export type Patient = {
   id: string;
   name: string;
@@ -104,6 +121,25 @@ export type Patient = {
   birthDate: string;
   phone?: string;
   continuousMedications?: string;
+  socialName?: string | null;
+  motherName?: string | null;
+  motherNameUndeclared?: boolean;
+  sex?: "F" | "M" | null;
+  address?: AddressResponse | null;
+};
+
+export type ClinicProfile = {
+  id: string;
+  name: string;
+  legalName?: string | null;
+  taxIdMasked?: string | null;
+  phone?: string | null;
+  address: AddressResponse;
+  formattedAddress?: string | null;
+  technicalDirectorName?: string | null;
+  technicalDirectorCrm?: string | null;
+  technicalDirectorCrmUf?: string | null;
+  activationStatus: ClinicActivationStatus;
 };
 
 export type Doctor = {

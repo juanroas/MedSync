@@ -38,7 +38,7 @@ Qualquer PR que adicione tela, item de menu ou botão que navega **atualiza este
 |---|---|
 | Paciente | Painel · Minhas consultas · Meu cadastro · Ajuda (inclui "Pedido sobre meus dados") |
 | Médico | Painel · Agenda · Pacientes vinculados · Meu perfil · Ajuda |
-| ADM da clínica | Painel · Meus dados · Consultas · Pacientes · Médicos · Equipe e acessos · Auditoria (da clínica) · Ajuda |
+| ADM da clínica | Painel · Meus dados · Consultas · Pacientes · Médicos · Dados da clínica · Equipe e acessos · Auditoria (da clínica) · Ajuda |
 | Médico ADM MedSync | Painel · Meus dados · Clínicas · Equipe MedSync · Ajuda (fila) |
 | Suporte | Painel · Meus dados · Clínicas · Ajuda (fila) |
 | DPO MedSync | Painel · Meus dados · Auditoria (todas as clínicas) · Ajuda · Privacidade (fila) |
@@ -71,6 +71,9 @@ o bloco fixo "Nova consulta" — a ação vive no header de `/consultas` e no Pa
 | `/doctors` (Meu perfil) | Médico (só médico) | **Salvar** | "Pronto para receitas" é leitura; correção de CRM/especialidade vai pela Ajuda |
 | `/receita/{id}` | Médico (rascunho e assinada), paciente (só assinada) | Rascunho: **Assinar com certificado digital** (desabilitado com o motivo quando falta dado ou integração) · Assinada: **Baixar PDF assinado** | Secundárias: "Imprimir rascunho"; "Enviar pelo WhatsApp" só para o médico, com a receita assinada. Rascunho sai com a marca "sem validade" |
 | `/clinicas` | Suporte, Médico ADM | **Cadastrar clínica** (onboarding assistido) | só o Médico ADM ativa/suspende e define plano, por linha |
+| `/patients` (Pacientes) | ADM da clínica | **Novo paciente** | Cadastro de pessoa física: nome, nome social, CPF, nascimento, sexo, nome da mãe (ou "Não declarado"), contato, endereço com busca de CEP. Abre direto com `?novo=1` (vindo do agendamento da recepção) |
+| `/clinica` (Dados da clínica) | ADM da clínica | **Salvar dados** | Nome fantasia, telefone, endereço de atendimento e responsável técnico; razão social e CNPJ só leitura (correção pela Ajuda) |
+| `/cadastro` | visitante | **Criar conta** | Clínica informa razão social, nome fantasia, CNPJ, telefone, **endereço de atendimento** (obrigatório) e responsável técnico (opcional) |
 | `/acessos` | ADM da clínica, Médico ADM | **Novo acesso** | ADM cria ADM da clínica; Médico ADM cria Médico ADM/Suporte/DPO; ninguém desabilita o próprio acesso |
 
 Confirmações usam a janela do MedSync (`components/dialog.tsx`, `useConfirm`), nunca o `confirm()` do navegador.

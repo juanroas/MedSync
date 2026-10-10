@@ -8,6 +8,13 @@ test.describe("autocadastro de clínica", () => {
     await page.getByRole("textbox", { name: "Razão social", exact: true }).fill(`Clínica Autocadastro ${seed} Ltda`);
     await page.getByRole("textbox", { name: "Nome fantasia", exact: true }).fill(`Clínica Autocadastro ${seed}`);
     await page.getByRole("textbox", { name: "CNPJ", exact: true }).fill(validCnpjFromSeed(Number(seed) + 7));
+    // Endereço preenchido à mão (a busca de CEP só completa campos vazios).
+    await page.getByRole("textbox", { name: "Logradouro", exact: true }).fill("Rua das Clínicas");
+    await page.getByRole("textbox", { name: "Número", exact: true }).fill("10");
+    await page.getByRole("textbox", { name: "Bairro", exact: true }).fill("Centro");
+    await page.getByRole("textbox", { name: "Cidade", exact: true }).fill("Campinas");
+    await page.getByLabel("UF", { exact: true }).selectOption("SP");
+    await page.getByRole("textbox", { name: "CEP", exact: true }).fill("13010-000");
     await page.getByRole("textbox", { name: "Seu nome", exact: true }).fill("Admin Autocadastro");
     await page.getByRole("textbox", { name: "E-mail", exact: true }).fill(`autocadastro.${seed}@medsync.dev`);
     await page.getByLabel("Senha", { exact: true }).fill("Autocadastro123!");

@@ -355,7 +355,11 @@ export default function ClinicalRecordPage() {
             </Card>
 
             {canEditClinicalRecord && (
-              <PrescriptionPanel appointmentId={appointmentId} patientId={appointment.patientId} />
+              <PrescriptionPanel
+                appointmentId={appointmentId}
+                patientId={appointment.patientId}
+                canIssue={appointment.status !== "Cancelled"}
+              />
             )}
           </div>
 

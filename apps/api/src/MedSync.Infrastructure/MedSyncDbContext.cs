@@ -54,6 +54,9 @@ public sealed class MedSyncDbContext(DbContextOptions<MedSyncDbContext> options)
             entity.Property(x => x.AddressCity).HasMaxLength(80);
             entity.Property(x => x.AddressState).HasMaxLength(2);
             entity.Property(x => x.Phone).HasMaxLength(20);
+            entity.Property(x => x.TechnicalDirectorName).HasMaxLength(160);
+            entity.Property(x => x.TechnicalDirectorCrm).HasMaxLength(20);
+            entity.Property(x => x.TechnicalDirectorCrmUf).HasMaxLength(2);
             entity.Property(x => x.PlanName).HasMaxLength(120);
             entity.Property(x => x.MonthlyFee).HasPrecision(12, 2);
         });
@@ -86,6 +89,16 @@ public sealed class MedSyncDbContext(DbContextOptions<MedSyncDbContext> options)
 
         modelBuilder.Entity<Patient>(entity =>
         {
+            entity.Property(x => x.SocialName).HasMaxLength(160);
+            entity.Property(x => x.MotherName).HasMaxLength(160);
+            entity.Property(x => x.Sex).HasMaxLength(1);
+            entity.Property(x => x.AddressZipCode).HasMaxLength(9);
+            entity.Property(x => x.AddressStreet).HasMaxLength(160);
+            entity.Property(x => x.AddressNumber).HasMaxLength(20);
+            entity.Property(x => x.AddressComplement).HasMaxLength(80);
+            entity.Property(x => x.AddressDistrict).HasMaxLength(80);
+            entity.Property(x => x.AddressCity).HasMaxLength(80);
+            entity.Property(x => x.AddressState).HasMaxLength(2);
             entity.HasIndex(x => new { x.ClinicId, x.Email }).IsUnique();
             entity.HasIndex(x => new { x.ClinicId, x.Cpf }).IsUnique();
             entity.HasIndex(x => new { x.ClinicId, x.UserId }).IsUnique();

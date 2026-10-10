@@ -1,7 +1,10 @@
 "use client";
 
+import { AddressFields, emptyAddress, isAddressComplete } from "@/components/address-fields";
 import { Logo } from "@/components/logo";
 import { ErrorBanner, buttonClass, inputClass } from "@/components/ui";
+import { BRAZILIAN_STATES } from "@/lib/types";
+import type { Address } from "@/lib/types";
 import { api, saveSession } from "@/services/api";
 import { ArrowLeft, Building2 } from "lucide-react";
 import Link from "next/link";
@@ -17,18 +20,32 @@ export default function RegisterCompanyPage() {
     name: "",
     email: "",
     password: "",
+    phone: "",
+    technicalDirectorName: "",
+    technicalDirectorCrm: "",
+    technicalDirectorCrmUf: "",
   });
+  const [address, setAddress] = useState<Address>(emptyAddress);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   async function submit(event: FormEvent) {
     event.preventDefault();
-    setLoading(true);
     setError("");
+    if (!isAddressComplete(address)) {
+      setError("Preencha o endereço completo da clínica (CEP, logradouro, número, bairro, cidade e UF).");
+      return;
+    }
+    setLoading(true);
     try {
       const session = await api.registerClinic({
         ...form,
         taxId: onlyDigits(form.taxId),
+        address,
+        phone: form.phone || undefined,
+        technicalDirectorName: form.technicalDirectorName || undefined,
+        technicalDirectorCrm: form.technicalDirectorCrm || undefined,
+        technicalDirectorCrmUf: form.technicalDirectorCrmUf || undefined,
       });
       saveSession(session);
       router.push("/dashboard");
@@ -83,6 +100,40 @@ export default function RegisterCompanyPage() {
               onChange={(taxId) => setForm({ ...form, taxId: maskCnpj(taxId) })}
               placeholder="00.000.000/0000-00"
             />
+            <label className="block">
+              <span className="mb-2 block text-label font-semibold text-slate-700">Telefone da clínica (opcional)</span>
+              <input className={inputClass} type="tel" value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value })} />
+            </label>
+            <div className="border-t border-slate-100 pt-5">
+              <p className="text-label font-semibold text-ink">Endereço de atendimento</p>
+              <p className="mt-1 text-caption text-slate-400">Aparece para o paciente que escolhe consulta presencial e sai nas receitas.</p>
+            </div>
+            <AddressFields value={address} onChange={setAddress} />
+            <div className="border-t border-slate-100 pt-5">
+              <p className="text-label font-semibold text-ink">Responsável técnico (opcional agora)</p>
+              <p className="mt-1 text-caption text-slate-400">Médico responsável pela clínica no CRM. Pode ser informado depois em Dados da clínica.</p>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-[2fr_1fr_1fr]">
+              <label className="block">
+                <span className="mb-2 block text-label font-semibold text-slate-700">Nome do médico</span>
+                <input className={inputClass} value={form.technicalDirectorName} maxLength={160} onChange={(event) => setForm({ ...form, technicalDirectorName: event.target.value })} />
+              </label>
+              <label className="block">
+                <span className="mb-2 block text-label font-semibold text-slate-700">CRM</span>
+                <input className={inputClass} inputMode="numeric" value={form.technicalDirectorCrm} maxLength={10} onChange={(event) => setForm({ ...form, technicalDirectorCrm: event.target.value })} />
+              </label>
+              <label className="block">
+                <span className="mb-2 block text-label font-semibold text-slate-700">UF do CRM</span>
+                <select className={inputClass} value={form.technicalDirectorCrmUf} onChange={(event) => setForm({ ...form, technicalDirectorCrmUf: event.target.value })}>
+                  <option value="">—</option>
+                  {BRAZILIAN_STATES.map((uf) => (
+                    <option key={uf} value={uf}>
+                      {uf}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
             <div className="border-t border-slate-100 pt-5">
               <p className="text-label font-semibold text-ink">Seu acesso de administrador</p>
             </div>

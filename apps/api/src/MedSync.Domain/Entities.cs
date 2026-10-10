@@ -119,6 +119,10 @@ public sealed class Clinic
     public string? AddressCity { get; set; }
     public string? AddressState { get; set; }
     public string? Phone { get; set; }
+    // Médico responsável técnico da clínica (CFM 2.147/2016).
+    public string? TechnicalDirectorName { get; set; }
+    public string? TechnicalDirectorCrm { get; set; }
+    public string? TechnicalDirectorCrmUf { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public ICollection<ClinicMembership> Memberships { get; set; } = [];
 
@@ -186,6 +190,18 @@ public sealed class Patient
     public required string Cpf { get; set; }
     public DateOnly BirthDate { get; set; }
     public string? Phone { get; set; }
+    // Identification printed on the controlled-drug prescription and used to tell homonyms apart.
+    public string? SocialName { get; set; }
+    public string? MotherName { get; set; }
+    public bool MotherNameUndeclared { get; set; }
+    public string? Sex { get; set; }
+    public string? AddressZipCode { get; set; }
+    public string? AddressStreet { get; set; }
+    public string? AddressNumber { get; set; }
+    public string? AddressComplement { get; set; }
+    public string? AddressDistrict { get; set; }
+    public string? AddressCity { get; set; }
+    public string? AddressState { get; set; }
     public string? ContinuousMedications { get; set; }
     public ICollection<Appointment> Appointments { get; set; } = [];
 }

@@ -25,6 +25,8 @@ test.describe("fluxo completo de consulta", () => {
         birthDate: "1990-01-01",
         phone: "11999990000",
         temporaryPassword: password,
+        motherName: "Maria E2E",
+        address: { zipCode: "01310-100", street: "Avenida Paulista", number: "1000", district: "Bela Vista", city: "São Paulo", state: "SP" },
       },
     });
     expect(patientResponse.status()).toBe(201);

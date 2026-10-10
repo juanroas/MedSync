@@ -41,7 +41,16 @@ const kindLabel: Record<PrescriptionKind, string> = {
   Antimicrobial: "Antimicrobiano (2 vias, validade 10 dias)",
 };
 
-export function PrescriptionPanel({ appointmentId, patientId }: { appointmentId: string; patientId: string }) {
+// canIssue: a cancelled consultation keeps its history but takes no new prescription (the API refuses it too).
+export function PrescriptionPanel({
+  appointmentId,
+  patientId,
+  canIssue = true,
+}: {
+  appointmentId: string;
+  patientId: string;
+  canIssue?: boolean;
+}) {
   const [prescriptions, setPrescriptions] = useState<Prescription[]>([]);
   const [medications, setMedications] = useState<PatientMedications | null>(null);
   const [draft, setDraft] = useState<Draft | null>(null);
@@ -148,7 +157,10 @@ export function PrescriptionPanel({ appointmentId, patientId }: { appointmentId:
             Monte a receita com a base de medicamentos da Anvisa. Controlados (Portaria 344) não são emitidos aqui.
           </p>
         </div>
-        {!draft && (
+        {!draft && !canIssue && (
+          <p className="text-xs font-semibold text-slate-500">Consulta cancelada: não é possível emitir receita.</p>
+        )}
+        {!draft && canIssue && (
           <div className="flex shrink-0 flex-wrap gap-2">
             {medications && medications.items.length > 0 && (
               <button type="button" className={secondaryButtonClass} onClick={startRenewal}>

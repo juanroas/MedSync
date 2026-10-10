@@ -9,7 +9,52 @@ public sealed record RegisterClinicRequest(
     string Email,
     string Password,
     string? TradeName,
-    string? TaxId);
+    string? TaxId,
+    AddressInput? Address = null,
+    string? Phone = null,
+    string? TechnicalDirectorName = null,
+    string? TechnicalDirectorCrm = null,
+    string? TechnicalDirectorCrmUf = null);
+
+// Brazilian address as typed in the forms; ZipCode with or without the dash, State as the two-letter UF.
+public sealed record AddressInput(
+    string ZipCode,
+    string Street,
+    string Number,
+    string? Complement,
+    string District,
+    string City,
+    string State);
+
+public sealed record AddressResponse(
+    string? ZipCode,
+    string? Street,
+    string? Number,
+    string? Complement,
+    string? District,
+    string? City,
+    string? State);
+
+public sealed record ClinicProfileResponse(
+    Guid Id,
+    string Name,
+    string? LegalName,
+    string? TaxIdMasked,
+    string? Phone,
+    AddressResponse Address,
+    string? FormattedAddress,
+    string? TechnicalDirectorName,
+    string? TechnicalDirectorCrm,
+    string? TechnicalDirectorCrmUf,
+    ClinicActivationStatus ActivationStatus);
+
+public sealed record UpdateClinicProfileRequest(
+    string Name,
+    string? Phone,
+    AddressInput Address,
+    string? TechnicalDirectorName,
+    string? TechnicalDirectorCrm,
+    string? TechnicalDirectorCrmUf);
 public sealed record ChangePasswordRequest(string CurrentPassword, string NewPassword);
 public sealed record LoginResponse(UserSummary User);
 public sealed record MfaRequiredResponse(bool MfaRequired, string PendingToken);
@@ -117,7 +162,12 @@ public sealed record CreatePatientRequest(
     DateOnly BirthDate,
     string? Phone,
     string TemporaryPassword,
-    string? ContinuousMedications = null);
+    string? ContinuousMedications = null,
+    string? SocialName = null,
+    string? MotherName = null,
+    bool MotherNameUndeclared = false,
+    string? Sex = null,
+    AddressInput? Address = null);
 
 public sealed record PatientResponse(
     Guid Id,
@@ -126,14 +176,25 @@ public sealed record PatientResponse(
     string CpfMasked,
     DateOnly BirthDate,
     string? Phone,
-    string? ContinuousMedications);
+    string? ContinuousMedications,
+    string? SocialName = null,
+    string? MotherName = null,
+    bool MotherNameUndeclared = false,
+    string? Sex = null,
+    AddressResponse? Address = null);
 
+// Identification fields left null keep their value; an empty string clears SocialName or Sex.
 public sealed record UpdatePatientRequest(
     string Name,
     string Email,
     DateOnly BirthDate,
     string? Phone,
-    string? ContinuousMedications = null);
+    string? ContinuousMedications = null,
+    string? SocialName = null,
+    string? MotherName = null,
+    bool? MotherNameUndeclared = null,
+    string? Sex = null,
+    AddressInput? Address = null);
 
 public sealed record CreateDoctorRequest(
     string Name,
