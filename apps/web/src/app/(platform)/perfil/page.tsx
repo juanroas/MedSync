@@ -46,7 +46,7 @@ export default function PersonalProfilePage() {
       return;
     }
     if (!isValidOptionalPhone(form.phone)) {
-      setError("Informe um telefone valido com DDD.");
+      setError("Informe um telefone válido com DDD.");
       setSaving(false);
       return;
     }
@@ -93,9 +93,9 @@ export default function PersonalProfilePage() {
                 <UserRoundCog size={22} />
               </span>
               <div>
-                <h2 className="text-xl font-bold text-ink">Informacoes pessoais</h2>
+                <h2 className="text-xl font-bold text-ink">Informações pessoais</h2>
                 <p className="mt-1 text-sm leading-6 text-slate-500">
-                  Esses campos atualizam sua conta. Quando houver cadastro de paciente ou medico vinculado, nome, e-mail e telefone sao sincronizados.
+                  Esses campos atualizam sua conta. Quando houver cadastro de paciente ou médico vinculado, nome, e-mail e telefone são sincronizados.
                 </p>
               </div>
             </div>
@@ -141,7 +141,7 @@ export default function PersonalProfilePage() {
             </div>
 
             <div className="mt-7 flex flex-col gap-3 border-t border-slate-100 pt-5 sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-xs text-slate-400">Atualizacao restrita ao proprio usuario e registrada em auditoria.</p>
+              <p className="text-xs text-slate-400">Atualização restrita ao próprio usuário e registrada em auditoria.</p>
               <button className={buttonClass} disabled={saving}>
                 <CheckCircle2 size={17} />
                 {saving ? "Salvando..." : "Salvar meus dados"}
@@ -172,7 +172,7 @@ export default function PersonalProfilePage() {
                 <div>
                   <h2 className="font-bold text-ink">Campos protegidos</h2>
                   <p className="mt-1 text-sm leading-6 text-slate-500">
-                    Estes dados dependem de processo administrativo, juridico, DPO, diretor tecnico ou suporte autorizado.
+                    Estes dados dependem de processo administrativo, juridico, DPO, diretor técnico ou suporte autorizado.
                   </p>
                 </div>
               </div>
@@ -214,7 +214,7 @@ function MfaCard({ mfaEnabled, onChange }: { mfaEnabled: boolean; onChange: (ena
       setOtpAuthUri(result.otpAuthUri);
       setEnrolling(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Erro ao iniciar verificacao em duas etapas.");
+      setError(err instanceof Error ? err.message : "Erro ao iniciar verificação em duas etapas.");
     } finally {
       setSaving(false);
     }
@@ -228,10 +228,10 @@ function MfaCard({ mfaEnabled, onChange }: { mfaEnabled: boolean; onChange: (ena
       await api.confirmMfa(code);
       setEnrolling(false);
       setCode("");
-      setSuccess("Verificacao em duas etapas ativada.");
+      setSuccess("Verificação em duas etapas ativada.");
       onChange(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Codigo invalido.");
+      setError(err instanceof Error ? err.message : "Código inválido.");
     } finally {
       setSaving(false);
     }
@@ -245,7 +245,7 @@ function MfaCard({ mfaEnabled, onChange }: { mfaEnabled: boolean; onChange: (ena
       await api.disableMfa(password);
       setDisabling(false);
       setPassword("");
-      setSuccess("Verificacao em duas etapas desativada.");
+      setSuccess("Verificação em duas etapas desativada.");
       onChange(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Senha incorreta.");
@@ -261,11 +261,11 @@ function MfaCard({ mfaEnabled, onChange }: { mfaEnabled: boolean; onChange: (ena
           <KeyRound size={20} />
         </span>
         <div className="min-w-0 flex-1">
-          <h2 className="font-bold text-ink">Verificacao em duas etapas</h2>
+          <h2 className="font-bold text-ink">Verificação em duas etapas</h2>
           <p className="mt-1 text-sm leading-6 text-slate-500">
             {mfaEnabled
-              ? "Ativada. Um codigo do seu aplicativo autenticador e exigido a cada login."
-              : "Adicione uma camada extra de seguranca com um aplicativo autenticador (Google Authenticator, Authy)."}
+              ? "Ativada. Um código do seu aplicativo autenticador e exigido a cada login."
+              : "Adicione uma camada extra de segurança com um aplicativo autenticador (Google Authenticator, Authy)."}
           </p>
         </div>
       </div>
@@ -275,7 +275,7 @@ function MfaCard({ mfaEnabled, onChange }: { mfaEnabled: boolean; onChange: (ena
 
       {!mfaEnabled && !enrolling && (
         <button className={`${buttonClass} mt-5 w-full`} onClick={startEnroll} disabled={saving}>
-          {saving ? "Gerando..." : "Ativar verificacao em duas etapas"}
+          {saving ? "Gerando..." : "Ativar verificação em duas etapas"}
         </button>
       )}
 
@@ -292,7 +292,7 @@ function MfaCard({ mfaEnabled, onChange }: { mfaEnabled: boolean; onChange: (ena
             {otpAuthUri}
           </a>
           <label className="block">
-            <span className="mb-2 block text-xs font-bold text-slate-600">Codigo de confirmacao</span>
+            <span className="mb-2 block text-xs font-bold text-slate-600">Código de confirmação</span>
             <input
               className={`${inputClass} text-center tracking-[0.3em]`}
               inputMode="numeric"

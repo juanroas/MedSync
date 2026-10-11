@@ -92,7 +92,7 @@ export default function NewAppointmentPage() {
       return;
     }
     if (form.durationMinutes < 10) {
-      setError("A duracao minima da consulta e de 10 minutos.");
+      setError("A duração minima da consulta e de 10 minutos.");
       setSaving(false);
       return;
     }
@@ -141,7 +141,7 @@ export default function NewAppointmentPage() {
           Este perfil não cria agenda. A consulta é solicitada pelo paciente ou agendada pela clínica.
         </div>
       ) : loading ? (
-        <LoadingState label="Preparando formulario..." />
+        <LoadingState label="Preparando formulário..." />
       ) : isPatient ? (
         <PatientRequestForm
           form={form}
@@ -165,7 +165,7 @@ export default function NewAppointmentPage() {
 }
 
 function isNoDoctorAvailableError(message: string) {
-  return /n[aã]o h[aá] medico dispon[ií]vel|nao esta disponivel neste horario/i.test(message);
+  return /n[aã]o h[aá] m[eé]dico dispon[ií]vel|n[aã]o est[aá] dispon[ií]vel neste hor[aá]rio/i.test(message);
 }
 
 type AppointmentForm = {
@@ -187,8 +187,10 @@ function ModalityPicker({
   options,
   onChange,
   label = "Como quer ser atendido",
+  inPersonPendingAddress = false,
 }: {
   label?: string;
+  inPersonPendingAddress?: boolean;
   value: ConsultationModality;
   options: ConsultationModality[];
   onChange: (modality: ConsultationModality) => void;
@@ -217,10 +219,16 @@ function ModalityPicker({
           );
         })}
       </div>
-      {options.length === 1 && (
-        <span className="mt-2 block text-xs text-slate-400">
-          Nesta especialidade só há atendimento {options[0] === "Online" ? "online" : "presencial"}.
+      {inPersonPendingAddress && !options.includes("InPerson") ? (
+        <span className="mt-2 block text-xs text-amber-700">
+          Atendimento presencial ainda indisponível: a clínica não informou o endereço de atendimento.
         </span>
+      ) : (
+        options.length === 1 && (
+          <span className="mt-2 block text-xs text-slate-400">
+            Nesta especialidade só há atendimento {options[0] === "Online" ? "online" : "presencial"}.
+          </span>
+        )
       )}
     </fieldset>
   );
@@ -398,6 +406,7 @@ function PatientRequestForm({
           <ModalityPicker
             value={form.modality}
             options={specialtyModalities}
+            inPersonPendingAddress={specialtyDoctors.some((doctor) => doctor.inPersonPendingAddress)}
             onChange={(modality) =>
               onChange({
                 ...form,
@@ -428,7 +437,7 @@ function PatientRequestForm({
           {selectedDoctor && (
             <div className="rounded-xl border border-slate-100 bg-slate-50 px-4 py-3 text-sm sm:col-span-2" data-testid="doctor-location">
               <p className="font-bold text-ink">
-                {selectedDoctor.name} <span className="font-medium text-slate-500">· CRM {selectedDoctor.crm}</span>
+                {selectedDoctor.name} <span className="font-medium text-slate-500">· {selectedDoctor.crm}</span>
               </p>
               {form.modality === "InPerson" && selectedDoctor.clinicAddress ? (
                 <p className="mt-1 text-slate-600">

@@ -239,7 +239,7 @@ app.MapPost("/ops/presentation-seed", async (
     var seedMode = ResolveDemoSeedMode(environment);
     if (!seedMode.Enabled)
         return Results.Problem(
-            "Seed demo nao esta habilitado para este ambiente.",
+            "Seed demo não está habilitado para este ambiente.",
             statusCode: StatusCodes.Status403Forbidden);
 
     var configuredKey = Environment.GetEnvironmentVariable("PRESENTATION_SEED_KEY");
@@ -375,16 +375,16 @@ static SeedMode ResolveDemoSeedMode(IWebHostEnvironment environment)
             ? new SeedMode(
                 true,
                 "PresentationProduction",
-                "Seed demo habilitado explicitamente em ambiente unico publicado, com dupla confirmacao.")
+                "Seed demo habilitado explicitamente em ambiente único publicado, com dupla confirmação.")
             : new SeedMode(
                 false,
                 "Disabled",
-                "Producao requer ALLOW_PRESENTATION_SEED_IN_PRODUCTION=true e PRESENTATION_SEED_ACK=DEMO_ONLY_NO_REAL_PATIENTS, alem de ENABLE_HOMOLOGATION_SEED=true.");
+                "Producao requer ALLOW_PRESENTATION_SEED_IN_PRODUCTION=true e PRESENTATION_SEED_ACK=DEMO_ONLY_NO_REAL_PATIENTS, além de ENABLE_HOMOLOGATION_SEED=true.");
 
     if (homologationSeedEnabled)
         return new SeedMode(true, "NonProductionFlag", "Seed habilitado em ambiente nao-producao.");
 
-    return new SeedMode(false, "Disabled", "Variaveis de seed demo ausentes ou ambiente nao autorizado.");
+    return new SeedMode(false, "Disabled", "Variaveis de seed demo ausentes ou ambiente não autorizado.");
 }
 
 static string? ValidateDemoPassword(IWebHostEnvironment environment, string? demoPassword)
@@ -393,7 +393,7 @@ static string? ValidateDemoPassword(IWebHostEnvironment environment, string? dem
         return "Configure SEED_DEMO_PASSWORD para criar o seed.";
     if (environment.IsProduction() &&
         string.Equals(demoPassword, "MedSyncLocal123!", StringComparison.Ordinal))
-        return "Nao use a senha local padrao em ambiente publico. Configure uma SEED_DEMO_PASSWORD forte.";
+        return "Não use a senha local padrão em ambiente público. Configure uma SEED_DEMO_PASSWORD forte.";
     return null;
 }
 
@@ -420,7 +420,7 @@ static async Task RejectRevokedSession(TokenValidatedContext context)
         long.TryParse(revokedBeforeRaw, out var revokedBeforeUnix) &&
         new DateTimeOffset(DateTime.SpecifyKind(jwt.IssuedAt, DateTimeKind.Utc)).ToUnixTimeSeconds() < revokedBeforeUnix)
     {
-        context.Fail("Sessao revogada.");
+        context.Fail("Sessão revogada.");
     }
 }
 

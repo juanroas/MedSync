@@ -39,7 +39,7 @@ export function ClinicalAttachmentsPanel({
         const result = await api.getClinicalRecordAttachments(appointmentId);
         if (active) setAttachments(result);
       } catch (err) {
-        if (active) setError(err instanceof Error ? err.message : "Nao foi possivel carregar anexos.");
+        if (active) setError(err instanceof Error ? err.message : "Não foi possível carregar anexos.");
       } finally {
         if (active) setLoading(false);
       }
@@ -59,7 +59,7 @@ export function ClinicalAttachmentsPanel({
     if (!file) return;
 
     if (!isAllowedFile(file)) {
-      setError("Envie apenas PDF, JPG ou PNG com ate 10 MB.");
+      setError("Envie apenas PDF, JPG ou PNG com até 10 MB.");
       return;
     }
 
@@ -67,9 +67,9 @@ export function ClinicalAttachmentsPanel({
     try {
       const attachment = await api.uploadClinicalRecordAttachment(appointmentId, file);
       setAttachments((current) => [attachment, ...current]);
-      setMessage("Anexo adicionado ao prontuario.");
+      setMessage("Anexo adicionado ao prontuário.");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Nao foi possivel anexar o arquivo.");
+      setError(err instanceof Error ? err.message : "Não foi possível anexar o arquivo.");
     } finally {
       setUploading(false);
     }
@@ -84,10 +84,10 @@ export function ClinicalAttachmentsPanel({
     try {
       await api.deleteClinicalRecordAttachment(appointmentId, pendingDelete.id);
       setAttachments((current) => current.filter((item) => item.id !== pendingDelete.id));
-      setMessage("Anexo excluido do prontuario.");
+      setMessage("Anexo excluído do prontuário.");
       setPendingDelete(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Nao foi possivel excluir o anexo.");
+      setError(err instanceof Error ? err.message : "Não foi possível excluir o anexo.");
     } finally {
       setDeletingId("");
     }
@@ -117,9 +117,9 @@ export function ClinicalAttachmentsPanel({
               <Paperclip size={18} />
             </span>
             <div>
-              <h2 className={cn("font-bold", isDark ? "text-white" : "text-ink")}>Anexos clinicos</h2>
+              <h2 className={cn("font-bold", isDark ? "text-white" : "text-ink")}>Anexos clínicos</h2>
               <p className={cn("mt-1 text-xs leading-5", isDark ? "text-white/50" : "text-slate-400")}>
-                PDF, JPG ou PNG. Arquivos ficam restritos ao prontuario e geram auditoria.
+                PDF, JPG ou PNG. Arquivos ficam restritos ao prontuário e geram auditoria.
               </p>
             </div>
           </div>
@@ -194,7 +194,7 @@ export function ClinicalAttachmentsPanel({
                 isDark ? "border-white/10 text-white/45" : "border-slate-200 text-slate-500",
               )}
             >
-              Nenhum anexo registrado neste prontuario.
+              Nenhum anexo registrado neste prontuário.
             </div>
           ) : (
             <div className="space-y-3">
@@ -309,7 +309,7 @@ function ConfirmDeleteDialog({
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className={cn("text-xs font-bold uppercase tracking-[0.08em]", isDark ? "text-red-100" : "text-red-600")}>
-              Confirmar exclusao
+              Confirmar exclusão
             </p>
             <h2 id="delete-attachment-title" className="mt-2 text-xl font-bold">
               Excluir anexo?
@@ -323,15 +323,15 @@ function ConfirmDeleteDialog({
               "grid size-9 shrink-0 place-items-center rounded-lg border transition disabled:cursor-not-allowed disabled:opacity-60",
               isDark ? "border-white/10 text-white/60 hover:bg-white/5" : "border-slate-200 text-slate-500 hover:bg-slate-50",
             )}
-            aria-label="Fechar confirmacao"
+            aria-label="Fechar confirmação"
           >
             <X size={17} />
           </button>
         </div>
 
         <p className={cn("mt-4 text-sm leading-6", isDark ? "text-white/65" : "text-slate-600")}>
-          O arquivo <strong>{attachment.fileName}</strong> sera removido da lista do prontuario.
-          A acao gera trilha de auditoria.
+          O arquivo <strong>{attachment.fileName}</strong> será removido da lista do prontuário.
+          A ação gera trilha de auditoria.
         </p>
 
         <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">

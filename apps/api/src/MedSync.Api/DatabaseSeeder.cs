@@ -254,7 +254,7 @@ public static class DatabaseSeeder
                 Email = doctorUser.Email,
                 Crm = $"CRM-SP {demo.DoctorId.ToString("N")[..6]}",
                 CrmUf = "SP",
-                Specialty = "Clinica geral",
+                Specialty = "Clínica geral",
                 Phone = "(11) 99999-0101"
             };
             db.Doctors.Add(doctor);
@@ -266,7 +266,7 @@ public static class DatabaseSeeder
         doctor.Name = doctorUser.Name;
         doctor.Email = doctorUser.Email;
         doctor.CrmUf = "SP";
-        doctor.Specialty = "Clinica geral";
+        doctor.Specialty = "Clínica geral";
         return doctor;
     }
 

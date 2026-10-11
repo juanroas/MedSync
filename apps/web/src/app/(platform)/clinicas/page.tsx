@@ -260,6 +260,12 @@ export default function ClinicsPage() {
                     <p className="mt-1 truncate text-xs text-slate-500" title={clinic.legalName}>
                       {clinic.legalName ?? "Razão social não informada"} · CNPJ {clinic.taxIdMasked ?? "—"}
                     </p>
+                    <p className="mt-1 text-xs text-slate-500">
+                      {clinic.formattedAddress ?? "Endereço de atendimento não cadastrado"}
+                    </p>
+                    <p className="mt-1 text-xs text-slate-500">
+                      Responsável técnico: {clinic.technicalDirector ?? "não informado"}
+                    </p>
                     <p className="mt-1 text-xs text-slate-400">
                       Cadastrada em {formatDate(clinic.createdAt)}
                       {clinic.activatedAt ? ` · ativada em ${formatDate(clinic.activatedAt)}` : ""}

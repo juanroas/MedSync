@@ -74,10 +74,10 @@ export default function AuditPage() {
       ) : (
         <>
           <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <MetricCard label="Eventos" value={events.length} detail="ultimos registros" icon={<ListChecks size={20} />} tone="info" />
-            <MetricCard label="Sucesso" value={events.length - deniedEvents.length} detail="acoes permitidas" icon={<CheckCircle2 size={20} />} tone="success" />
-            <MetricCard label="Negados" value={deniedEvents.length} detail="revisao recomendada" icon={<XCircle size={20} />} tone={deniedEvents.length ? "warning" : "neutral"} />
-            <MetricCard label="Dados sensiveis" value={clinicalEvents.length} detail="eventos com escopo assistencial" icon={<LockKeyhole size={20} />} tone="warning" />
+            <MetricCard label="Eventos" value={events.length} detail="últimos registros" icon={<ListChecks size={20} />} tone="info" />
+            <MetricCard label="Sucesso" value={events.length - deniedEvents.length} detail="ações permitidas" icon={<CheckCircle2 size={20} />} tone="success" />
+            <MetricCard label="Negados" value={deniedEvents.length} detail="revisão recomendada" icon={<XCircle size={20} />} tone={deniedEvents.length ? "warning" : "neutral"} />
+            <MetricCard label="Dados sensíveis" value={clinicalEvents.length} detail="eventos com escopo assistencial" icon={<LockKeyhole size={20} />} tone="warning" />
           </section>
 
           <Card className="mt-7 overflow-hidden">
@@ -89,10 +89,10 @@ export default function AuditPage() {
                   </span>
                   <div>
                     <h2 className="text-lg font-bold text-ink">
-                      {isGlobalAuditor ? "Escopo global com minimizacao" : "Escopo administrativo autorizado"}
+                      {isGlobalAuditor ? "Escopo global com minimização" : "Escopo administrativo autorizado"}
                     </h2>
                     <p className="mt-1 text-sm leading-6 text-slate-500">
-                      Auditoria nao concede permissao para alterar operacao nem para expor conteudo clinico fora da finalidade aprovada.
+                      Auditoria não concede permissão para alterar operação nem para expor conteúdo clínico fora da finalidade aprovada.
                     </p>
                   </div>
                 </div>
@@ -101,9 +101,9 @@ export default function AuditPage() {
                   <div className="flex items-start gap-3">
                     <ShieldAlert className="mt-0.5 shrink-0 text-amber-700" size={18} />
                     <div>
-                      <p className="text-sm font-bold text-amber-900">Eventos que exigem revisao</p>
+                      <p className="text-sm font-bold text-amber-900">Eventos que exigem revisão</p>
                       <p className="mt-1 text-xs leading-5 text-amber-800">
-                        Tentativas negadas devem ser avaliadas sem expor prontuario, diagnostico, CPF completo, token ou conteudo da chamada.
+                        Tentativas negadas devem ser avaliadas sem expor prontuário, diagnóstico, CPF completo, token ou conteúdo da chamada.
                       </p>
                     </div>
                   </div>
@@ -128,7 +128,7 @@ export default function AuditPage() {
                     <TextInput
                       value={query}
                       onChange={(event) => setQuery(event.target.value)}
-                      placeholder="Buscar por acao, recurso, resultado ou motivo"
+                      placeholder="Buscar por ação, recurso, resultado ou motivo"
                       className="pl-10"
                     />
                   </label>
@@ -149,7 +149,7 @@ export default function AuditPage() {
 
                 {reviewEvents.length > 0 && (
                   <div className="border-b border-slate-100 bg-slate-50/60 px-6 py-5">
-                    <p className="text-xs font-bold uppercase text-slate-400">Ultimas tentativas negadas</p>
+                    <p className="text-xs font-bold uppercase text-slate-400">Últimas tentativas negadas</p>
                     <div className="mt-3 grid gap-3 lg:grid-cols-3">
                       {reviewEvents.map((event) => (
                         <article key={event.id} className="rounded-lg border border-red-100 bg-white p-4">
@@ -178,7 +178,7 @@ export default function AuditPage() {
                     <div className="min-w-[920px]">
                       <div className="grid grid-cols-[1.05fr_1fr_1fr_.75fr_1.2fr] gap-4 bg-slate-50 px-6 py-4 text-xs font-bold uppercase text-slate-400">
                         <span>Data</span>
-                        <span>Acao</span>
+                        <span>Ação</span>
                         <span>Recurso</span>
                         <span>Resultado</span>
                         <span>Motivo</span>
@@ -197,7 +197,7 @@ export default function AuditPage() {
                               </Badge>
                             </span>
                             <span className={event.reason ? "text-slate-600" : "text-slate-400"}>
-                              {event.reason ?? "Sem observacao adicional"}
+                              {event.reason ?? "Sem observação adicional"}
                             </span>
                           </article>
                         ))}

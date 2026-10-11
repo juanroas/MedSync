@@ -26,9 +26,9 @@ public sealed class ClinicalAttachmentStorage(IWebHostEnvironment environment)
         CancellationToken cancellationToken)
     {
         if (file.Length <= 0)
-            throw new ClinicalAttachmentValidationException("Selecione um arquivo valido.");
+            throw new ClinicalAttachmentValidationException("Selecione um arquivo válido.");
         if (file.Length > MaxFileSizeBytes)
-            throw new ClinicalAttachmentValidationException("O arquivo deve ter no maximo 10 MB.");
+            throw new ClinicalAttachmentValidationException("O arquivo deve ter no máximo 10 MB.");
 
         var fileName = SanitizeFileName(file.FileName);
         var extension = Path.GetExtension(fileName).ToLowerInvariant();
@@ -40,11 +40,11 @@ public sealed class ClinicalAttachmentStorage(IWebHostEnvironment environment)
         using var memory = new MemoryStream();
         await stream.CopyToAsync(memory, cancellationToken);
         if (memory.Length > MaxFileSizeBytes)
-            throw new ClinicalAttachmentValidationException("O arquivo deve ter no maximo 10 MB.");
+            throw new ClinicalAttachmentValidationException("O arquivo deve ter no máximo 10 MB.");
 
         var bytes = memory.ToArray();
         if (!HasExpectedSignature(extension, bytes))
-            throw new ClinicalAttachmentValidationException("O conteudo do arquivo nao corresponde ao tipo informado.");
+            throw new ClinicalAttachmentValidationException("O conteúdo do arquivo não corresponde ao tipo informado.");
 
         var attachmentId = Guid.NewGuid();
         var relativePath = Path.Combine(
@@ -86,7 +86,7 @@ public sealed class ClinicalAttachmentStorage(IWebHostEnvironment environment)
         var fullPath = Path.GetFullPath(Path.Combine(rootPath, storageKey));
         var fullRoot = Path.GetFullPath(rootPath);
         if (!fullPath.StartsWith(fullRoot, StringComparison.OrdinalIgnoreCase))
-            throw new InvalidOperationException("Caminho de anexo invalido.");
+            throw new InvalidOperationException("Caminho de anexo inválido.");
         return fullPath;
     }
 
@@ -97,7 +97,7 @@ public sealed class ClinicalAttachmentStorage(IWebHostEnvironment environment)
             fileName = fileName.Replace(invalid, '-');
 
         if (string.IsNullOrWhiteSpace(fileName))
-            throw new ClinicalAttachmentValidationException("Nome do arquivo invalido.");
+            throw new ClinicalAttachmentValidationException("Nome do arquivo inválido.");
         return fileName.Length > 180 ? fileName[^180..] : fileName;
     }
 

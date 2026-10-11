@@ -11,14 +11,14 @@ test.describe("experiencia por perfil", () => {
     await expect(page.getByText(/agendamentos são criados/i)).toBeVisible();
     await expect(page.getByText("Próxima consulta", { exact: true })).toBeVisible();
     await expect(page.getByRole("heading", { name: /agenda de hoje/i })).toBeVisible();
-    await expect(page.getByRole("link", { name: /nova consulta/i })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: /agendar consulta/i })).toHaveCount(0);
   });
 
   test("ADM da clinica opera agenda sem conteudo clinico", async ({ page }) => {
     await loginByUi(page, users.clinicAdmin);
 
-    await expect(page.getByRole("heading", { name: /central de operacao/i })).toBeVisible();
-    await expect(page.getByRole("link", { name: /nova consulta/i })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /central de operação/i })).toBeVisible();
+    await expect(page.getByRole("link", { name: /agendar consulta/i })).toBeVisible();
     const navigation = page.getByRole("navigation");
     await expect(navigation.getByRole("link", { name: /^consultas$/i })).toBeVisible();
     await expect(navigation.getByRole("link", { name: /^clínicas$/i })).toHaveCount(0);
@@ -28,7 +28,7 @@ test.describe("experiencia por perfil", () => {
     await loginByUi(page, users.medicalAdmin);
 
     await expect(page.getByText(/clínicas aguardando análise/i)).toBeVisible();
-    await expect(page.getByRole("link", { name: /nova consulta/i })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: /agendar consulta/i })).toHaveCount(0);
     const navigation = page.getByRole("navigation");
     await expect(navigation.getByRole("link", { name: /^clínicas$/i })).toBeVisible();
     await expect(navigation.getByRole("link", { name: /^consultas$/i })).toHaveCount(0);
@@ -66,7 +66,7 @@ test.describe("experiencia por perfil", () => {
     await expect(page.getByRole("link", { name: /^agenda$/i })).toBeVisible();
     await expect(page.getByRole("link", { name: /^pacientes vinculados$/i })).toBeVisible();
     await expect(page.getByRole("link", { name: /^meu perfil$/i })).toBeVisible();
-    await expect(page.getByRole("link", { name: /nova consulta/i })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: /agendar consulta/i })).toHaveCount(0);
   });
 
   test("entrada em sala respeita status da consulta", async ({ page }) => {

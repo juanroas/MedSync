@@ -1,5 +1,6 @@
 "use client";
 
+import { ClinicAddressBanner, useClinicSummary } from "@/components/clinic-address-banner";
 import { useConfirm } from "@/components/dialog";
 import { Button, Card, ErrorBanner, LoadingState, PageHeader, cn, inputClass, secondaryButtonClass } from "@/components/ui";
 import { formatBrazilDateInput } from "@/lib/format";
@@ -112,6 +113,7 @@ export function DoctorScheduleEditor() {
         }
       />
       {error && <ErrorBanner message={error} />}
+      <ClinicAddressBanner audience="doctor" show={Boolean(schedule?.windows.some((window) => window.modality !== "Online"))} />
       {!schedule ? (
         <LoadingState label="Carregando horários..." />
       ) : (
@@ -201,6 +203,7 @@ function WindowForm({ day, onCancel, onSaved }: { day: WeekDay; onCancel: () => 
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const clinic = useClinicSummary();
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -258,7 +261,13 @@ function WindowForm({ day, onCancel, onSaved }: { day: WeekDay; onCancel: () => 
         </fieldset>
       </div>
       {form.modality !== "Online" && (
-        <p className="mt-2 text-xs text-slate-500">O atendimento presencial acontece no endereço da clínica.</p>
+        <p className={cn("mt-2 text-xs", clinic && !clinic.hasAddress ? "font-semibold text-amber-700" : "text-slate-500")}>
+          {clinic?.hasAddress
+            ? `Presencial em: ${clinic.formattedAddress}`
+            : clinic
+              ? "A clínica ainda não cadastrou o endereço: este horário presencial só aparece para os pacientes depois disso."
+              : "O atendimento presencial acontece no endereço da clínica."}
+        </p>
       )}
       <div className="mt-4 flex gap-2">
         <Button type="submit" isLoading={saving}>
@@ -302,7 +311,7 @@ function SettingsCard({ schedule, onSaved }: { schedule: DoctorSchedule; onSaved
       <h2 className="font-bold text-ink">Regras da agenda</h2>
       <fieldset className="mt-4">
         <legend className="mb-2 block text-xs font-bold text-slate-600">Duração de cada consulta</legend>
-        <div className="inline-flex flex-wrap rounded-lg border border-slate-200 bg-white p-1">
+        <div className="grid grid-cols-5 gap-1 rounded-lg border border-slate-200 bg-white p-1">
           {SLOT_OPTIONS.map((minutes) => (
             <button
               key={minutes}
@@ -310,7 +319,7 @@ function SettingsCard({ schedule, onSaved }: { schedule: DoctorSchedule; onSaved
               aria-pressed={slotMinutes === minutes}
               onClick={() => setSlotMinutes(minutes)}
               className={cn(
-                "h-9 rounded-md px-3 text-xs font-bold transition",
+                "h-9 rounded-md text-xs font-bold transition",
                 slotMinutes === minutes ? "bg-teal-50 text-teal-800 ring-1 ring-teal-200" : "text-slate-500 hover:text-ink",
               )}
             >

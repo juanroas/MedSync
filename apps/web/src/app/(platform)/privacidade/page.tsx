@@ -23,10 +23,10 @@ import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 
 const requestTypes: Array<{ value: PrivacyRequestType; label: string }> = [
   { value: "Access", label: "Acesso aos dados" },
-  { value: "Correction", label: "Correcao cadastral" },
-  { value: "Deletion", label: "Exclusao/anonimizacao aplicavel" },
+  { value: "Correction", label: "Correção cadastral" },
+  { value: "Deletion", label: "Exclusão/anonimizacao aplicavel" },
   { value: "Portability", label: "Portabilidade" },
-  { value: "ConsentRevocation", label: "Revogacao de consentimento" },
+  { value: "ConsentRevocation", label: "Revogação de consentimento" },
   { value: "Other", label: "Outro direito do titular" },
 ];
 
@@ -74,7 +74,7 @@ function PrivacyQueue() {
   const [form, setForm] = useState({
     requesterName: session?.user.name ?? "",
     requesterEmail: session?.user.email ?? "",
-    subjectReference: isPatientOnly ? "Proprio titular autenticado" : "",
+    subjectReference: isPatientOnly ? "Próprio titular autenticado" : "",
     type: "Access" as PrivacyRequestType,
     description: "",
   });
@@ -83,7 +83,7 @@ function PrivacyQueue() {
     () =>
       api.getPrivacyRequests()
         .then(setRequests)
-        .catch((err) => setError(err instanceof Error ? err.message : "Erro ao carregar solicitacoes."))
+        .catch((err) => setError(err instanceof Error ? err.message : "Erro ao carregar solicitações."))
         .finally(() => setLoading(false)),
     [],
   );
@@ -107,9 +107,9 @@ function PrivacyQueue() {
       const created = await api.createPrivacyRequest(form);
       setRequests((current) => [created, ...current]);
       setForm((current) => ({ ...current, description: "" }));
-      setSuccess("Solicitacao registrada com trilha de auditoria.");
+      setSuccess("Solicitação registrada com trilha de auditoria.");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Nao foi possivel registrar a solicitacao.");
+      setError(err instanceof Error ? err.message : "Não foi possível registrar a solicitação.");
     } finally {
       setSaving(false);
     }
@@ -124,7 +124,7 @@ function PrivacyQueue() {
       setRequests((current) => current.map((item) => (item.id === updated.id ? updated : item)));
       setSuccess("Status de privacidade atualizado com auditoria.");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Nao foi possivel atualizar o status.");
+      setError(err instanceof Error ? err.message : "Não foi possível atualizar o status.");
     }
   }
 
@@ -132,11 +132,11 @@ function PrivacyQueue() {
     <>
       <PageHeader
         eyebrow={isPatientOnly ? "Meus direitos" : "Privacidade e DPO"}
-        title={isPatientOnly ? "Solicitacoes de privacidade" : "Direitos do titular"}
+        title={isPatientOnly ? "Solicitações de privacidade" : "Direitos do titular"}
         description={
           isPatientOnly
-            ? "Registre solicitacoes de acesso, correcao ou outros direitos. O atendimento formal depende de validacao operacional e juridica."
-            : "Fila operacional para registrar, acompanhar e auditar solicitacoes de titulares com minimizacao de dados."
+            ? "Registre solicitações de acesso, correção ou outros direitos. O atendimento formal depende de validação operacional e juridica."
+            : "Fila operacional para registrar, acompanhar e auditar solicitações de titulares com minimização de dados."
         }
       />
 
@@ -150,7 +150,7 @@ function PrivacyQueue() {
               <ShieldCheck size={20} />
             </span>
             <div>
-              <p className="text-sm font-semibold text-slate-500">Solicitacoes abertas</p>
+              <p className="text-sm font-semibold text-slate-500">Solicitações abertas</p>
               <p className="mt-2 text-3xl font-bold text-ink">{openRequests}</p>
             </div>
           </div>
@@ -159,8 +159,8 @@ function PrivacyQueue() {
           <div className="flex items-start gap-3">
             <LockKeyhole className="mt-1 shrink-0 text-teal-700" size={20} />
             <p className="text-sm leading-6 text-slate-500">
-              Use este fluxo para protocolo e acompanhamento. Nao registre CPF completo, senha, token,
-              diagnostico, prontuario, observacao clinica ou conteudo de chamada nos campos livres.
+              Use este fluxo para protocolo e acompanhamento. Não registre CPF completo, senha, token,
+              diagnóstico, prontuário, observação clínica ou conteúdo de chamada nos campos livres.
             </p>
           </div>
         </Card>
@@ -168,7 +168,7 @@ function PrivacyQueue() {
 
       <section className="mt-7 grid gap-7 xl:grid-cols-[420px_1fr]">
         <Card className="p-6">
-          <h2 className="text-lg font-bold text-ink">Nova solicitacao</h2>
+          <h2 className="text-lg font-bold text-ink">Nova solicitação</h2>
           <form className="mt-5 space-y-4" onSubmit={createRequest}>
             <label className="block">
               <span className="mb-1.5 block text-xs font-bold text-slate-500">Solicitante</span>
@@ -190,11 +190,11 @@ function PrivacyQueue() {
               />
             </label>
             <label className="block">
-              <span className="mb-1.5 block text-xs font-bold text-slate-500">Referencia minimizada</span>
+              <span className="mb-1.5 block text-xs font-bold text-slate-500">Referência minimizada</span>
               <TextInput
                 value={form.subjectReference}
                 onChange={(event) => setForm((current) => ({ ...current, subjectReference: event.target.value }))}
-                placeholder="E-mail, protocolo ou referencia mascarada"
+                placeholder="E-mail, protocolo ou referência mascarada"
                 disabled={isPatientOnly}
                 required
               />
@@ -211,16 +211,16 @@ function PrivacyQueue() {
               </SelectInput>
             </label>
             <label className="block">
-              <span className="mb-1.5 block text-xs font-bold text-slate-500">Descricao</span>
+              <span className="mb-1.5 block text-xs font-bold text-slate-500">Descrição</span>
               <TextArea
                 value={form.description}
                 onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))}
-                placeholder="Descreva o pedido sem incluir dado clinico ou documento completo."
+                placeholder="Descreva o pedido sem incluir dado clínico ou documento completo."
                 required
               />
             </label>
             <Button type="submit" className="w-full" isLoading={saving}>
-              Registrar solicitacao
+              Registrar solicitação
             </Button>
           </form>
         </Card>
@@ -229,18 +229,18 @@ function PrivacyQueue() {
           <div className="border-b border-slate-100 px-6 py-5">
             <h2 className="font-bold text-ink">Fila de privacidade</h2>
             <p className="mt-1 text-xs text-slate-400">
-              Acompanhamento operacional. Decisoes finais dependem de validacao juridica/DPO quando aplicavel.
+              Acompanhamento operacional. Decisoes finais dependem de validação juridica/DPO quando aplicavel.
             </p>
           </div>
 
           {loading ? (
-            <LoadingState label="Carregando solicitacoes..." />
+            <LoadingState label="Carregando solicitações..." />
           ) : requests.length === 0 ? (
             <div className="p-6">
               <EmptyState
                 icon={<FileText size={22} />}
-                title="Nenhuma solicitacao registrada"
-                description="As solicitacoes de privacidade aparecerao aqui conforme forem abertas."
+                title="Nenhuma solicitação registrada"
+                description="As solicitações de privacidade aparecerao aqui conforme forem abertas."
               />
             </div>
           ) : (

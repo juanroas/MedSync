@@ -168,7 +168,7 @@ export default function AccessPage() {
           <p className="mt-1 font-mono text-base tracking-wide">{resetResult.temporaryPassword}</p>
           <p className="mt-2 text-xs leading-5">
             Repasse esta senha com seguranca ao usuario (nunca por canal publico). Ela sera exigida trocar
-            no proximo login e nao sera exibida novamente.
+            no próximo login e não será exibida novamente.
           </p>
           <button
             type="button"
@@ -239,7 +239,7 @@ export default function AccessPage() {
               </select>
             </label>
             <label>
-              <span className="mb-2 block text-xs font-bold text-slate-600">Senha temporaria</span>
+              <span className="mb-2 block text-xs font-bold text-slate-600">Senha temporária</span>
               <input className={inputClass} type="password" minLength={12} value={form.temporaryPassword} onChange={(e) => setForm({ ...form, temporaryPassword: e.target.value })} required />
             </label>
           </div>
@@ -267,7 +267,7 @@ export default function AccessPage() {
                 <span>E-mail</span>
                 <span>Perfil</span>
                 <span>Status</span>
-                <span className="text-right">Acao</span>
+                <span className="text-right">Ação</span>
               </div>
               <div className="divide-y divide-slate-100">
                 {visibleUsers.map((user) => (

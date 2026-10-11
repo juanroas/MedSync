@@ -14,7 +14,7 @@ export default function GlobalError({
 }) {
   useEffect(() => {
     // eslint-disable-next-line no-console
-    console.error("Erro nao tratado na interface MedSync:", error);
+    console.error("Erro não tratado na interface MedSync:", error);
   }, [error]);
 
   return (

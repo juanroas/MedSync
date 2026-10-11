@@ -135,12 +135,12 @@ function PatientsRegistry() {
       return;
     }
     if (editForm.birthDate && new Date(`${editForm.birthDate}T00:00:00`).getTime() > Date.now()) {
-      setError("A data de nascimento nao pode estar no futuro.");
+      setError("A data de nascimento não pode estar no futuro.");
       setUpdating(false);
       return;
     }
     if (!isValidOptionalPhone(editForm.phone)) {
-      setError("Informe um telefone valido com DDD.");
+      setError("Informe um telefone válido com DDD.");
       setUpdating(false);
       return;
     }
@@ -158,7 +158,7 @@ function PatientsRegistry() {
       });
       setPatients((items) => items.map((patient) => patient.id === updated.id ? updated : patient));
       saveSession(await api.me());
-      setSuccess("Cadastro atualizado com seguranca.");
+      setSuccess("Cadastro atualizado com segurança.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro ao atualizar cadastro.");
     } finally {
@@ -176,7 +176,7 @@ function PatientsRegistry() {
             ? "Pacientes aparecem aqui somente quando existe consulta vinculada ao seu atendimento."
             : isPatient
               ? "Confira e atualize seus dados cadastrais permitidos."
-              : "Mantenha os dados essenciais dos pacientes disponiveis para os atendimentos."
+              : "Mantenha os dados essenciais dos pacientes disponíveis para os atendimentos."
         }
         action={canManage ? (
           <button className={buttonClass} onClick={() => setShowForm((value) => !value)}>
@@ -239,16 +239,6 @@ function PatientsRegistry() {
               />
             </label>
           </div>
-          <label className="mt-4 block">
-            <span className="mb-2 block text-xs font-bold text-slate-600">Medicacoes de uso continuo</span>
-            <textarea
-              className={`${inputClass} h-24 resize-none py-2.5`}
-              placeholder="Ex.: Losartana 50mg (1x ao dia), Metformina 850mg (2x ao dia)"
-              value={editForm.continuousMedications}
-              onChange={(event) => setEditForm({ ...editForm, continuousMedications: event.target.value })}
-              maxLength={2000}
-            />
-          </label>
           <div className="mt-4 grid gap-4 md:grid-cols-2">
             <label className="block">
               <span className="mb-2 block text-xs font-bold text-slate-600">Nome social (opcional)</span>
@@ -278,12 +268,22 @@ function PatientsRegistry() {
               </span>
             </label>
           </div>
+          <label className="mt-4 block">
+            <span className="mb-2 block text-xs font-bold text-slate-600">Medicações de uso contínuo</span>
+            <textarea
+              className={`${inputClass} h-24 resize-none py-2.5`}
+              placeholder="Ex.: Losartana 50mg (1x ao dia), Metformina 850mg (2x ao dia)"
+              value={editForm.continuousMedications}
+              onChange={(event) => setEditForm({ ...editForm, continuousMedications: event.target.value })}
+              maxLength={2000}
+            />
+          </label>
           <div className="mt-5">
             <h3 className="mb-3 text-xs font-bold uppercase tracking-[0.08em] text-slate-500">Endereço</h3>
             <AddressFields value={editAddress} onChange={setEditAddress} required={false} />
           </div>
           <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-xs text-slate-400">Atualizacoes geram trilha de auditoria.</p>
+            <p className="text-xs text-slate-400">Atualizações geram trilha de auditoria.</p>
             <button className={buttonClass} disabled={updating}>
               {updating ? "Atualizando..." : "Atualizar cadastro"}
             </button>
@@ -293,7 +293,7 @@ function PatientsRegistry() {
       {isPatient && <ClinicalAccessLog />}
       {isDoctor && (
         <div className="mb-5 rounded-lg border border-blue-100 bg-blue-50 p-5 text-sm text-blue-800">
-          O medico nao ve uma base geral de pacientes. Esta lista e filtrada por vinculo de consulta.
+          O médico não ve uma base geral de pacientes. Esta lista e filtrada por vinculo de consulta.
         </div>
       )}
       {showForm && (
@@ -336,9 +336,9 @@ function PatientsRegistry() {
                   <option value="all">Todos os status</option>
                   <option value="Scheduled">Agendadas</option>
                   <option value="InProgress">Em andamento</option>
-                  <option value="Completed">Concluidas</option>
+                  <option value="Completed">Concluídas</option>
                   <option value="Cancelled">Canceladas</option>
-                  <option value="NoShow">Nao compareceu</option>
+                  <option value="NoShow">Não compareceu</option>
                 </select>
                 <select
                   className={inputClass}
@@ -362,12 +362,14 @@ function PatientsRegistry() {
         </section>
       )}
 
-      {loading ? (
+      {isPatient ? (
+        loading && <LoadingState label="Carregando seu cadastro..." />
+      ) : loading ? (
         <LoadingState label="Carregando pacientes..." />
       ) : filtered.length === 0 ? (
         <EmptyState
           icon={<UserRound size={22} />}
-          title={query ? "Nenhum resultado" : isPatient ? "Cadastro nao encontrado" : "Nenhum paciente cadastrado"}
+          title={query ? "Nenhum resultado" : isPatient ? "Cadastro não encontrado" : "Nenhum paciente cadastrado"}
           description={query ? "Tente buscar usando outro termo." : "Nenhum cadastro foi encontrado para este perfil."}
         />
       ) : (
@@ -396,7 +398,7 @@ function PatientsRegistry() {
               </div>
               <div className="mt-6 space-y-3 border-t border-slate-100 pt-5 text-sm text-slate-500">
                 <p className="flex items-center gap-2.5"><Mail size={15} className="text-teal-600" /> {patient.email}</p>
-                <p className="flex items-center gap-2.5"><Phone size={15} className="text-teal-600" /> {patient.phone || "Nao informado"}</p>
+                <p className="flex items-center gap-2.5"><Phone size={15} className="text-teal-600" /> {patient.phone || "Não informado"}</p>
                 <p className="text-xs text-slate-400">Nascimento: {formatDate(patient.birthDate)}</p>
                 {patient.address?.city && (
                   <p className="flex items-center gap-2.5 text-xs">
@@ -408,7 +410,7 @@ function PatientsRegistry() {
                 <div className="mt-4 flex gap-2.5 rounded-lg border border-amber-100 bg-amber-50/70 p-3 text-xs text-amber-800">
                   <Pill size={15} className="mt-0.5 shrink-0" />
                   <div>
-                    <p className="font-bold">Medicacoes de uso continuo</p>
+                    <p className="font-bold">Medicações de uso contínuo</p>
                     <p className="mt-0.5 leading-5">{patient.continuousMedications}</p>
                   </div>
                 </div>
@@ -417,7 +419,7 @@ function PatientsRegistry() {
                 <div className="mt-5 rounded-lg border border-slate-100 bg-slate-50/70 p-4">
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div>
-                      <p className="text-xs font-bold uppercase text-slate-400">Ultimo vinculo assistencial</p>
+                      <p className="text-xs font-bold uppercase text-slate-400">Último vinculo assistencial</p>
                       <p className="mt-1 text-sm font-bold text-ink">{nextLinkedAppointment.specialty}</p>
                       <p className="mt-1 text-xs text-slate-500">{formatDateTime(nextLinkedAppointment.scheduledAt)}</p>
                     </div>

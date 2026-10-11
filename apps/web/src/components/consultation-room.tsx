@@ -191,7 +191,7 @@ export function ConsultationRoom({ appointmentId }: { appointmentId: string }) {
         setClinicalLoaded(true);
       } catch (err) {
         if (!active) return;
-        setClinicalError(err instanceof Error ? err.message : "Nao foi possivel carregar o prontuario.");
+        setClinicalError(err instanceof Error ? err.message : "Não foi possível carregar o prontuário.");
       } finally {
         if (active) setClinicalLoading(false);
       }
@@ -218,7 +218,7 @@ export function ConsultationRoom({ appointmentId }: { appointmentId: string }) {
         setHistoryLoaded(true);
       } catch (err) {
         if (!active) return;
-        setHistoryError(err instanceof Error ? err.message : "Nao foi possivel carregar o historico.");
+        setHistoryError(err instanceof Error ? err.message : "Não foi possível carregar o histórico.");
       } finally {
         if (active) setHistoryLoading(false);
       }
@@ -276,12 +276,12 @@ export function ConsultationRoom({ appointmentId }: { appointmentId: string }) {
         setClinicalRecord(updated);
         setClinicalContent(updated.content);
         setClinicalLoaded(true);
-        setClinicalMessage(`Prontuario salvo. Versao ${updated.version}.`);
+        setClinicalMessage(`Prontuário salvo. Versão ${updated.version}.`);
       } catch (err) {
         setEndError(
           err instanceof Error
             ? err.message
-            : "Nao foi possivel salvar o prontuario antes de encerrar a consulta.",
+            : "Não foi possível salvar o prontuário antes de encerrar a consulta.",
         );
         return false;
       }
@@ -335,7 +335,7 @@ export function ConsultationRoom({ appointmentId }: { appointmentId: string }) {
     setClinicalMessage("");
 
     if (!clinicalContent.trim()) {
-      setClinicalError("O registro clinico nao pode ficar vazio.");
+      setClinicalError("O registro clínico não pode ficar vazio.");
       return;
     }
 
@@ -345,9 +345,9 @@ export function ConsultationRoom({ appointmentId }: { appointmentId: string }) {
       setClinicalRecord(updated);
       setClinicalContent(updated.content);
       setClinicalLoaded(true);
-      setClinicalMessage(`Prontuario salvo. Versao ${updated.version}.`);
+      setClinicalMessage(`Prontuário salvo. Versão ${updated.version}.`);
     } catch (err) {
-      setClinicalError(err instanceof Error ? err.message : "Nao foi possivel salvar o prontuario.");
+      setClinicalError(err instanceof Error ? err.message : "Não foi possível salvar o prontuário.");
     } finally {
       setClinicalSaving(false);
     }
@@ -530,9 +530,9 @@ export function ConsultationRoom({ appointmentId }: { appointmentId: string }) {
           <p className="text-xs font-bold uppercase tracking-[0.2em] text-teal-300">Consulta</p>
           <h1 className="mt-3 text-2xl font-bold tracking-tight">
             {sidebarMode === "record"
-              ? "Prontuario da consulta"
+              ? "Prontuário da consulta"
               : sidebarMode === "history"
-                ? "Historico do paciente"
+                ? "Histórico do paciente"
                 : "Dados do atendimento"}
           </h1>
           {canEditClinicalRecord && (
@@ -559,7 +559,7 @@ export function ConsultationRoom({ appointmentId }: { appointmentId: string }) {
                     : "text-white/55 hover:bg-white/5 hover:text-white",
                 )}
               >
-                Prontuario
+                Prontuário
               </button>
               <button
                 type="button"
@@ -571,7 +571,7 @@ export function ConsultationRoom({ appointmentId }: { appointmentId: string }) {
                     : "text-white/55 hover:bg-white/5 hover:text-white",
                 )}
               >
-                Historico
+                Histórico
               </button>
             </div>
           )}
@@ -663,9 +663,9 @@ function RoomClinicalRecordPanel({
             <ClipboardPlus size={18} />
           </span>
           <div className="min-w-0">
-            <p className="text-sm font-bold text-white">Registro clinico durante a chamada</p>
+            <p className="text-sm font-bold text-white">Registro clínico durante a chamada</p>
             <p className="mt-1 text-xs leading-5 text-white/55">
-              Escreva durante o atendimento e salve. O conteudo fica no mesmo prontuario e historico da consulta.
+              Escreva durante o atendimento e salve. O conteúdo fica no mesmo prontuário e histórico da consulta.
             </p>
           </div>
         </div>
@@ -673,7 +673,7 @@ function RoomClinicalRecordPanel({
 
       {loading ? (
         <div className="rounded-2xl border border-white/10 bg-white/5 p-5 text-sm text-white/60">
-          Carregando prontuario...
+          Carregando prontuário...
         </div>
       ) : (
         <>
@@ -700,7 +700,7 @@ function RoomClinicalRecordPanel({
               spellCheck
               lang="pt-BR"
               className="min-h-[320px] resize-y border-white/10 bg-white/95 leading-6 text-ink focus:border-teal-300 focus:ring-teal-300/20"
-              placeholder="Registre dados clinicos relevantes, orientacoes e conduta. Revise antes de salvar."
+              placeholder="Registre dados clínicos relevantes, orientações e conduta. Revise antes de salvar."
             />
           </label>
 
@@ -716,7 +716,7 @@ function RoomClinicalRecordPanel({
             className={`${buttonClass} w-full`}
           >
             <Save size={17} />
-            {saving ? "Salvando..." : "Salvar prontuario"}
+            {saving ? "Salvando..." : "Salvar prontuário"}
           </button>
 
           <a
@@ -725,7 +725,7 @@ function RoomClinicalRecordPanel({
             rel="noreferrer"
             className="flex h-11 items-center justify-center rounded-lg border border-white/10 bg-white/5 px-4 text-sm font-bold text-white/75 transition hover:border-teal-300/30 hover:bg-white/10 hover:text-white"
           >
-            Abrir prontuario completo
+            Abrir prontuário completo
           </a>
         </>
       )}
@@ -759,7 +759,7 @@ function RoomHistoryPanel({
               <Pill size={18} />
             </span>
             <div className="min-w-0">
-              <p className="text-sm font-bold text-white">Medicacoes de uso continuo</p>
+              <p className="text-sm font-bold text-white">Medicações de uso contínuo</p>
               <p className="mt-1 text-xs leading-5 text-white/70">{continuousMedications}</p>
             </div>
           </div>
@@ -768,7 +768,7 @@ function RoomHistoryPanel({
 
       {loading ? (
         <div className="rounded-2xl border border-white/10 bg-white/5 p-5 text-sm text-white/60">
-          Carregando historico...
+          Carregando histórico...
         </div>
       ) : error ? (
         <div className="rounded-xl border border-red-300/30 bg-red-300/10 px-4 py-3 text-xs leading-5 text-red-100">
@@ -807,7 +807,7 @@ function RoomHistoryPanel({
         rel="noreferrer"
         className="flex h-11 items-center justify-center rounded-lg border border-white/10 bg-white/5 px-4 text-sm font-bold text-white/75 transition hover:border-teal-300/30 hover:bg-white/10 hover:text-white"
       >
-        Abrir prontuario completo
+        Abrir prontuário completo
       </a>
     </div>
   );

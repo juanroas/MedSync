@@ -1,6 +1,7 @@
 "use client";
 
 import { useRealtimeRefresh } from "@/lib/realtime";
+import { ClinicAddressBanner } from "@/components/clinic-address-banner";
 
 import {
   Badge,
@@ -175,17 +176,18 @@ export default function DashboardPage() {
   return (
     <>
       <PageHeader
-        eyebrow="Visao geral"
-        title="Central de operacao"
+        eyebrow="Visão geral"
+        title="Central de operação"
         description="Acompanhe atendimentos, agenda e acessos permitidos para o seu perfil."
         action={canSchedule && !clinicPending ? (
           <Link href="/consultas/nova" className={buttonClass}>
-            <CalendarCheck2 size={17} /> Nova consulta
+            <CalendarCheck2 size={17} /> Agendar consulta
           </Link>
         ) : undefined}
       />
       {error && <ErrorBanner message={error} />}
       {clinicPending && <ClinicPendingBanner />}
+      {canSchedule && <ClinicAddressBanner audience="admin" />}
       {loading ? (
         <LoadingState label="Organizando seu painel..." />
       ) : (
@@ -193,8 +195,8 @@ export default function DashboardPage() {
           <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <MetricCard label="Consultas" value={appointments.length} detail="total agendado" icon={<CalendarCheck2 size={20} />} tone="success" />
             <MetricCard label="Pacientes" value={patients.length} detail="cadastros permitidos" icon={<Users size={20} />} tone="info" />
-            <MetricCard label="Medicos" value={doctors.length} detail="credenciados" icon={<Stethoscope size={20} />} tone="neutral" />
-            <MetricCard label="Proximas" value={upcoming.length} detail="aguardando atendimento" icon={<Clock3 size={20} />} tone="warning" />
+            <MetricCard label="Médicos" value={doctors.length} detail="credenciados" icon={<Stethoscope size={20} />} tone="neutral" />
+            <MetricCard label="Próximas" value={upcoming.length} detail="aguardando atendimento" icon={<Clock3 size={20} />} tone="warning" />
           </section>
 
           <section className="mt-7 grid gap-6 xl:grid-cols-[1.55fr_.75fr]">
@@ -206,7 +208,7 @@ export default function DashboardPage() {
               </span>
               <h2 className="mt-7 text-2xl font-bold">Privacidade por perfil.</h2>
               <p className="mt-3 text-sm leading-6 text-white/55">
-                Dados clinicos permanecem restritos aos perfis autorizados.
+                Dados clínicos permanecem restritos aos perfis autorizados.
               </p>
               {canViewAudit && (
                 <Link
@@ -230,7 +232,7 @@ function DpoHome({ error }: { error: string }) {
       <PageHeader
         eyebrow="Privacidade"
         title="DPO MedSync"
-        description="Fila de privacidade, direitos do titular e evidencias de auditoria. Este perfil nao opera financeiro nem atendimento."
+        description="Fila de privacidade, direitos do titular e evidências de auditoria. Este perfil não opera financeiro nem atendimento."
       />
       {error && <ErrorBanner message={error} />}
 
@@ -241,7 +243,7 @@ function DpoHome({ error }: { error: string }) {
           </span>
           <h2 className="mt-5 text-lg font-bold text-ink">Direitos do titular</h2>
           <p className="mt-2 text-sm leading-6 text-slate-500">
-            Registre, acompanhe e conclua solicitacoes com referencia minimizada e trilha operacional.
+            Registre, acompanhe e conclua solicitações com referência minimizada e trilha operacional.
           </p>
           <Link href="/privacidade" className="mt-6 inline-flex items-center gap-2 text-sm font-bold text-teal-700">
             Abrir privacidade <ArrowRight size={15} />
@@ -253,7 +255,7 @@ function DpoHome({ error }: { error: string }) {
           </span>
           <h2 className="mt-5 text-lg font-bold text-ink">Auditoria de acesso</h2>
           <p className="mt-2 text-sm leading-6 text-slate-500">
-            Consulte eventos e tentativas negadas para investigar finalidade, evidencias e possiveis incidentes.
+            Consulte eventos e tentativas negadas para investigar finalidade, evidências e possíveis incidentes.
           </p>
           <Link href="/auditoria" className="mt-6 inline-flex items-center gap-2 text-sm font-bold text-teal-700">
             Abrir auditoria <ArrowRight size={15} />
@@ -263,7 +265,7 @@ function DpoHome({ error }: { error: string }) {
           <span className="grid size-11 place-items-center rounded-lg bg-amber-50 text-amber-700">
             <ShieldCheck size={21} />
           </span>
-          <h2 className="mt-5 text-lg font-bold text-ink">Minimizacao</h2>
+          <h2 className="mt-5 text-lg font-bold text-ink">Minimização</h2>
           <p className="mt-2 text-sm leading-6 text-slate-500">
             O DPO vê só metadados: quem acessou, quando e o resultado. Prontuário, diagnóstico e conteúdo de chamada ficam fora.
           </p>
@@ -584,14 +586,14 @@ function PatientCareHome({
           <section className="grid gap-4 sm:grid-cols-3">
             <MetricCard label="Em andamento" value={inProgressCount} icon={<Video size={20} />} tone="warning" />
             <MetricCard label="Agendadas" value={scheduledCount} icon={<CalendarCheck2 size={20} />} tone="info" />
-            <MetricCard label="Concluidas" value={completedCount} icon={<CheckCircle2 size={20} />} tone="success" />
+            <MetricCard label="Concluídas" value={completedCount} icon={<CheckCircle2 size={20} />} tone="success" />
           </section>
 
           <section className="mt-5 grid gap-5 xl:grid-cols-[1.35fr_.85fr]">
             <Card className="p-6 sm:p-7">
               <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
                 <div>
-                  <p className="text-xs font-bold uppercase tracking-[0.08em] text-teal-700">Proximo atendimento</p>
+                  <p className="text-xs font-bold uppercase tracking-[0.08em] text-teal-700">Próximo atendimento</p>
                   {nextAppointment ? (
                     <>
                       <h2 className="mt-3 text-3xl font-bold text-ink">{nextAppointment.specialty}</h2>
@@ -660,7 +662,7 @@ function PatientCareHome({
                 <CareStatus
                   icon={<CheckCircle2 size={18} />}
                   label="Cadastro"
-                  value={patient ? "Ativo" : "Em verificacao"}
+                  value={patient ? "Ativo" : "Em verificação"}
                   tone={patient ? "success" : "warning"}
                 />
                 <CareStatus
@@ -672,7 +674,7 @@ function PatientCareHome({
                 <CareStatus
                   icon={<Video size={18} />}
                   label="Sala"
-                  value={joinAvailable ? "Liberada" : nextStep?.status ?? "Aguardando autorizacao"}
+                  value={joinAvailable ? "Liberada" : nextStep?.status ?? "Aguardando autorização"}
                   tone={joinAvailable ? "success" : "warning"}
                 />
               </div>
@@ -694,7 +696,7 @@ function PatientCareHome({
                 <div className="p-6">
                   <EmptyState
                     icon={<CalendarCheck2 size={22} />}
-                    title="Voce ainda nao tem consultas"
+                    title="Você ainda não tem consultas"
                     description="Seus atendimentos aparecem aqui. Use o botão acima para solicitar uma consulta."
                   />
                 </div>
@@ -725,7 +727,7 @@ function PatientCareHome({
               <div className="mt-4 space-y-2">
                 {[
                   "A administração da clínica vê agenda e cadastro, nunca o prontuário.",
-                  "Entrada em sala exige vinculo, horario e consentimento.",
+                  "Entrada em sala exige vinculo, horário e consentimento.",
                 ].map((item) => (
                   <p key={item} className="flex gap-2 text-xs text-slate-600">
                     <ShieldCheck className="mt-0.5 shrink-0 text-teal-600" size={14} />
@@ -751,7 +753,7 @@ function AppointmentsPanel({
   return (
     <Card className="overflow-hidden">
       <SectionHeader
-        title="Proximos atendimentos"
+        title="Próximos atendimentos"
         description="Agenda mais imediata"
         action={(
           <Link href="/consultas" className="flex items-center gap-1.5 text-xs font-bold text-teal-600">
@@ -786,9 +788,10 @@ function AppointmentRow({
   const step = patientCareStep(appointment);
   const joinReady = canJoin && isAppointmentRoomJoinable(appointment);
   const primaryName = perspective === "patient" ? appointment.doctorName : appointment.patientName;
+  const modality = isInPerson(appointment) ? "Presencial" : "Online";
   const secondaryLine = perspective === "patient"
-    ? appointment.specialty
-    : `${appointment.doctorName} - ${appointment.specialty}`;
+    ? `${appointment.specialty} · ${modality}`
+    : `${appointment.doctorName} - ${appointment.specialty} · ${modality}`;
 
   return (
     <div className="flex flex-col gap-4 px-6 py-5 sm:flex-row sm:items-center">
@@ -868,25 +871,25 @@ function CareStatus({
 
 function careBlockReason(appointment: Appointment) {
   if (appointment.paymentRequired && appointment.paymentStatus !== "Paid") {
-    return "Entrada aguardando confirmacao de pagamento.";
+    return "Entrada aguardando confirmação de pagamento.";
   }
   if (isInPerson(appointment)) {
     return `Consulta presencial: ${appointment.location ?? "no endereço da clínica"}.`;
   }
   if (isAppointmentMissed(appointment)) {
-    return "Horario de entrada encerrado. Solicite um novo atendimento se necessario.";
+    return "Horário de entrada encerrado. Solicite um novo atendimento se necessário.";
   }
   if (isAppointmentStaleInProgress(appointment)) {
-    return "Horario de entrada encerrado. O atendimento precisa ser encerrado pelo medico responsavel.";
+    return "Horário de entrada encerrado. O atendimento precisa ser encerrado pelo médico responsável.";
   }
   if (!appointment.consentAccepted) {
     return "Termo de telemedicina pendente antes da entrada na sala.";
   }
   if (appointment.status !== "InProgress") {
-    return "Sala de espera disponivel quando o atendimento for iniciado.";
+    return "Sala de espera disponível quando o atendimento for iniciado.";
   }
   if (!appointment.roomName) {
-    return "Sala ainda nao criada pelo medico responsavel.";
+    return "Sala ainda não criada pelo médico responsável.";
   }
   return null;
 }
@@ -948,8 +951,8 @@ function patientCareStep(appointment: Appointment) {
   if (appointment.status === "InProgress") {
     if (isAppointmentStaleInProgress(appointment)) {
       return {
-        cta: "Horario encerrado",
-        status: "Horario encerrado",
+        cta: "Horário encerrado",
+        status: "Horário encerrado",
         primary: false,
         icon: <Clock3 size={17} />,
         badgeClass: "bg-slate-50 text-slate-500",
@@ -957,8 +960,8 @@ function patientCareStep(appointment: Appointment) {
     }
 
     return {
-      cta: "Aguardando medico",
-      status: "Aguardando medico",
+      cta: "Aguardando médico",
+      status: "Aguardando médico",
       primary: false,
       icon: <Clock3 size={17} />,
       badgeClass: "bg-amber-50 text-amber-700",
@@ -967,8 +970,8 @@ function patientCareStep(appointment: Appointment) {
 
   if (appointment.status === "Scheduled") {
     return {
-      cta: "Aguardar horario",
-      status: "Aguardando horario",
+      cta: "Aguardar horário",
+      status: "Aguardando horário",
       primary: false,
       icon: <Clock3 size={17} />,
       badgeClass: "bg-slate-50 text-slate-500",
@@ -977,8 +980,8 @@ function patientCareStep(appointment: Appointment) {
 
   if (appointment.status === "Completed") {
     return {
-      cta: "Concluida",
-      status: "Concluida",
+      cta: "Concluída",
+      status: "Concluída",
       primary: false,
       icon: <CheckCircle2 size={17} />,
       badgeClass: "bg-teal-50 text-teal-700",

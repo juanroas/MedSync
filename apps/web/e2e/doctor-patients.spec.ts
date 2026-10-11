@@ -22,6 +22,6 @@ test.describe("pacientes do medico", () => {
 
     await row.getByRole("link", { name: /abrir prontuário/i }).click();
     await expect(page).toHaveURL(/\/prontuario\//);
-    await expect(page.getByRole("heading", { name: /prontuario do atendimento/i })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /prontu[aá]rio do atendimento/i })).toBeVisible();
   });
 });

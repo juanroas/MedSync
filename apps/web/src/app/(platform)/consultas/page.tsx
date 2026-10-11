@@ -146,7 +146,7 @@ function AppointmentsList() {
       await api.startConsultation(appointmentId);
       router.push(`/sala/${appointmentId}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Nao foi possivel iniciar a sala.");
+      setError(err instanceof Error ? err.message : "Não foi possível iniciar a sala.");
     } finally {
       setStartingId("");
     }
@@ -165,7 +165,7 @@ function AppointmentsList() {
         ),
       );
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Nao foi possivel encerrar a consulta.");
+      setError(err instanceof Error ? err.message : "Não foi possível encerrar a consulta.");
     } finally {
       setEndingId("");
     }
@@ -179,7 +179,7 @@ function AppointmentsList() {
       const updated = await api.cancelAppointment(appointmentId);
       setAppointments((items) => items.map((item) => (item.id === appointmentId ? updated : item)));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Nao foi possivel cancelar a consulta.");
+      setError(err instanceof Error ? err.message : "Não foi possível cancelar a consulta.");
     } finally {
       setCancelingId("");
     }
@@ -269,7 +269,7 @@ function AppointmentsList() {
             ? "Consultas vinculadas ao seu atendimento. A agenda é montada pela clínica."
             : isPatient
               ? "Acompanhe seus atendimentos autorizados e a entrada na sala."
-              : "Acompanhe os proximos horarios e entre nas salas virtuais de atendimento."
+              : "Consultas da clínica: agende pelo paciente, acompanhe os horários e cancele quando preciso."
         }
         action={canRequestOrSchedule ? (
           <Link
@@ -288,13 +288,13 @@ function AppointmentsList() {
       ) : appointments.length === 0 ? (
         <EmptyState
           icon={<CalendarDays size={22} />}
-          title={isDoctor ? "Sem atendimentos vinculados" : isPatient ? "Voce ainda nao tem consultas" : "Agenda vazia"}
+          title={isDoctor ? "Sem atendimentos vinculados" : isPatient ? "Você ainda não tem consultas" : "Agenda vazia"}
           description={
             isDoctor
               ? "Quando uma consulta for vinculada ao seu atendimento, ela aparece aqui."
               : isPatient
                 ? "Quando você solicitar uma consulta, ela aparece aqui."
-                : "Use \"Agendar consulta\" no topo da pagina para criar o primeiro atendimento."
+                : "Use \"Agendar consulta\" no topo da página para criar o primeiro atendimento."
           }
         />
       ) : (
@@ -323,7 +323,7 @@ function AppointmentsList() {
                 tab === "history" ? "bg-teal-50 text-teal-800 ring-1 ring-teal-100" : "text-slate-500 hover:text-ink"
               }`}
             >
-              Historico
+              Histórico
               <span
                 className={`rounded-full px-1.5 py-0.5 text-[10px] ${
                   tab === "history" ? "bg-teal-100 text-teal-800" : "bg-slate-100 text-slate-500"
@@ -335,16 +335,16 @@ function AppointmentsList() {
           </div>
           {visibleAppointments.length === 0 ? (
             <div className="rounded-lg border border-slate-100 bg-white p-12 text-center text-sm text-slate-400 shadow-sm">
-              {tab === "active" ? "Nenhuma consulta ativa no momento." : "Nenhuma consulta no historico ainda."}
+              {tab === "active" ? "Nenhuma consulta ativa no momento." : "Nenhuma consulta no histórico ainda."}
             </div>
           ) : (
             <div className="overflow-hidden rounded-lg border border-slate-100 bg-white shadow-sm">
               <div className={`hidden gap-5 border-b border-slate-100 bg-slate-50/60 px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-400 lg:grid ${columnsClass}`}>
                 {showPatientColumn && <span>Paciente</span>}
-                {showDoctorColumn && <span>Medico</span>}
-                <span>Horario</span>
+                {showDoctorColumn && <span>Médico</span>}
+                <span>Horário</span>
                 <span>Status</span>
-                <span>Acao</span>
+                <span>Ação</span>
               </div>
               <div className="divide-y divide-slate-100">
                 {visibleAppointments.map((appointment) => (
@@ -457,7 +457,7 @@ function getAppointmentNextStep(appointment: Appointment) {
 
   if (appointment.status === "Scheduled") {
     return {
-      label: "Aguardando horario",
+      label: "Aguardando horário",
       icon: <Clock3 size={15} />,
       className: "bg-slate-50 text-slate-500",
     };
@@ -466,14 +466,14 @@ function getAppointmentNextStep(appointment: Appointment) {
   if (appointment.status === "InProgress") {
     if (isAppointmentStaleInProgress(appointment)) {
       return {
-        label: "Horario encerrado",
+        label: "Horário encerrado",
         icon: <Clock3 size={15} />,
         className: "bg-slate-50 text-slate-500",
       };
     }
 
     return {
-      label: "Aguardando medico",
+      label: "Aguardando médico",
       icon: <Video size={15} />,
       className: "bg-amber-50 text-amber-700",
     };
@@ -481,7 +481,7 @@ function getAppointmentNextStep(appointment: Appointment) {
 
   if (appointment.status === "Completed") {
     return {
-      label: "Atendimento concluido",
+      label: "Atendimento concluído",
       icon: <CalendarDays size={15} />,
       className: "bg-teal-50 text-teal-700",
     };

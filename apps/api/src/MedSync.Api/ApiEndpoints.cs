@@ -39,6 +39,7 @@ public static partial class ApiEndpoints
         protectedApi.MapGet("/audit-events", GetAuditEvents);
         protectedApi.MapPost("/clinics/onboarding", CreateClinicOnboarding);
         protectedApi.MapGet("/clinics/me", GetMyClinic);
+        protectedApi.MapGet("/clinics/current", GetCurrentClinicSummary);
         protectedApi.MapPut("/clinics/me", UpdateMyClinic);
         protectedApi.MapGet("/clinics/activation", GetClinicActivations);
         protectedApi.MapPut("/clinics/{id:guid}/activation", UpdateClinicActivation);
@@ -486,7 +487,11 @@ public static partial class ApiEndpoints
             clinic.MonthlyFee,
             clinic.ActivationStatus,
             clinic.ActivatedAt,
-            clinic.CreatedAt);
+            clinic.CreatedAt,
+            clinic.FormattedAddress(),
+            string.IsNullOrWhiteSpace(clinic.TechnicalDirectorName)
+                ? null
+                : $"{clinic.TechnicalDirectorName} · {PrescriptionPdf.FormatCrm(clinic.TechnicalDirectorCrm ?? "", clinic.TechnicalDirectorCrmUf ?? "")}");
 
     private const string ClinicPendingStaffMessage =
         "A clínica ainda está em ativação. Pacientes e consultas são liberados assim que o Médico ADM MedSync ativar o cadastro.";
@@ -509,7 +514,7 @@ public static partial class ApiEndpoints
         var canOperatePrivacy = CanOperatePrivacy(actor);
         if (!canOperatePrivacy && !actor.HasAny(ClinicRole.Patient))
         {
-            audit.Add(actor, "PrivacyRequest.List", "PrivacyRequest", null, "Denied", "Perfil sem permissao para solicitacoes de titular.");
+            audit.Add(actor, "PrivacyRequest.List", "PrivacyRequest", null, "Denied", "Perfil sem permissão para solicitações de titular.");
             await db.SaveChangesAsync(cancellationToken);
             return Results.Forbid();
         }
@@ -559,7 +564,7 @@ public static partial class ApiEndpoints
         var actor = RequestContext.From(principal);
         if (!CanOperatePrivacy(actor) && !actor.HasAny(ClinicRole.Patient))
         {
-            audit.Add(actor, "PrivacyRequest.Create", "PrivacyRequest", null, "Denied", "Perfil sem permissao para registrar solicitacao de titular.");
+            audit.Add(actor, "PrivacyRequest.Create", "PrivacyRequest", null, "Denied", "Perfil sem permissão para registrar solicitação de titular.");
             await db.SaveChangesAsync(cancellationToken);
             return Results.Forbid();
         }
@@ -577,7 +582,7 @@ public static partial class ApiEndpoints
                 .SingleAsync(cancellationToken);
             requesterName = user.Name;
             requesterEmail = user.Email;
-            subjectReference = "Proprio titular autenticado";
+            subjectReference = "Próprio titular autenticado";
         }
 
         var validation = ValidatePrivacyRequest(requesterName, requesterEmail, subjectReference, description);
@@ -614,7 +619,7 @@ public static partial class ApiEndpoints
         var actor = RequestContext.From(principal);
         if (!CanUpdatePrivacyRequest(actor))
         {
-            audit.Add(actor, "PrivacyRequest.UpdateStatus", "PrivacyRequest", id, "Denied", "Perfil sem permissao para atualizar solicitacao de titular.");
+            audit.Add(actor, "PrivacyRequest.UpdateStatus", "PrivacyRequest", id, "Denied", "Perfil sem permissão para atualizar solicitação de titular.");
             await db.SaveChangesAsync(cancellationToken);
             return Results.Forbid();
         }
@@ -628,9 +633,9 @@ public static partial class ApiEndpoints
             ? null
             : request.ResolutionNote.Trim();
         if (note?.Length > 1000)
-            return Validation("resolutionNote", "Nota operacional deve ter ate 1000 caracteres.");
+            return Validation("resolutionNote", "Nota operacional deve ter até 1000 caracteres.");
         if (note is not null && LooksLikeFullCpf(note))
-            return Validation("resolutionNote", "Nao registre CPF completo ou dado sensivel na nota operacional.");
+            return Validation("resolutionNote", "Não registre CPF completo ou dado sensível na nota operacional.");
 
         privacyRequest.Status = request.Status;
         privacyRequest.ResolutionNote = note;
@@ -732,7 +737,7 @@ public static partial class ApiEndpoints
         var actor = RequestContext.From(principal);
         if (!CanOperateSupport(actor))
         {
-            audit.Add(actor, "SupportRequest.UpdateStatus", "SupportRequest", id, "Denied", "Perfil sem permissao para atualizar solicitacao de ajuda.");
+            audit.Add(actor, "SupportRequest.UpdateStatus", "SupportRequest", id, "Denied", "Perfil sem permissão para atualizar solicitação de ajuda.");
             await db.SaveChangesAsync(cancellationToken);
             return Results.Forbid();
         }
@@ -746,9 +751,9 @@ public static partial class ApiEndpoints
             ? null
             : request.ResolutionNote.Trim();
         if (note?.Length > 1000)
-            return Validation("resolutionNote", "Nota de suporte deve ter ate 1000 caracteres.");
+            return Validation("resolutionNote", "Nota de suporte deve ter até 1000 caracteres.");
         if (note is not null && LooksLikeFullCpf(note))
-            return Validation("resolutionNote", "Nao registre CPF completo ou dado sensivel na nota de suporte.");
+            return Validation("resolutionNote", "Não registre CPF completo ou dado sensível na nota de suporte.");
 
         supportRequest.Status = request.Status;
         supportRequest.ResolutionNote = note;
@@ -826,7 +831,7 @@ public static partial class ApiEndpoints
         if (user is null || !user.IsActive || !user.MfaEnabled || user.MfaSecret is null ||
             !totp.Verify(user.MfaSecret, request.Code))
         {
-            audit.Add(null, "Auth.Login.MfaDenied", "User", userId, "Denied", "Codigo MFA invalido.");
+            audit.Add(null, "Auth.Login.MfaDenied", "User", userId, "Denied", "Código MFA inválido.");
             await db.SaveChangesAsync(cancellationToken);
             return Results.Unauthorized();
         }
@@ -874,7 +879,7 @@ public static partial class ApiEndpoints
         var actor = RequestContext.From(principal);
         var user = await db.Users.SingleAsync(x => x.Id == actor.UserId, cancellationToken);
         if (user.MfaEnabled)
-            return Results.Conflict(new { message = "MFA ja esta ativado para esta conta." });
+            return Results.Conflict(new { message = "MFA já está ativado para esta conta." });
 
         var secret = totp.GenerateSecret();
         await cache.SetStringAsync(
@@ -901,7 +906,7 @@ public static partial class ApiEndpoints
         if (secret is null)
             return Validation("code", "Nenhum cadastro de MFA pendente. Inicie o processo novamente.");
         if (!totp.Verify(secret, request.Code))
-            return Validation("code", "Codigo invalido.");
+            return Validation("code", "Código inválido.");
 
         var user = await db.Users.SingleAsync(x => x.Id == actor.UserId, cancellationToken);
         user.MfaEnabled = true;
@@ -1104,13 +1109,13 @@ public static partial class ApiEndpoints
         if (name.Length is < 3 or > 160)
             return Validation("name", "Informe o nome completo com 3 a 160 caracteres.");
         if (!IsValidEmail(request.Email))
-            return Validation("email", "Informe um e-mail valido.");
+            return Validation("email", "Informe um e-mail válido.");
         if (!IsValidOptionalPhone(request.Phone))
-            return Validation("phone", "Informe um telefone valido com DDD.");
+            return Validation("phone", "Informe um telefone válido com DDD.");
 
         var email = request.Email.Trim().ToLowerInvariant();
         if (await db.Users.AnyAsync(x => x.Id != user.Id && x.Email == email, cancellationToken))
-            return Results.Conflict(new { message = "Ja existe uma conta usando este e-mail." });
+            return Results.Conflict(new { message = "Já existe uma conta usando este e-mail." });
 
         user.Name = name;
         user.Email = email;
@@ -1552,7 +1557,7 @@ public static partial class ApiEndpoints
 
         var doctor = await FindOwnDoctorAsync(db, actor, cancellationToken);
         if (doctor is null)
-            return Results.NotFound(new { message = "Perfil medico nao encontrado para este ambiente." });
+            return Results.NotFound(new { message = "Perfil médico não encontrado para este ambiente." });
 
         var slots = await db.DoctorAvailabilitySlots.AsNoTracking()
             .Where(x => x.DoctorId == doctor.Id)
@@ -1713,7 +1718,7 @@ public static partial class ApiEndpoints
 
         var doctor = await FindOwnDoctorAsync(db, actor, cancellationToken);
         if (doctor is null)
-            return Results.NotFound(new { message = "Perfil medico nao encontrado para este ambiente." });
+            return Results.NotFound(new { message = "Perfil médico não encontrado para este ambiente." });
 
         if (request.StartTime >= request.EndTime)
             return Validation("startTime", "O horário inicial precisa ser antes do horário final.");
@@ -1976,10 +1981,12 @@ public static partial class ApiEndpoints
                         doctor.Id,
                         doctor.Name,
                         doctor.WindowModalities.Count > 0,
-                        $"{doctor.Crm}/{doctor.CrmUf}",
+                        PrescriptionPdf.FormatCrm(doctor.Crm, doctor.CrmUf),
                         OfferedModalities(doctor.WindowModalities, clinicAddress is not null),
                         clinic.Name,
-                        clinicAddress))
+                        clinicAddress,
+                        clinicAddress is null &&
+                            doctor.WindowModalities.Any(x => x is ConsultationModality.InPerson or ConsultationModality.Both)))
                     .ToList()))
             .ToList();
 
@@ -2034,13 +2041,13 @@ public static partial class ApiEndpoints
 
         var specialty = request.Specialty.Trim();
         if (specialty.Length < 3)
-            return Validation("specialty", "Selecione uma especialidade disponivel.");
+            return Validation("specialty", "Selecione uma especialidade disponível.");
         if (request.ScheduledAt == default)
-            return Validation("scheduledAt", "Data e hora sao obrigatorias.");
+            return Validation("scheduledAt", "Data e hora são obrigatórias.");
         if (request.DurationMinutes is < 10 or > 120)
-            return Validation("durationMinutes", "A duracao deve estar entre 10 e 120 minutos.");
+            return Validation("durationMinutes", "A duração deve estar entre 10 e 120 minutos.");
         if (request.Notes?.Length > 240)
-            return Validation("notes", "Observacao deve ter ate 240 caracteres.");
+            return Validation("notes", "Observação deve ter até 240 caracteres.");
 
         var scheduledAt = request.ScheduledAt.ToUniversalTime();
         if (scheduledAt < DateTime.UtcNow + MinBookingNotice)
@@ -2054,7 +2061,7 @@ public static partial class ApiEndpoints
             x => x.ClinicId == actor.ClinicId && x.UserId == actor.UserId,
             cancellationToken);
         if (patient is null)
-            return Results.NotFound(new { message = "Paciente nao encontrado para este ambiente." });
+            return Results.NotFound(new { message = "Paciente não encontrado para este ambiente." });
 
         if (!await IsClinicActiveAsync(db, actor.ClinicId, cancellationToken))
         {
@@ -2103,8 +2110,8 @@ public static partial class ApiEndpoints
         if (doctor is null)
         {
             var message = request.DoctorId is { }
-                ? "O medico selecionado nao esta disponivel neste horario. Escolha outro horario dentro da disponibilidade dele."
-                : "Nao ha medico disponivel para esta especialidade no horario escolhido.";
+                ? "O médico selecionado não está disponível neste horário. Escolha outro horário dentro da disponibilidade dele."
+                : "Não há médico disponível para esta especialidade no horário escolhido.";
             return Results.Conflict(new { message });
         }
 
@@ -2118,7 +2125,7 @@ public static partial class ApiEndpoints
             Modality = modality,
             Location = location,
             Notes = string.IsNullOrWhiteSpace(request.Notes)
-                ? $"Solicitacao do paciente por especialidade: {specialty}."
+                ? $"Solicitação do paciente por especialidade: {specialty}."
                 : request.Notes.Trim(),
             PaymentRequired = false
         };
@@ -2213,7 +2220,7 @@ public static partial class ApiEndpoints
         if (!actor.HasAny(AccessRules.ViewAllAppointments) &&
             !actor.HasAny(ClinicRole.Doctor, ClinicRole.Patient))
         {
-            audit.Add(actor, "Appointment.List", "Appointment", null, "Denied", "Perfil sem permissao para lista individual de consultas.");
+            audit.Add(actor, "Appointment.List", "Appointment", null, "Denied", "Perfil sem permissão para lista individual de consultas.");
             await db.SaveChangesAsync(cancellationToken);
             return Results.Forbid();
         }
@@ -2322,16 +2329,16 @@ public static partial class ApiEndpoints
         var isStaff = actor.HasAny(AccessRules.ManageAppointments);
         if (!isOwnerPatient && !isOwnerDoctor && !isStaff)
         {
-            audit.Add(actor, "Appointment.Cancel", "Appointment", id, "Denied", "Sem permissao sobre esta consulta.");
+            audit.Add(actor, "Appointment.Cancel", "Appointment", id, "Denied", "Sem permissão sobre esta consulta.");
             await db.SaveChangesAsync(cancellationToken);
             return Results.Forbid();
         }
 
         if (appointment.Status is AppointmentStatus.Completed or AppointmentStatus.Cancelled or AppointmentStatus.NoShow)
-            return Validation("status", "Esta consulta ja foi encerrada e nao pode mais ser cancelada.");
+            return Validation("status", "Esta consulta já foi encerrada e não pode mais ser cancelada.");
 
         if (appointment.ConsultationRoom is { Status: VideoSessionStatus.InProgress })
-            return Validation("status", "Nao e possivel cancelar uma consulta em andamento. Encerre a chamada primeiro.");
+            return Validation("status", "Não é possível cancelar uma consulta em andamento. Encerre a chamada primeiro.");
 
         appointment.Status = AppointmentStatus.Cancelled;
         if (appointment.ConsultationRoom is { Status: VideoSessionStatus.Pending or VideoSessionStatus.Ready } room)
@@ -2377,9 +2384,9 @@ public static partial class ApiEndpoints
         CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(request.Content))
-            return Validation("content", "O registro clinico nao pode ficar vazio.");
+            return Validation("content", "O registro clínico não pode ficar vazio.");
         if (request.Content.Length > 12000)
-            return Validation("content", "O registro clinico deve ter no maximo 12000 caracteres.");
+            return Validation("content", "O registro clínico deve ter no máximo 12000 caracteres.");
         var actor = RequestContext.From(principal);
         var appointment = await LoadAppointment(db, actor, id, cancellationToken);
         if (appointment is null)
@@ -2440,7 +2447,7 @@ public static partial class ApiEndpoints
                 "Patient",
                 patientId,
                 "Denied",
-                "Perfil sem permissao assistencial para historico de prontuario.");
+                "Perfil sem permissão assistencial para histórico de prontuário.");
             await db.SaveChangesAsync(cancellationToken);
             return Results.Forbid();
         }
@@ -2694,7 +2701,7 @@ public static partial class ApiEndpoints
              appointment.ConsultationRoom.Status is VideoSessionStatus.Completed
                  or VideoSessionStatus.Cancelled
                  or VideoSessionStatus.Expired))
-            return Results.Conflict(new { message = "A sala nao esta disponivel." });
+            return Results.Conflict(new { message = "A sala não está disponível." });
         return appointment.ConsultationRoom is null
             ? Results.NotFound(new { message = "Aguarde o médico iniciar a consulta." })
             : Results.Ok(ToResponse(appointment.ConsultationRoom));
@@ -2757,7 +2764,7 @@ public static partial class ApiEndpoints
                 new
                 {
                     code = "video_provider_not_configured",
-                    message = "Videochamada nao configurada neste ambiente. Configure LIVEKIT_API_KEY, LIVEKIT_API_SECRET e VIDEO_E2EE_SECRET na API."
+                    message = "Videochamada não configurada neste ambiente. Configure LIVEKIT_API_KEY, LIVEKIT_API_SECRET e VIDEO_E2EE_SECRET na API."
                 },
                 statusCode: StatusCodes.Status503ServiceUnavailable);
         }
@@ -3123,34 +3130,34 @@ public static partial class ApiEndpoints
         if (requesterName.Length < 3)
             return Validation("requesterName", "Informe o nome do solicitante.");
         if (!IsValidEmail(requesterEmail))
-            return Validation("requesterEmail", "Informe um e-mail valido.");
+            return Validation("requesterEmail", "Informe um e-mail válido.");
         if (subjectReference.Length < 3)
-            return Validation("subjectReference", "Informe uma referencia minimizada do titular.");
+            return Validation("subjectReference", "Informe uma referência minimizada do titular.");
         if (subjectReference.Length > 160)
-            return Validation("subjectReference", "Referencia deve ter ate 160 caracteres.");
+            return Validation("subjectReference", "Referência deve ter até 160 caracteres.");
         if (LooksLikeFullCpf(subjectReference))
-            return Validation("subjectReference", "Nao registre CPF completo; use e-mail, protocolo ou referencia mascarada.");
+            return Validation("subjectReference", "Não registre CPF completo; use e-mail, protocolo ou referência mascarada.");
         if (description.Length < 10)
-            return Validation("description", "Descreva a solicitacao com pelo menos 10 caracteres.");
+            return Validation("description", "Descreva a solicitação com pelo menos 10 caracteres.");
         if (description.Length > 1000)
-            return Validation("description", "Descricao deve ter ate 1000 caracteres.");
+            return Validation("description", "Descrição deve ter até 1000 caracteres.");
         if (LooksLikeFullCpf(description))
-            return Validation("description", "Nao registre CPF completo ou dado clinico na descricao.");
+            return Validation("description", "Não registre CPF completo ou dado clínico na descrição.");
         return null;
     }
 
     private static IResult? ValidateSupportRequest(string subject, string description)
     {
         if (subject.Length < 3)
-            return Validation("subject", "Informe um assunto para a solicitacao.");
+            return Validation("subject", "Informe um assunto para a solicitação.");
         if (subject.Length > 160)
-            return Validation("subject", "Assunto deve ter ate 160 caracteres.");
+            return Validation("subject", "Assunto deve ter até 160 caracteres.");
         if (description.Length < 10)
-            return Validation("description", "Descreva o que voce precisa com pelo menos 10 caracteres.");
+            return Validation("description", "Descreva o que você precisa com pelo menos 10 caracteres.");
         if (description.Length > 1000)
-            return Validation("description", "Descricao deve ter ate 1000 caracteres.");
+            return Validation("description", "Descrição deve ter até 1000 caracteres.");
         if (LooksLikeFullCpf(description))
-            return Validation("description", "Nao registre CPF completo ou dado sensivel na descricao.");
+            return Validation("description", "Não registre CPF completo ou dado sensível na descrição.");
         return null;
     }
 
@@ -3214,9 +3221,9 @@ public static partial class ApiEndpoints
     {
         var lockedFields = new List<string>
         {
-            "Papel/permissao",
+            "Papel/permissão",
             "Clínica",
-            "Dados clinicos"
+            "Dados clínicos"
         };
         if (patient is not null)
             lockedFields.Add("CPF");
@@ -3227,7 +3234,7 @@ public static partial class ApiEndpoints
         }
 
         var profileType = doctor is not null
-            ? "Profissional de saude"
+            ? "Profissional de saúde"
             : patient is not null
                 ? "Paciente"
                 : "Perfil administrativo";
@@ -3455,6 +3462,19 @@ public static partial class ApiEndpoints
             clinic.TechnicalDirectorCrm,
             clinic.TechnicalDirectorCrmUf,
             clinic.ActivationStatus);
+
+    // Any member of a care clinic (doctor, reception, patient) can see where it attends in person.
+    private static async Task<IResult> GetCurrentClinicSummary(
+        ClaimsPrincipal principal,
+        MedSyncDbContext db,
+        CancellationToken cancellationToken)
+    {
+        var actor = RequestContext.From(principal);
+        var clinic = await db.Clinics.AsNoTracking().SingleAsync(x => x.Id == actor.ClinicId, cancellationToken);
+        if (clinic.IsPlatform)
+            return Results.NotFound();
+        return Results.Ok(new ClinicSummaryResponse(clinic.Id, clinic.Name, clinic.Phone, clinic.FormattedAddress(), clinic.HasAddress));
+    }
 
     // "Dados da clínica": the clinic admin keeps name, phone, address and technical director up to date.
     // CNPJ and legal name are checked by MedSync at activation, so they are read-only here.

@@ -1,6 +1,7 @@
 "use client";
 
 import { AvailabilityCalendar } from "@/components/availability-calendar";
+import { useClinicSummary } from "@/components/clinic-address-banner";
 import { Button, Card, cn, inputClass } from "@/components/ui";
 import { formatBrazilDateInput, formatBrazilDateTimeInput, formatDate, formatTime } from "@/lib/format";
 import { MODALITY_LABELS } from "@/lib/types";
@@ -41,6 +42,13 @@ export function ReceptionBookingForm({
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const clinic = useClinicSummary();
+  const inPersonBlocked = clinic !== null && !clinic.hasAddress;
+
+  // Without the clinic address there is no in-person booking (the API refuses it too).
+  useEffect(() => {
+    if (inPersonBlocked) setModality("Online");
+  }, [inPersonBlocked]);
 
   // Back from "Cadastrar pessoa": the new patient comes preselected (?paciente=id).
   useEffect(() => {
@@ -216,9 +224,10 @@ export function ReceptionBookingForm({
                     key={option}
                     type="button"
                     aria-pressed={modality === option}
+                    disabled={option === "InPerson" && inPersonBlocked}
                     onClick={() => setModality(option)}
                     className={cn(
-                      "inline-flex h-9 items-center gap-2 rounded-md px-3 text-xs font-bold transition",
+                      "inline-flex h-9 items-center gap-2 rounded-md px-3 text-xs font-bold transition disabled:cursor-not-allowed disabled:text-slate-300",
                       modality === option ? "bg-teal-50 text-teal-800 ring-1 ring-teal-200" : "text-slate-500 hover:text-ink",
                     )}
                   >
@@ -229,6 +238,14 @@ export function ReceptionBookingForm({
               </div>
             </fieldset>
           </div>
+          {inPersonBlocked && (
+            <p className="text-xs text-amber-700">
+              Presencial precisa do endereço da clínica.{" "}
+              <Link href="/clinica" className="font-bold underline">
+                Cadastrar endereço
+              </Link>
+            </p>
+          )}
 
           {manual ? (
             <div className="grid gap-4 sm:grid-cols-[1fr_180px]">
@@ -283,7 +300,7 @@ export function ReceptionBookingForm({
                 {times.length === 0 ? (
                   <p className="text-sm text-slate-400">{slotDate ? "Nenhum horário livre neste dia." : "Escolha um dia."}</p>
                 ) : (
-                  <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
+                  <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
                     {times.map((time) => {
                       const local = formatBrazilDateTimeInput(new Date(time.startsAt));
                       const selected = local === scheduledAt;
@@ -344,7 +361,7 @@ export function ReceptionBookingForm({
             {scheduledAt ? `${scheduledAt.slice(8, 10)}/${scheduledAt.slice(5, 7)} às ${scheduledAt.slice(11, 16)}` : "horário"} ·{" "}
             {MODALITY_LABELS[modality]}
           </p>
-          <Button type="submit" isLoading={saving}>
+          <Button type="submit" isLoading={saving} className="shrink-0 whitespace-nowrap">
             <CalendarPlus size={17} /> Confirmar agendamento
           </Button>
         </div>

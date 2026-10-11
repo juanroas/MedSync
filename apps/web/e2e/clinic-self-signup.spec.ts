@@ -23,7 +23,7 @@ test.describe("autocadastro de clínica", () => {
     await expect(page).toHaveURL(/\/dashboard/, { timeout: 20000 });
     await expect(page.getByText(/cadastro recebido/i)).toBeVisible();
     await expect(page.getByRole("link", { name: /falar com o suporte/i })).toBeVisible();
-    await expect(page.getByRole("link", { name: /nova consulta/i })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: /agendar consulta/i })).toHaveCount(0);
   });
 });
 

@@ -68,7 +68,7 @@ function TeamHelp() {
     () =>
       api.getSupportRequests()
         .then(setRequests)
-        .catch((err) => setError(err instanceof Error ? err.message : "Erro ao carregar solicitacoes."))
+        .catch((err) => setError(err instanceof Error ? err.message : "Erro ao carregar solicitações."))
         .finally(() => setLoading(false)),
     [],
   );
@@ -92,9 +92,9 @@ function TeamHelp() {
       const created = await api.createSupportRequest(form);
       setRequests((current) => [created, ...current]);
       setForm({ subject: "", description: "" });
-      setSuccess("Solicitacao enviada. O suporte MedSync vai responder por aqui.");
+      setSuccess("Solicitação enviada. O suporte MedSync vai responder por aqui.");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Nao foi possivel enviar a solicitacao.");
+      setError(err instanceof Error ? err.message : "Não foi possível enviar a solicitação.");
     } finally {
       setSaving(false);
     }
@@ -107,9 +107,9 @@ function TeamHelp() {
     try {
       const updated = await api.updateSupportRequestStatus(request.id, { status, resolutionNote });
       setRequests((current) => current.map((item) => (item.id === updated.id ? updated : item)));
-      setSuccess("Status da solicitacao atualizado.");
+      setSuccess("Status da solicitação atualizado.");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Nao foi possivel atualizar o status.");
+      setError(err instanceof Error ? err.message : "Não foi possível atualizar o status.");
     }
   }
 
@@ -120,7 +120,7 @@ function TeamHelp() {
         title={canOperate ? "Fila de ajuda" : "Precisa de ajuda?"}
         description={
           canOperate
-            ? "Solicitacoes de ajuda abertas por pacientes e equipe. Responda e atualize o status conforme o atendimento avanca."
+            ? "Solicitações de ajuda abertas por pacientes e equipe. Responda e atualize o status conforme o atendimento avanca."
             : "Descreva o que você precisa e o suporte MedSync responde por aqui."
         }
       />
@@ -136,7 +136,7 @@ function TeamHelp() {
             </span>
             <div>
               <p className="text-sm font-semibold text-slate-500">
-                {canOperate ? "Solicitacoes abertas" : "Suas solicitacoes abertas"}
+                {canOperate ? "Solicitações abertas" : "Suas solicitações abertas"}
               </p>
               <p className="mt-2 text-3xl font-bold text-ink">{openRequests}</p>
             </div>
@@ -146,8 +146,8 @@ function TeamHelp() {
           <div className="flex items-start gap-3">
             <MessageCircleQuestion className="mt-1 shrink-0 text-teal-700" size={20} />
             <p className="text-sm leading-6 text-slate-500">
-              Use este canal para duvidas de uso, problemas de acesso ou apoio operacional. Nao inclua senha,
-              token, CPF completo ou dado clinico nos campos livres.
+              Use este canal para duvidas de uso, problemas de acesso ou apoio operacional. Não inclua senha,
+              token, CPF completo ou dado clínico nos campos livres.
             </p>
           </div>
         </Card>
@@ -156,20 +156,20 @@ function TeamHelp() {
       <section className={`mt-7 grid gap-7 ${canCreate ? "xl:grid-cols-[420px_1fr]" : ""}`}>
         {canCreate && (
           <Card className="p-6">
-            <h2 className="text-lg font-bold text-ink">Nova solicitacao</h2>
+            <h2 className="text-lg font-bold text-ink">Nova solicitação</h2>
             <form className="mt-5 space-y-4" onSubmit={createRequest}>
               <label className="block">
                 <span className="mb-1.5 block text-xs font-bold text-slate-500">Assunto</span>
                 <TextInput
                   value={form.subject}
                   onChange={(event) => setForm((current) => ({ ...current, subject: event.target.value }))}
-                  placeholder="Ex: Nao consigo entrar na videochamada"
+                  placeholder="Ex: Não consigo entrar na videochamada"
                   maxLength={160}
                   required
                 />
               </label>
               <label className="block">
-                <span className="mb-1.5 block text-xs font-bold text-slate-500">Descricao</span>
+                <span className="mb-1.5 block text-xs font-bold text-slate-500">Descrição</span>
                 <TextArea
                   value={form.description}
                   onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))}
@@ -187,7 +187,7 @@ function TeamHelp() {
 
         <Card className="overflow-hidden">
           <div className="border-b border-slate-100 px-6 py-5">
-            <h2 className="font-bold text-ink">{canOperate ? "Fila de ajuda" : "Minhas solicitacoes"}</h2>
+            <h2 className="font-bold text-ink">{canOperate ? "Fila de ajuda" : "Minhas solicitações"}</h2>
             <p className="mt-1 text-xs text-slate-400">
               {canOperate
                 ? "Atualize o status conforme o atendimento avanca."
@@ -196,13 +196,13 @@ function TeamHelp() {
           </div>
 
           {loading ? (
-            <LoadingState label="Carregando solicitacoes..." />
+            <LoadingState label="Carregando solicitações..." />
           ) : requests.length === 0 ? (
             <div className="p-6">
               <EmptyState
                 icon={<LifeBuoy size={22} />}
-                title="Nenhuma solicitacao registrada"
-                description="Suas solicitacoes de ajuda aparecerao aqui."
+                title="Nenhuma solicitação registrada"
+                description="Suas solicitações de ajuda aparecerao aqui."
               />
             </div>
           ) : (

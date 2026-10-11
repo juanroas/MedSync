@@ -19,13 +19,13 @@ test.describe("solicitacao de consulta por paciente", () => {
     await page.getByRole("link", { name: "Solicitar consulta", exact: true }).click();
 
     await expect(page.getByRole("heading", { name: /solicitar consulta/i })).toBeVisible();
-    await expect(page.getByLabel(/especialidade ou [aá]rea/i)).toContainText(/clinica geral/i);
+    await expect(page.getByLabel(/especialidade ou [aá]rea/i)).toContainText(/cl[ií]nica geral/i);
     await page.getByLabel(/data e hor[aá]rio/i).fill(futureLocalDateTime());
     await page.getByLabel(/observa[cç][aã]o para o atendimento/i).fill("Solicitacao de homologacao por especialidade.");
     await page.getByRole("button", { name: /solicitar consulta/i }).click();
 
     await expect(page).toHaveURL(/\/consultas$/);
-    await expect(page.getByText(/clinica geral/i).first()).toBeVisible();
+    await expect(page.getByText(/cl[ií]nica geral/i).first()).toBeVisible();
   });
 
   test("api bloqueia solicitacao sem especialidade disponivel", async ({ request }) => {

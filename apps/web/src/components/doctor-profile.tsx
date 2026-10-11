@@ -1,5 +1,6 @@
 "use client";
 
+import { useClinicSummary } from "@/components/clinic-address-banner";
 import { AlertBanner, Button, Card, ErrorBanner, LoadingState, PageHeader, cn, inputClass } from "@/components/ui";
 import { formatCrm } from "@/lib/format";
 import type { Doctor } from "@/lib/types";
@@ -21,6 +22,7 @@ export function DoctorProfile() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [saved, setSaved] = useState(false);
+  const clinic = useClinicSummary();
 
   useEffect(() => {
     const email = getSession()?.user.email.toLowerCase();
@@ -116,6 +118,15 @@ export function DoctorProfile() {
                       placeholder="Rua, número, cidade/UF"
                     />
                   </Field>
+                  {clinic?.hasAddress && form.professionalAddress !== clinic.formattedAddress && (
+                    <button
+                      type="button"
+                      onClick={() => setForm({ ...form, professionalAddress: clinic.formattedAddress ?? "" })}
+                      className="mt-2 text-xs font-bold text-teal-700 hover:text-teal-900"
+                    >
+                      Usar o endereço da clínica ({clinic.formattedAddress})
+                    </button>
+                  )}
                 </div>
               </div>
               <div className="mt-6 flex justify-end">

@@ -83,6 +83,16 @@ export type ClinicActivation = {
   activationStatus: ClinicActivationStatus;
   activatedAt?: string;
   createdAt: string;
+  formattedAddress?: string | null;
+  technicalDirector?: string | null;
+};
+
+export type ClinicSummary = {
+  id: string;
+  name: string;
+  phone?: string | null;
+  formattedAddress?: string | null;
+  hasAddress: boolean;
 };
 
 export type AuditEvent = {
@@ -230,6 +240,7 @@ export type CareSpecialty = {
     modalities: ConsultationModality[];
     clinicName: string;
     clinicAddress?: string | null;
+    inPersonPendingAddress?: boolean;
   }>;
 };
 

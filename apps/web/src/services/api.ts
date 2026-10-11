@@ -21,6 +21,7 @@ import type {
   Address,
   AddressResponse,
   ClinicProfile,
+  ClinicSummary,
   ClinicalAccessGrant,
   ClinicalAccessPatient,
   ClinicalAccessReason,
@@ -294,6 +295,7 @@ export const api = {
     }),
   lookupZipCode: (zip: string) => request<AddressResponse>(`/address/zip/${zip}`),
   getMyClinic: () => request<ClinicProfile>("/clinics/me"),
+  getCurrentClinic: () => request<ClinicSummary>("/clinics/current"),
   findPatientForClinicalAccess: (cpf: string) =>
     request<ClinicalAccessPatient[]>(`/clinical-access/patients?cpf=${cpf}`),
   createClinicalAccess: (input: { patientId: string; reason: ClinicalAccessReason; justification: string; declaration: boolean }) =>

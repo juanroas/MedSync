@@ -98,7 +98,7 @@ export default function ClinicalRecordPage() {
         setHistory(historyResult);
       } catch (err) {
         if (!isMounted) return;
-        setError(err instanceof Error ? err.message : "Nao foi possivel carregar o prontuario.");
+        setError(err instanceof Error ? err.message : "Não foi possível carregar o prontuário.");
       } finally {
         if (isMounted) setLoading(false);
       }
@@ -138,7 +138,7 @@ export default function ClinicalRecordPage() {
     setSavedMessage("");
 
     if (!content.trim()) {
-      setError("O registro clinico nao pode ficar vazio.");
+      setError("O registro clínico não pode ficar vazio.");
       return;
     }
 
@@ -150,9 +150,9 @@ export default function ClinicalRecordPage() {
       if (appointment) {
         setHistory(await api.getPatientClinicalRecords(appointment.patientId));
       }
-      setSavedMessage(`Prontuario salvo. Versao ${updated.version}.`);
+      setSavedMessage(`Prontuário salvo. Versão ${updated.version}.`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Nao foi possivel salvar o prontuario.");
+      setError(err instanceof Error ? err.message : "Não foi possível salvar o prontuário.");
     } finally {
       setSaving(false);
     }
@@ -163,7 +163,7 @@ export default function ClinicalRecordPage() {
 
     const SpeechRecognition = getSpeechRecognitionConstructor();
     if (!SpeechRecognition) {
-      setDictationStatus("Ditado indisponivel neste navegador.");
+      setDictationStatus("Ditado indisponível neste navegador.");
       return;
     }
 
@@ -175,7 +175,7 @@ export default function ClinicalRecordPage() {
 
     recognition.onstart = () => {
       setDictationActive(true);
-      setDictationStatus("Ouvindo... fale o texto do registro clinico.");
+      setDictationStatus("Ouvindo... fale o texto do registro clínico.");
     };
 
     recognition.onresult = (event) => {
@@ -219,7 +219,7 @@ export default function ClinicalRecordPage() {
     } catch {
       recognitionRef.current = null;
       setDictationActive(false);
-      setDictationStatus("Nao foi possivel iniciar o ditado neste navegador.");
+      setDictationStatus("Não foi possível iniciar o ditado neste navegador.");
     }
   }
 
@@ -227,15 +227,15 @@ export default function ClinicalRecordPage() {
     recognitionRef.current?.stop();
   }
 
-  if (loading) return <LoadingState label="Carregando prontuario..." />;
+  if (loading) return <LoadingState label="Carregando prontuário..." />;
 
   if (error && !appointment) {
     return (
       <>
         <PageHeader
           eyebrow="MedSync Medical"
-          title="Prontuario"
-          description="Registro clinico restrito aos perfis assistenciais autorizados."
+          title="Prontuário"
+          description="Registro clínico restrito aos perfis assistenciais autorizados."
           action={<BackToSchedule />}
         />
         <ErrorBanner message={error} />
@@ -247,8 +247,8 @@ export default function ClinicalRecordPage() {
     <>
       <PageHeader
         eyebrow="MedSync Medical"
-        title="Prontuario do atendimento"
-        description="Registre a evolucao clinica do atendimento e consulte o historico assistencial do paciente."
+        title="Prontuário do atendimento"
+        description="Registre a evolucao clínica do atendimento e consulte o histórico assistencial do paciente."
         action={<BackToSchedule />}
       />
 
@@ -258,8 +258,8 @@ export default function ClinicalRecordPage() {
       {!canEditClinicalRecord && (
         <AlertBanner
           tone="warning"
-          title="Acesso assistencial necessario"
-          message="Somente o medico vinculado ao atendimento pode editar prontuario. Perfis assistenciais autorizados consultam historico conforme finalidade."
+          title="Acesso assistencial necessário"
+          message="Somente o médico vinculado ao atendimento pode editar prontuário. Perfis assistenciais autorizados consultam histórico conforme finalidade."
         />
       )}
 
@@ -276,7 +276,7 @@ export default function ClinicalRecordPage() {
                   </p>
                 </div>
                 <div className="grid gap-3 text-sm text-slate-500 sm:grid-cols-2 lg:min-w-80">
-                  <InfoPill label="Horario" value={formatDateTime(appointment.scheduledAt)} />
+                  <InfoPill label="Horário" value={formatDateTime(appointment.scheduledAt)} />
                   <InfoPill label="Status" value={appointment.status} />
                 </div>
               </div>
@@ -284,7 +284,7 @@ export default function ClinicalRecordPage() {
                 <div className="mt-5 flex gap-3 rounded-lg border border-amber-100 bg-amber-50/70 p-4 text-sm text-amber-800">
                   <Pill size={17} className="mt-0.5 shrink-0" />
                   <div>
-                    <p className="font-bold">Medicacoes de uso continuo</p>
+                    <p className="font-bold">Medicações de uso contínuo</p>
                     <p className="mt-1 leading-6">{appointment.patientContinuousMedications}</p>
                   </div>
                 </div>
@@ -297,15 +297,15 @@ export default function ClinicalRecordPage() {
                   <div className="mb-3 grid size-11 place-items-center rounded-lg bg-teal-50 text-teal-700">
                     <ClipboardPlus size={20} />
                   </div>
-                  <h2 className="text-xl font-bold text-ink">Registro clinico</h2>
+                  <h2 className="text-xl font-bold text-ink">Registro clínico</h2>
                   <p className="mt-1 text-sm leading-6 text-slate-500">
-                    Use este campo para evolucao, achados relevantes, orientacao e conduta do atendimento.
+                    Use este campo para evolucao, achados relevantes, orientação e conduta do atendimento.
                   </p>
                 </div>
                 <div className="flex shrink-0 flex-col items-end gap-2">
                   {record && (
                     <span className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-600">
-                      Versao {record.version}
+                      Versão {record.version}
                     </span>
                   )}
                   {canEditClinicalRecord && (
@@ -333,13 +333,13 @@ export default function ClinicalRecordPage() {
                     spellCheck
                     lang="pt-BR"
                     className="min-h-[320px] resize-y leading-6"
-                    placeholder="Descreva o atendimento clinico com objetividade. Evite dados fora da finalidade assistencial."
+                    placeholder="Descreva o atendimento clínico com objetividade. Evite dados fora da finalidade assistencial."
                   />
                 </label>
                 {canEditClinicalRecord && (
                   <div className="rounded-lg border border-slate-100 bg-slate-50 px-4 py-3 text-xs leading-5 text-slate-500">
                     {dictationChecked && !dictationSupported
-                      ? "Ditado indisponivel neste navegador. O corretor ortografico do sistema continua ativo no campo de texto."
+                      ? "Ditado indisponível neste navegador. O corretor ortografico do sistema continua ativo no campo de texto."
                       : dictationStatus || "Ditado usa o microfone do navegador e insere texto como rascunho. Revise antes de salvar."}
                   </div>
                 )}
@@ -372,7 +372,7 @@ export default function ClinicalRecordPage() {
                 <div>
                   <h2 className="font-bold text-ink">Escopo protegido</h2>
                   <p className="mt-2 text-sm leading-6 text-slate-500">
-                    Prontuário não aparece para a administração da clínica, suporte ou auditoria. Acesso clinico
+                    Prontuário não aparece para a administração da clínica, suporte ou auditoria. Acesso clínico
                     exige finalidade assistencial e gera evento de auditoria.
                   </p>
                 </div>
@@ -384,7 +384,7 @@ export default function ClinicalRecordPage() {
                 <div className="flex items-center gap-3">
                   <FileClock size={18} className="text-teal-700" />
                   <div>
-                    <h2 className="font-bold text-ink">Historico do paciente</h2>
+                    <h2 className="font-bold text-ink">Histórico do paciente</h2>
                     <p className="mt-1 text-xs text-slate-400">Registros anteriores vinculados a este paciente.</p>
                   </div>
                 </div>
@@ -487,7 +487,7 @@ function appendDictationText(current: string, addition: string) {
 
 function getDictationErrorMessage(error?: string) {
   if (error === "not-allowed" || error === "service-not-allowed") {
-    return "Permissao do microfone negada. Libere o microfone no navegador para usar o ditado.";
+    return "Permissão do microfone negada. Libere o microfone no navegador para usar o ditado.";
   }
 
   if (error === "no-speech") {
@@ -495,10 +495,10 @@ function getDictationErrorMessage(error?: string) {
   }
 
   if (error === "network") {
-    return "O ditado depende do servico de reconhecimento do navegador e falhou por conexao.";
+    return "O ditado depende do servico de reconhecimento do navegador e falhou por conexão.";
   }
 
-  return "Nao foi possivel continuar o ditado. Revise o texto e tente novamente.";
+  return "Não foi possível continuar o ditado. Revise o texto e tente novamente.";
 }
 
 function ClinicalHistoryModal({
@@ -522,7 +522,7 @@ function ClinicalHistoryModal({
       >
         <div className="flex items-start justify-between gap-4 border-b border-slate-100 px-6 py-5">
           <div>
-            <p className="text-xs font-bold uppercase tracking-[0.08em] text-teal-700">Historico clinico</p>
+            <p className="text-xs font-bold uppercase tracking-[0.08em] text-teal-700">Histórico clínico</p>
             <h2 id="clinical-history-title" className="mt-1 text-xl font-bold text-ink">
               Registro anterior do paciente
             </h2>
@@ -534,7 +534,7 @@ function ClinicalHistoryModal({
             type="button"
             onClick={onClose}
             className="grid size-10 shrink-0 place-items-center rounded-lg border border-slate-200 text-slate-500 hover:border-red-100 hover:bg-red-50 hover:text-red-600"
-            aria-label="Fechar historico"
+            aria-label="Fechar histórico"
           >
             <X size={18} />
           </button>
@@ -542,7 +542,7 @@ function ClinicalHistoryModal({
 
         <div className="grid gap-3 border-b border-slate-100 bg-slate-50 px-6 py-4 text-sm sm:grid-cols-3">
           <InfoPill label="Paciente" value={record.patientName} />
-          <InfoPill label="Versao" value={`v${record.version}`} />
+          <InfoPill label="Versão" value={`v${record.version}`} />
           <InfoPill label="Atualizado" value={formatDateTime(record.updatedAt)} />
         </div>
 

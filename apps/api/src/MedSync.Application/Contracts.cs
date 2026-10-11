@@ -137,7 +137,9 @@ public sealed record ClinicActivationResponse(
     decimal? MonthlyFee,
     ClinicActivationStatus ActivationStatus,
     DateTime? ActivatedAt,
-    DateTime CreatedAt);
+    DateTime CreatedAt,
+    string? FormattedAddress = null,
+    string? TechnicalDirector = null);
 
 public sealed record UpdateClinicActivationRequest(
     ClinicActivationStatus Status,
@@ -229,7 +231,17 @@ public sealed record CareDoctorOptionResponse(
     // What the doctor's windows offer; an open schedule offers online, and in person when the clinic has an address.
     IReadOnlyList<ConsultationModality> Modalities,
     string ClinicName,
-    string? ClinicAddress);
+    string? ClinicAddress,
+    // The doctor set in-person hours, but the clinic has no address yet, so patients cannot book them.
+    bool InPersonPendingAddress = false);
+
+// What any member of a clinic may know about it: where in-person consultations happen.
+public sealed record ClinicSummaryResponse(
+    Guid Id,
+    string Name,
+    string? Phone,
+    string? FormattedAddress,
+    bool HasAddress);
 
 public sealed record UpdateDoctorRequest(
     string Name,

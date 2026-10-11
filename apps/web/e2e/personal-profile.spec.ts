@@ -28,8 +28,8 @@ test.describe("perfil pessoal", () => {
     await expect(page.getByLabel(/nome completo/i)).toBeVisible();
     await expect(page.getByLabel(/e-mail/i)).toBeVisible();
     await expect(page.getByLabel(/telefone/i)).toBeVisible();
-    await expect(page.getByText(/papel\/permissao/i)).toBeVisible();
-    await expect(page.getByText(/dados clinicos/i)).toBeVisible();
+    await expect(page.getByText(/papel\/permiss[aã]o/i)).toBeVisible();
+    await expect(page.getByText(/dados clínicos/i)).toBeVisible();
     await expect(page.getByRole("button", { name: /salvar meus dados/i })).toBeVisible();
   });
 
@@ -51,8 +51,8 @@ test.describe("perfil pessoal", () => {
       expect(updated.status(), `PUT /profile ${email}`).toBe(200);
       const body = await updated.json();
       expect(body.email).toBe(profile.email);
-      expect(body.lockedFields).toContain("Papel/permissao");
-      expect(body.lockedFields).toContain("Dados clinicos");
+      expect(body.lockedFields).toContain("Papel/permissão");
+      expect(body.lockedFields).toContain("Dados clínicos");
     });
   }
 });

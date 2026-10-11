@@ -14,10 +14,10 @@ test.describe("auditoria por perfil", () => {
     await page.getByRole("navigation").getByRole("link", { name: /auditoria/i }).click();
 
     await expect(page.getByRole("heading", { name: /auditoria da plataforma/i })).toBeVisible();
-    await expect(page.getByText(/eventos que exigem revisao/i)).toBeVisible();
+    await expect(page.getByText(/eventos que exigem revis[aã]o/i)).toBeVisible();
     await expect(page.getByText("Appointment.List").first()).toBeVisible();
     await expect(page.getByText("Negado").first()).toBeVisible();
-    await expect(page.getByText(/sem expor prontuario, diagnostico, cpf completo, token ou conteudo da chamada/i)).toBeVisible();
+    await expect(page.getByText(/sem expor prontu[aá]rio, diagn[oó]stico, cpf completo, token ou conte[uú]do da chamada/i)).toBeVisible();
   });
 
   test("ADM da clinica ve a auditoria da propria clinica", async ({ page }) => {

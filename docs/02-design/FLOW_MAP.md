@@ -77,6 +77,14 @@ o bloco fixo "Nova consulta" — a ação vive no header de `/consultas` e no Pa
 | `/acessos-prontuario` | Médico ADM (DPO só leitura) | **Solicitar acesso** (só Médico ADM) | Janela: CPF completo → paciente, motivo (lista fechada), finalidade (mín. 30 caracteres), declaração de sigilo → "Abrir prontuário por 30 min" (somente leitura). Por linha ativa: "Abrir prontuário". DPO vê todos os acessos com a finalidade, sem conteúdo clínico. Paciente vê "Quem acessou meu prontuário" em Meu cadastro |
 | `/acessos` | ADM da clínica, Médico ADM | **Novo acesso** | ADM cria ADM da clínica; Médico ADM cria Médico ADM/Suporte/DPO; ninguém desabilita o próprio acesso |
 
+Clínica sem endereço de atendimento (comum em clínica cadastrada pelo Suporte): presencial não chega ao paciente e a API
+recusa marcar presencial. Todos são avisados: o médico em Horários de atendimento (se tiver faixa presencial), o ADM no
+Painel ("Cadastrar endereço" → `/clinica`) e na recepção (Presencial desabilitado), o paciente em Solicitar consulta
+("Atendimento presencial ainda indisponível"). O Médico ADM vê endereço e responsável técnico em `/clinicas` antes de ativar.
+
+Revisão de usabilidade antes de liberar: `apps/web/scripts/walkthrough.mjs` percorre os 6 perfis, tira foto de cada passo e
+lista erros de console e respostas de erro da API.
+
 Confirmações usam a janela do MedSync (`components/dialog.tsx`, `useConfirm`), nunca o `confirm()` do navegador.
 
 ## 5. Pendências conhecidas (backlog de fluxo)
