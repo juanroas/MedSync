@@ -34,8 +34,8 @@ const navigation: Array<{
   { href: "/dashboard", label: "Painel", icon: LayoutDashboard },
   { href: "/perfil", label: "Meus dados", icon: UserRoundCog },
   { href: "/clinicas", label: "Clínicas", icon: Building2, roles: ["MedicalDirector", "Support"] },
-  { href: "/consultas", label: "Consultas", icon: CalendarDays, roles: ["Patient", "Doctor", "ClinicAdmin"] },
-  { href: "/patients", label: "Pacientes", icon: Users, roles: ["Doctor", "Patient", "ClinicAdmin"] },
+  { href: "/consultas", label: "Consultas", icon: CalendarDays, roles: ["Patient", "Doctor", "ClinicAdmin", "Receptionist"] },
+  { href: "/patients", label: "Pacientes", icon: Users, roles: ["Doctor", "Patient", "ClinicAdmin", "Receptionist"] },
   { href: "/doctors", label: "Médicos", icon: Stethoscope, roles: ["Doctor", "ClinicAdmin"] },
   { href: "/clinica", label: "Dados da clínica", icon: Building2, roles: ["ClinicAdmin"] },
   { href: "/acessos", label: "Equipe e acessos", icon: UserCog, roles: ["ClinicAdmin", "MedicalDirector"] },
@@ -208,6 +208,7 @@ function workspaceLabel(roles: ClinicRole[]) {
   if (isPatient) return "Portal do paciente";
   if (isDoctor) return "Portal médico";
   if (roles.includes("ClinicAdmin")) return "Portal da clínica";
+  if (roles.includes("Receptionist")) return "Recepção";
   if (roles.some((role) => ["MedicalDirector", "Support", "DataProtectionOfficer"].includes(role))) {
     return "Central MedSync";
   }

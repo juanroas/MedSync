@@ -16,7 +16,7 @@ export function useClinicSummary() {
   return clinic;
 }
 
-export function ClinicAddressBanner({ audience, show = true }: { audience: "admin" | "doctor"; show?: boolean }) {
+export function ClinicAddressBanner({ audience, show = true }: { audience: "admin" | "doctor" | "staff"; show?: boolean }) {
   const clinic = useClinicSummary();
   if (!clinic || clinic.hasAddress || !show) return null;
   return (
@@ -31,10 +31,14 @@ export function ClinicAddressBanner({ audience, show = true }: { audience: "admi
               Cadastrar endereço
             </Link>
           </p>
-        ) : (
+        ) : audience === "doctor" ? (
           <p className="mt-1">
             Seus horários presenciais não aparecem para os pacientes até o administrador da clínica preencher o endereço em
             Dados da clínica. Os horários online continuam valendo.
+          </p>
+        ) : (
+          <p className="mt-1">
+            Consulta presencial fica indisponível até o administrador da clínica preencher o endereço em Dados da clínica.
           </p>
         )}
       </div>

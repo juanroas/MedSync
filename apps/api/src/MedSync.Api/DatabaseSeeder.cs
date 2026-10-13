@@ -36,7 +36,8 @@ public static class DatabaseSeeder
             [
                 new(Guid.Parse("10000000-0000-0000-0000-000000000001"), "Dra. Marina Costa", "medico@medsync.dev", ClinicRole.Doctor),
                 new(Guid.Parse("10000000-0000-0000-0000-000000000002"), "Carlos Oliveira", "paciente@medsync.dev", ClinicRole.Patient),
-                new(Guid.Parse("10000000-0000-0000-0000-000000000012"), "Ana Clínica", "clinica.admin@medsync.dev", ClinicRole.ClinicAdmin)
+                new(Guid.Parse("10000000-0000-0000-0000-000000000012"), "Ana Clínica", "clinica.admin@medsync.dev", ClinicRole.ClinicAdmin),
+                new(Guid.Parse("10000000-0000-0000-0000-000000000013"), "Rita Recepção", "recepcao@medsync.dev", ClinicRole.Receptionist)
             ]),
         new(
             ClinicId: Guid.Parse("01000000-0000-0000-0000-000000000002"),

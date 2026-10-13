@@ -53,7 +53,7 @@ import {
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-const schedulingRoles = ["ClinicAdmin"];
+const schedulingRoles = ["ClinicAdmin", "Receptionist"];
 
 const joinRoles = ["Doctor", "Patient"];
 const appointmentLoadRoles = [...schedulingRoles, "Patient", "Doctor"];
@@ -187,7 +187,7 @@ export default function DashboardPage() {
       />
       {error && <ErrorBanner message={error} />}
       {clinicPending && <ClinicPendingBanner />}
-      {canSchedule && <ClinicAddressBanner audience="admin" />}
+      {canSchedule && <ClinicAddressBanner audience={roles.includes("ClinicAdmin") ? "admin" : "staff"} />}
       {loading ? (
         <LoadingState label="Organizando seu painel..." />
       ) : (

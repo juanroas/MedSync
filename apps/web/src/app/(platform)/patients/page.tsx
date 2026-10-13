@@ -34,7 +34,7 @@ function PatientsRegistry() {
   const roles = getSession()?.user.roles ?? [];
   const isDoctor = roles.includes("Doctor");
   const isPatient = roles.includes("Patient");
-  const canManage = roles.includes("ClinicAdmin");
+  const canManage = roles.includes("ClinicAdmin") || roles.includes("Receptionist");
   const [patients, setPatients] = useState<Patient[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [editForm, setEditForm] = useState(initialEditForm);

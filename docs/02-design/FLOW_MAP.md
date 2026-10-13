@@ -39,6 +39,7 @@ Qualquer PR que adicione tela, item de menu ou botão que navega **atualiza este
 | Paciente | Painel · Minhas consultas · Meu cadastro · Ajuda (inclui "Pedido sobre meus dados") |
 | Médico | Painel · Agenda · Pacientes vinculados · Meu perfil · Ajuda |
 | ADM da clínica | Painel · Meus dados · Consultas · Pacientes · Médicos · Dados da clínica · Equipe e acessos · Auditoria (da clínica) · Ajuda |
+| Recepção (ADR-0005) | Painel · Meus dados · Consultas · Pacientes · Ajuda |
 | Médico ADM MedSync | Painel · Meus dados · Clínicas · Equipe MedSync · Acessos ao prontuário · Ajuda (fila) |
 | Suporte | Painel · Meus dados · Clínicas · Ajuda (fila) |
 | DPO MedSync | Painel · Meus dados · Auditoria (todas as clínicas) · Acessos ao prontuário · Ajuda · Privacidade (fila) |

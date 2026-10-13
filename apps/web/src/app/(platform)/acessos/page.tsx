@@ -12,12 +12,13 @@ const roleHints: Partial<Record<ClinicRole, string>> = {
   Support: "cadastra clínicas e atende a Ajuda",
   DataProtectionOfficer: "privacidade e trilha de auditoria",
   ClinicAdmin: "pacientes, médicos e agenda da clínica",
+  Receptionist: "cadastra pacientes e agenda, sem dado clínico",
 };
 
 // Mirrors ManageableStaffRoles in ApiEndpoints.cs: MedSync staff is managed by the Médico ADM,
 // clinic staff by the clinic's own ADM. Doctors and patients have their own screens.
 const platformStaffRoleValues: ClinicRole[] = ["MedicalDirector", "Support", "DataProtectionOfficer"];
-const clinicStaffRoleValues: ClinicRole[] = ["ClinicAdmin"];
+const clinicStaffRoleValues: ClinicRole[] = ["ClinicAdmin", "Receptionist"];
 
 function roleOption(value: ClinicRole) {
   return { value, label: roleHints[value] ? `${ROLE_LABELS[value]} (${roleHints[value]})` : ROLE_LABELS[value] };

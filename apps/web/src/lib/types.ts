@@ -3,6 +3,7 @@ export type ClinicRole =
   | "Patient"
   | "Doctor"
   | "ClinicAdmin"
+  | "Receptionist"
   | "MedicalDirector"
   | "Support"
   | "DataProtectionOfficer";
@@ -14,6 +15,7 @@ export const ROLE_LABELS: Record<ClinicRole, string> = {
   MedicalDirector: "Médico ADM MedSync",
   Support: "Suporte MedSync",
   DataProtectionOfficer: "DPO MedSync",
+  Receptionist: "Recepção",
 };
 
 export type User = {

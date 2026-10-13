@@ -37,11 +37,12 @@ public sealed record RequestContext(
 
 public static class AccessRules
 {
-    public static readonly ClinicRole[] ManagePatients = [ClinicRole.ClinicAdmin];
-    public static readonly ClinicRole[] ViewPatients = [ClinicRole.ClinicAdmin];
+    // Front desk: the clinic admin and the receptionist register patients and run the agenda (ADR-0005).
+    public static readonly ClinicRole[] ManagePatients = [ClinicRole.ClinicAdmin, ClinicRole.Receptionist];
+    public static readonly ClinicRole[] ViewPatients = [ClinicRole.ClinicAdmin, ClinicRole.Receptionist];
     public static readonly ClinicRole[] ManageDoctors = [ClinicRole.ClinicAdmin];
-    public static readonly ClinicRole[] ManageAppointments = [ClinicRole.ClinicAdmin];
-    public static readonly ClinicRole[] ViewAllAppointments = [ClinicRole.ClinicAdmin];
+    public static readonly ClinicRole[] ManageAppointments = [ClinicRole.ClinicAdmin, ClinicRole.Receptionist];
+    public static readonly ClinicRole[] ViewAllAppointments = [ClinicRole.ClinicAdmin, ClinicRole.Receptionist];
 }
 
 public static class PasswordPolicy

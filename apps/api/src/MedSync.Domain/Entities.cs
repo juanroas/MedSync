@@ -8,7 +8,9 @@ public enum ClinicRole
     ClinicAdmin,
     MedicalDirector,
     Support,
-    DataProtectionOfficer
+    DataProtectionOfficer,
+    // ADR-0005: front desk of a clinic or consultório — patients and agenda, never clinical content.
+    Receptionist
 }
 
 public enum AppointmentStatus

@@ -29,7 +29,7 @@ API: `dotnet build` em `apps/api`; migrations com `dotnet ef migrations add <Nom
 
 Modelo (ADR-0003, **aceito**): software para **médicos e clínicas**. O médico se cadastra sozinho (CRM + UF) e pode
 ser vinculado pelo Suporte a clínicas (CNPJ). Não existe mais módulo de empresa/benefício.
-Perfis: Paciente, Médico, Médico ADM MedSync (responsável técnico), Suporte, DPO, ADM Clínica. Conteúdo clínico:
+Perfis: Paciente, Médico, Médico ADM MedSync (responsável técnico), Suporte, DPO, ADM Clínica, Recepção (ADR-0005). Conteúdo clínico:
 paciente (o próprio), médico (o que atendeu), Médico ADM (com justificativa); ninguém mais.
 Ordem de trabalho das telas: [`docs/02-design/SCREEN_REBUILD_PLAN.md`](docs/02-design/SCREEN_REBUILD_PLAN.md).
 

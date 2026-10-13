@@ -53,7 +53,7 @@ function AppointmentsList() {
   const isDoctor = roles.includes("Doctor");
   const isPatient = roles.includes("Patient");
   const canOperationalSchedule = roles.some((role) =>
-    role === "ClinicAdmin",
+    role === "ClinicAdmin" || role === "Receptionist",
   );
   const canRequestOrSchedule = isPatient || canOperationalSchedule;
   const canJoinRole = roles.some((role) =>

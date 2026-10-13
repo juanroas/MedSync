@@ -11,6 +11,7 @@ controle de acesso. Conformidade LGPD/CFM ainda depende de validação jurídica
 | Paciente (`Patient`) | Clínica onde é atendido | A própria jornada |
 | Médico (`Doctor`) | Clínica onde atende | Consultas em que é o médico designado |
 | ADM da clínica (`ClinicAdmin`) | A própria clínica | Operação da clínica: pacientes, médicos, agenda, equipe, auditoria |
+| Recepção (`Receptionist`, ADR-0005) | A própria clínica ou consultório | Pacientes (cadastro) e agenda; nunca dado clínico |
 | Médico ADM MedSync (`MedicalDirector`) | Clínica plataforma "MedSync Operação" | Responsável técnico: ativa clínicas, gerencia a equipe MedSync, fila de Ajuda |
 | Suporte MedSync (`Support`) | Clínica plataforma | Onboarding de clínicas e fila de Ajuda de todas as clínicas |
 | DPO MedSync (`DataProtectionOfficer`) | Clínica plataforma | Direitos do titular e trilha de auditoria de todas as clínicas |
@@ -28,7 +29,8 @@ empresa/benefício foi removido (tabelas apagadas pela migração `RemoveCompany
 |---|---|---|---|---|---|---|---|---|---|---|
 | Paciente | R/U próprio/A | N | C (solicitar)/R/D próprias/A | R próprio | R quando designado/A | C/R próprio | N | N | C/R próprias | C/R próprias |
 | Médico | R/U próprio; R pacientes vinculados | N | R designadas; disponibilidade C/D | C/R/U quando designado/A | R quando designado/A | R designadas | N | N | C/R próprias | N |
-| ADM da clínica | C/R/U pacientes e médicos da clínica/A | R status da própria | C/R/D da clínica/A | **N** (mesmo se também for médico, só vê as consultas que atende) | N | R da clínica | R da clínica | C/R/U ADM da clínica/A | C/R próprias | N |
+| ADM da clínica | C/R/U pacientes e médicos da clínica/A | R status da própria | C/R/D da clínica/A | **N** (mesmo se também for médico, só vê as consultas que atende) | N | R da clínica | R da clínica | C/R/U ADM e Recepção da clínica/A | C/R próprias | N |
+| Recepção | C/R/U pacientes da clínica (cadastro)/A | N | C/R/D da clínica/A | **N** | N | R da clínica | N | N | C/R próprias | N |
 | Médico ADM MedSync | R/U próprio | C/R/U todas; **só ele ativa/suspende**/A | N | R **só com justificativa** (motivo + finalidade + declaração; 30 min, leitura; `/clinical-access`, regra C3)/A | N | N | N | C/R/U Médico ADM, Suporte, DPO/A | R/U fila de todas/A | N |
 | Suporte MedSync | R/U próprio | C (onboarding)/R todas/A | N | N | N | N | N | N | R/U fila de todas/A | N |
 | DPO MedSync | R/U próprio | N | N | N | N | N | R todas (só metadados) | N | C/R próprias | C/R/U fila de todas/A |

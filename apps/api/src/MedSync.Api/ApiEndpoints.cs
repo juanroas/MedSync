@@ -113,9 +113,9 @@ public static partial class ApiEndpoints
         ClinicRole.DataProtectionOfficer
     ];
 
-    private static readonly ClinicRole[] ClinicStaffRoles = [ClinicRole.ClinicAdmin];
+    private static readonly ClinicRole[] ClinicStaffRoles = [ClinicRole.ClinicAdmin, ClinicRole.Receptionist];
 
-    // Médico ADM manages the MedSync team; a clinic admin manages only clinic admins. Nobody else
+    // Médico ADM manages the MedSync team; a clinic admin manages clinic admins and receptionists. Nobody else
     // manages staff — this is what prevents a clinic admin from granting platform roles.
     private static ClinicRole[] ManageableStaffRoles(RequestContext actor) =>
         actor.IsMedicalAdmin
@@ -139,7 +139,7 @@ public static partial class ApiEndpoints
         if (!manageable.Contains(request.Role))
             return Validation("role", actor.IsMedicalAdmin
                 ? "Na equipe MedSync só é possível criar Médico ADM, Suporte ou DPO."
-                : "Na clínica só é possível criar outro administrador. Médicos são cadastrados em Médicos.");
+                : "Na clínica só é possível criar administrador ou recepção. Médicos são cadastrados em Médicos.");
         if (string.IsNullOrWhiteSpace(request.Name) || string.IsNullOrWhiteSpace(request.Email))
             return Validation("user", "Nome e e-mail são obrigatórios.");
         if (PasswordPolicy.Validate(request.TemporaryPassword) is { } passwordError)
@@ -2892,7 +2892,7 @@ public static partial class ApiEndpoints
         var appointment = await LoadAppointment(db, actor, appointmentId, cancellationToken);
         if (appointment is null)
             return Results.NotFound();
-        if (!IsPatient(actor, appointment) && !actor.HasAny(ClinicRole.ClinicAdmin))
+        if (!IsPatient(actor, appointment) && !actor.HasAny(AccessRules.ManageAppointments))
             return Results.Forbid();
         if (!provider.IsConfigured)
             return Results.Problem(
@@ -2946,7 +2946,7 @@ public static partial class ApiEndpoints
             return Results.NotFound();
         if (!IsPatient(actor, appointment) &&
             !IsAssignedDoctor(actor, appointment) &&
-            !actor.HasAny(ClinicRole.ClinicAdmin))
+            !actor.HasAny(AccessRules.ManageAppointments))
             return Results.Forbid();
         var payment = appointment.Payments.OrderByDescending(x => x.CreatedAt).FirstOrDefault();
         return payment is null ? Results.NotFound() : Results.Ok(ToResponse(payment));

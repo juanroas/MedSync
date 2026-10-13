@@ -119,6 +119,7 @@ O relatório HTML é gerado em `apps/web/playwright-report`.
 | Paciente | `paciente@medsync.dev` | valor de `SEED_DEMO_PASSWORD` |
 | Médico | `medico@medsync.dev` | valor de `SEED_DEMO_PASSWORD` |
 | ADM da clínica (Clínica Demo) | `clinica.admin@medsync.dev` | valor de `SEED_DEMO_PASSWORD` |
+| Recepção (Clínica Demo) | `recepcao@medsync.dev` | valor de `SEED_DEMO_PASSWORD` |
 | ADM da clínica (Clínica Alfa / Beta) | `clinica2.admin@medsync.dev` / `clinica3.admin@medsync.dev` | valor de `SEED_DEMO_PASSWORD` |
 | Médico ADM MedSync | `admin@medsync.dev` | valor de `SEED_DEMO_PASSWORD` |
 | Suporte MedSync | `suporte@medsync.dev` | valor de `SEED_DEMO_PASSWORD` |

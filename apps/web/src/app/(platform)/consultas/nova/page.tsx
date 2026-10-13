@@ -13,7 +13,7 @@ import { ReceptionBookingForm } from "@/components/reception-booking";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
-const operationalRoles = ["ClinicAdmin"];
+const operationalRoles = ["ClinicAdmin", "Receptionist"];
 
 export default function NewAppointmentPage() {
   const router = useRouter();

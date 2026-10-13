@@ -9,6 +9,7 @@ export const users = {
   support: process.env.MEDSYNC_E2E_SUPPORT_EMAIL ?? "suporte@medsync.dev",
   dpo: process.env.MEDSYNC_E2E_DPO_EMAIL ?? "dpo@medsync.dev",
   clinicAdmin: process.env.MEDSYNC_E2E_CLINIC_ADMIN_EMAIL ?? "clinica.admin@medsync.dev",
+  receptionist: process.env.MEDSYNC_E2E_RECEPTIONIST_EMAIL ?? "recepcao@medsync.dev",
   clinic2Admin: process.env.MEDSYNC_E2E_CLINIC2_ADMIN_EMAIL ?? "clinica2.admin@medsync.dev",
   clinic3Admin: process.env.MEDSYNC_E2E_CLINIC3_ADMIN_EMAIL ?? "clinica3.admin@medsync.dev",
   clinic2Patient: process.env.MEDSYNC_E2E_CLINIC2_PATIENT_EMAIL ?? "paciente.empresa2@medsync.dev",

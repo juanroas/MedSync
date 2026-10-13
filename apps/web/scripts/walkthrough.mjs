@@ -1,4 +1,4 @@
-// Exploratory walkthrough of every profile's main flow, for usability review before a release.
+// Exploratory walkthrough of every profile's main flow (seven profiles, ADR-0005), for usability review before a release.
 // Usage: WALK_PASSWORD=... node scripts/walkthrough.mjs <baseUrl> <outDir>
 // Takes a screenshot per step and records console errors and API responses >= 400 (except expected ones).
 import { chromium } from "@playwright/test";
@@ -195,6 +195,7 @@ await session("clinica.admin@medsync.dev", async (page, step) => {
 
 for (const [email, pages] of [
   ["admin@medsync.dev", ["dashboard", "perfil", "clinicas", "acessos", "acessos-prontuario", "ajuda"]],
+  ["recepcao@medsync.dev", ["dashboard", "consultas", "consultas/nova", "patients", "ajuda"]],
   ["suporte@medsync.dev", ["dashboard", "clinicas", "ajuda"]],
   ["dpo@medsync.dev", ["dashboard", "auditoria", "acessos-prontuario", "privacidade", "ajuda"]],
 ]) {

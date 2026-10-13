@@ -48,7 +48,8 @@ public sealed class MedSyncHub : Hub
     {
         var actor = RequestContext.From(Context.User!);
         var groups = new List<string> { Realtime.UserGroup(actor.UserId) };
-        if (actor.HasAny(ClinicRole.ClinicAdmin))
+        // Clinic admins and the front desk follow the whole clinic agenda.
+        if (actor.HasAny(AccessRules.ViewAllAppointments))
             groups.Add(Realtime.ClinicAdminsGroup(actor.ClinicId));
         if (actor.IsMedicalAdmin || actor.IsSupport)
         {
