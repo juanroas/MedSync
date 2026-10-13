@@ -86,6 +86,9 @@ public sealed class User
     public bool MustChangePassword { get; set; }
     public bool MfaEnabled { get; set; }
     public string? MfaSecret { get; set; }
+    // Professional registration of platform physicians (Médico ADM MedSync), who have no Doctor record in a clinic.
+    public string? ProfessionalCrm { get; set; }
+    public string? ProfessionalCrmUf { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public ICollection<ClinicMembership> Memberships { get; set; } = [];
 }
@@ -119,6 +122,8 @@ public sealed class Clinic
     public string? AddressCity { get; set; }
     public string? AddressState { get; set; }
     public string? Phone { get; set; }
+    // Cadastro Nacional de Estabelecimentos de Saúde (7 digits), printed on documents when the clinic has one.
+    public string? Cnes { get; set; }
     // Médico responsável técnico da clínica (CFM 2.147/2016).
     public string? TechnicalDirectorName { get; set; }
     public string? TechnicalDirectorCrm { get; set; }
@@ -406,7 +411,9 @@ public enum PrescriptionStatus
 {
     Draft,
     Signed,
-    Cancelled
+    Cancelled,
+    // In-person consultation: printed without the draft mark and signed by hand; closed for editing.
+    IssuedOnPaper
 }
 
 public sealed class Prescription
@@ -431,6 +438,7 @@ public sealed class Prescription
     public string? SignedDocumentSha256 { get; set; }
     // Signed by the demonstration simulator: no legal validity, watermarked everywhere.
     public bool SignatureSimulated { get; set; }
+    public DateTime? IssuedOnPaperAt { get; set; }
     public ICollection<PrescriptionItem> Items { get; set; } = [];
 }
 
@@ -463,7 +471,10 @@ public sealed class ClinicalAccessGrant
 {
     public Guid Id { get; set; } = Guid.NewGuid();
     public Guid ActorUserId { get; set; }
+    public User Actor { get; set; } = null!;
+    // Name and CRM as they were when the access was granted (the record must not change if the profile does).
     public required string ActorName { get; set; }
+    public required string ActorCrm { get; set; }
     public Guid PatientId { get; set; }
     public Patient Patient { get; set; } = null!;
     public Guid PatientClinicId { get; set; }

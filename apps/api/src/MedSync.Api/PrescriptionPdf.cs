@@ -26,7 +26,8 @@ public sealed record PrescriptionPdfData(
     DateTime IssuedAtUtc,
     IReadOnlyList<PrescriptionItem> Items,
     bool Simulated = false,
-    SpecialPrescriptionIdentification? Special = null);
+    SpecialPrescriptionIdentification? Special = null,
+    bool InPerson = false);
 
 // Builds the prescription PDF on the server and signs it through any IDigitalSigner (PAdES with PDFsharp).
 // The signer is the doctor's ICP-Brasil cloud certificate in production (rule D1); tests use a local certificate.
@@ -101,7 +102,9 @@ public static class PrescriptionPdf
         y += 26;
 
         y = Write(graphics, $"Paciente: {data.PatientName} · CPF {FormatCpf(data.PatientCpf)}", body, ink, Margin, y, width);
-        y = Write(graphics, $"Local informado pelo paciente: {data.PatientLocation}", body, ink, Margin, y, width) + 16;
+        y = Write(graphics, data.InPerson
+            ? $"Consulta presencial: {data.PatientLocation}"
+            : $"Local informado pelo paciente: {data.PatientLocation}", body, ink, Margin, y, width) + 16;
 
         var index = 1;
         foreach (var item in data.Items.OrderBy(x => x.Position))
@@ -120,7 +123,9 @@ public static class PrescriptionPdf
         graphics.DrawLine(XPens.Gray, Margin, y, Margin + width, y);
         y += 10;
         var issuedAt = TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(data.IssuedAtUtc, DateTimeKind.Utc), BrazilTime);
-        y = Write(graphics, "Emitida em modalidade de telemedicina (Res. CFM 2.314/2022).", small, muted, Margin, y, width);
+        y = Write(graphics, data.InPerson
+            ? "Emitida em consulta presencial."
+            : "Emitida em modalidade de telemedicina (Res. CFM 2.314/2022).", small, muted, Margin, y, width);
         var dateLine = $"Data e hora: {issuedAt.ToString("dd/MM/yyyy HH:mm", CultureInfo.InvariantCulture)} (horário de Brasília)";
         if (data.Kind == PrescriptionKind.Antimicrobial)
             dateLine += " · Validade: 10 dias a partir da emissão (RDC Anvisa 471/2021).";
@@ -167,6 +172,7 @@ public static class PrescriptionPdf
         var issuer = new List<string>
         {
             $"Unidade: {special?.ClinicName ?? data.ClinicName}" +
+                (string.IsNullOrWhiteSpace(special?.ClinicCnes) ? "" : $"    CNES: {special.ClinicCnes}") +
                 (string.IsNullOrWhiteSpace(special?.ClinicTaxId) ? "" : $"    CNPJ: {FormatCnpj(special.ClinicTaxId!)}"),
             $"End.: {special?.ClinicAddress ?? data.DoctorProfessionalAddress}",
             $"Telefone: {special?.ClinicPhone ?? "—"}",
@@ -234,7 +240,8 @@ public static class PrescriptionPdf
             ? "Validade: 10 dias a partir da emissão (RDC Anvisa 471/2021)."
             : "Validade: 30 dias a partir da emissão (Portaria SVS/MS 344/1998).";
         var footerY = page.Height.Point - Margin + 8;
-        footerY = Write(graphics, $"Emitida em modalidade de telemedicina (Res. CFM 2.314/2022) em {issuedAt:dd/MM/yyyy HH:mm} (Brasília). {validity}", small, muted, left, footerY, width);
+        var modality = data.InPerson ? "Emitida em consulta presencial" : "Emitida em modalidade de telemedicina (Res. CFM 2.314/2022)";
+        footerY = Write(graphics, $"{modality} em {issuedAt:dd/MM/yyyy HH:mm} (Brasília). {validity}", small, muted, left, footerY, width);
         Write(graphics, (data.Simulated
             ? "SIMULAÇÃO: assinatura de demonstração, SEM VALIDADE JURÍDICA. Não use em farmácia."
             : "Assinada digitalmente com certificado ICP-Brasil. Confira em validar.iti.gov.br.") + $" Documento {data.PrescriptionId}", small, muted, left, footerY, width);

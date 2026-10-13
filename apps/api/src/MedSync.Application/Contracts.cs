@@ -46,7 +46,8 @@ public sealed record ClinicProfileResponse(
     string? TechnicalDirectorName,
     string? TechnicalDirectorCrm,
     string? TechnicalDirectorCrmUf,
-    ClinicActivationStatus ActivationStatus);
+    ClinicActivationStatus ActivationStatus,
+    string? Cnes = null);
 
 public sealed record UpdateClinicProfileRequest(
     string Name,
@@ -54,7 +55,8 @@ public sealed record UpdateClinicProfileRequest(
     AddressInput Address,
     string? TechnicalDirectorName,
     string? TechnicalDirectorCrm,
-    string? TechnicalDirectorCrmUf);
+    string? TechnicalDirectorCrmUf,
+    string? Cnes = null);
 public sealed record ChangePasswordRequest(string CurrentPassword, string NewPassword);
 public sealed record LoginResponse(UserSummary User);
 public sealed record MfaRequiredResponse(bool MfaRequired, string PendingToken);
@@ -82,12 +84,17 @@ public sealed record PersonalProfileResponse(
     string? Phone,
     string ProfileType,
     IReadOnlyCollection<string> LockedFields,
-    bool MfaEnabled);
+    bool MfaEnabled,
+    // Médico ADM MedSync only: own CRM, required to open records with justification.
+    string? Crm = null,
+    string? CrmUf = null);
 
 public sealed record UpdatePersonalProfileRequest(
     string Name,
     string Email,
-    string? Phone);
+    string? Phone,
+    string? Crm = null,
+    string? CrmUf = null);
 
 public sealed record CreateStaffUserRequest(
     string Name,
@@ -385,7 +392,8 @@ public sealed record ClinicalAccessGrantResponse(
     string Justification,
     DateTime CreatedAt,
     DateTime ExpiresAt,
-    bool Active);
+    bool Active,
+    string? ActorCrm = null);
 
 public sealed record ClinicalAccessRecordsResponse(
     ClinicalAccessGrantResponse Grant,
@@ -395,7 +403,8 @@ public sealed record PatientClinicalAccessEntry(
     DateTime At,
     string ActorName,
     string ActorRole,
-    ClinicalAccessReason Reason);
+    ClinicalAccessReason Reason,
+    string? ActorCrm = null);
 
 public sealed record PatientClinicalRecordResponse(
     Guid Id,
@@ -550,7 +559,8 @@ public sealed record PrescriptionResponse(
     DateTime UpdatedAt,
     DateTime? SignedAt,
     bool SignatureSimulated,
-    IReadOnlyList<PrescriptionItemResponse> Items);
+    IReadOnlyList<PrescriptionItemResponse> Items,
+    DateTime? IssuedOnPaperAt = null);
 
 public sealed record SignPrescriptionRequest(int? LifetimeHours);
 
@@ -573,7 +583,12 @@ public sealed record PrescriptionDocumentResponse(
     IReadOnlyList<string> MissingForSignature,
     bool SignatureAvailable,
     // Identification printed on the controlled-drug / antimicrobial model (two copies).
-    SpecialPrescriptionIdentification? Special = null);
+    SpecialPrescriptionIdentification? Special = null,
+    ConsultationModality AppointmentModality = ConsultationModality.Online,
+    // In-person only: print and sign by hand (rule D6). MissingForPaper lists what must be filled first.
+    bool PaperAvailable = false,
+    IReadOnlyList<string>? MissingForPaper = null,
+    string? ClinicAddress = null);
 
 public sealed record SpecialPrescriptionIdentification(
     string ClinicName,
@@ -585,7 +600,8 @@ public sealed record SpecialPrescriptionIdentification(
     string? PatientMotherName,
     DateOnly PatientBirthDate,
     string? PatientSex,
-    string? PatientAddress);
+    string? PatientAddress,
+    string? ClinicCnes = null);
 
 public sealed record MedicationInUseResponse(
     string MedicationName,

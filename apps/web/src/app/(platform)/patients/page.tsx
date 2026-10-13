@@ -457,7 +457,8 @@ function ClinicalAccessLog() {
         <ul className="mt-3 divide-y divide-slate-100 text-sm">
           {entries.map((entry) => (
             <li key={entry.at} className="py-2">
-              <b>{formatDateTime(entry.at)}</b> · {entry.actorName} ({entry.actorRole}) · {CLINICAL_ACCESS_REASON_LABELS[entry.reason]}
+              <b>{formatDateTime(entry.at)}</b> · {entry.actorName}
+              {entry.actorCrm ? ` · ${entry.actorCrm}` : ""} ({entry.actorRole}) · {CLINICAL_ACCESS_REASON_LABELS[entry.reason]}
             </li>
           ))}
         </ul>

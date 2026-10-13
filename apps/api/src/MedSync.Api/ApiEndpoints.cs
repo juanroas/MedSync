@@ -1112,6 +1112,15 @@ public static partial class ApiEndpoints
             return Validation("email", "Informe um e-mail válido.");
         if (!IsValidOptionalPhone(request.Phone))
             return Validation("phone", "Informe um telefone válido com DDD.");
+        // Only the Médico ADM MedSync keeps a CRM on the account (doctors have it on their clinic profile).
+        var updatesCrm = actor.IsMedicalAdmin && (request.Crm is not null || request.CrmUf is not null);
+        if (updatesCrm)
+        {
+            if (DigitsOnly(request.Crm ?? "").Length is < 4 or > 10)
+                return Validation("crm", "Informe o número do seu CRM.");
+            if (!BrazilianStates.Contains((request.CrmUf ?? "").Trim().ToUpperInvariant()))
+                return Validation("crmUf", "Escolha a UF do CRM.");
+        }
 
         var email = request.Email.Trim().ToLowerInvariant();
         if (await db.Users.AnyAsync(x => x.Id != user.Id && x.Email == email, cancellationToken))
@@ -1119,6 +1128,11 @@ public static partial class ApiEndpoints
 
         user.Name = name;
         user.Email = email;
+        if (updatesCrm)
+        {
+            user.ProfessionalCrm = DigitsOnly(request.Crm!);
+            user.ProfessionalCrmUf = request.CrmUf!.Trim().ToUpperInvariant();
+        }
         if (patient is not null)
         {
             patient.Name = name;
@@ -3249,7 +3263,9 @@ public static partial class ApiEndpoints
             patient?.Phone ?? doctor?.Phone,
             profileType,
             lockedFields,
-            user.MfaEnabled);
+            user.MfaEnabled,
+            user.ProfessionalCrm,
+            user.ProfessionalCrmUf);
     }
 
     private static PatientResponse ToResponse(Patient patient, bool includeContinuousMedications = true) =>
@@ -3461,7 +3477,8 @@ public static partial class ApiEndpoints
             clinic.TechnicalDirectorName,
             clinic.TechnicalDirectorCrm,
             clinic.TechnicalDirectorCrmUf,
-            clinic.ActivationStatus);
+            clinic.ActivationStatus,
+            clinic.Cnes);
 
     // Any member of a care clinic (doctor, reception, patient) can see where it attends in person.
     private static async Task<IResult> GetCurrentClinicSummary(
@@ -3512,8 +3529,12 @@ public static partial class ApiEndpoints
             return addressError;
         if (ValidateTechnicalDirector(request.TechnicalDirectorName, request.TechnicalDirectorCrm, request.TechnicalDirectorCrmUf) is { } directorError)
             return directorError;
+        var cnes = DigitsOnly(request.Cnes ?? "");
+        if (cnes.Length is not (0 or 7))
+            return Validation("cnes", "O CNES tem 7 dígitos.");
 
         var clinic = await db.Clinics.SingleAsync(x => x.Id == actor.ClinicId, cancellationToken);
+        clinic.Cnes = cnes.Length == 0 ? null : cnes;
         clinic.Name = name;
         clinic.Phone = string.IsNullOrWhiteSpace(request.Phone) ? null : request.Phone.Trim();
         ApplyAddress(clinic, request.Address);

@@ -73,7 +73,10 @@ export function DoctorProfile() {
     ? [
         { done: Boolean(doctor.name.trim()), label: "Nome completo" },
         { done: Boolean(doctor.crm && doctor.crmUf), label: formatCrm(doctor.crm, doctor.crmUf) },
-        { done: Boolean(doctor.professionalAddress?.trim()), label: "Endereço profissional" },
+        {
+          done: Boolean(doctor.professionalAddress?.trim() || clinic?.hasAddress),
+          label: doctor.professionalAddress?.trim() || !clinic?.hasAddress ? "Endereço profissional" : "Endereço (o da clínica)",
+        },
       ]
     : [];
   const ready = checklist.every((item) => item.done);

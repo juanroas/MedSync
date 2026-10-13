@@ -32,6 +32,7 @@ function ClinicProfileEditor() {
     technicalDirectorName: "",
     technicalDirectorCrm: "",
     technicalDirectorCrmUf: "",
+    cnes: "",
   });
   const [address, setAddress] = useState<Address>(emptyAddress);
   const [error, setError] = useState("");
@@ -46,6 +47,7 @@ function ClinicProfileEditor() {
       technicalDirectorName: profile.technicalDirectorName ?? "",
       technicalDirectorCrm: profile.technicalDirectorCrm ?? "",
       technicalDirectorCrmUf: profile.technicalDirectorCrmUf ?? "",
+      cnes: profile.cnes ?? "",
     });
     setAddress(addressFromResponse(profile.address));
   }
@@ -71,6 +73,7 @@ function ClinicProfileEditor() {
           technicalDirectorName: form.technicalDirectorName || undefined,
           technicalDirectorCrm: form.technicalDirectorCrm || undefined,
           technicalDirectorCrmUf: form.technicalDirectorCrmUf || undefined,
+          cnes: form.cnes || undefined,
         }),
       );
       setSaved(true);
@@ -99,7 +102,7 @@ function ClinicProfileEditor() {
           <Card className="space-y-6 p-6">
             <section>
               <h2 className="mb-3 text-sm font-bold text-ink">Clínica</h2>
-              <div className="grid gap-4 md:grid-cols-3">
+              <div className="grid gap-4 md:grid-cols-4">
                 <label className="block md:col-span-2">
                   <span className={label}>Nome fantasia</span>
                   <input className={inputClass} value={form.name} maxLength={160} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
@@ -107,6 +110,16 @@ function ClinicProfileEditor() {
                 <label className="block">
                   <span className={label}>Telefone</span>
                   <input className={inputClass} type="tel" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+                </label>
+                <label className="block">
+                  <span className={label}>CNES (opcional)</span>
+                  <input
+                    className={inputClass}
+                    inputMode="numeric"
+                    maxLength={7}
+                    value={form.cnes}
+                    onChange={(e) => setForm({ ...form, cnes: e.target.value.replace(/\D/g, "") })}
+                  />
                 </label>
               </div>
             </section>

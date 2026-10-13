@@ -40,21 +40,24 @@ type Draft = {
 const kindLabel: Record<PrescriptionKind, string> = {
   Simple: "Receita simples",
   Antimicrobial: "Antimicrobiano (2 vias, validade 10 dias)",
-  ControlledSpecial: "Controle especial — Portaria 344 (assinatura só após o SNCR)",
+  ControlledSpecial: "Controle especial (2 vias, validade 30 dias)",
 };
 
 // Anvisa therapeutic classes that make it an antimicrobial prescription (RDC 471/2021).
 const antimicrobialClass = /antibacterian|antimicrob|antibi[oó]tic/i;
 
 // canIssue: a cancelled consultation keeps its history but takes no new prescription (the API refuses it too).
+// inPerson: no "where is the patient" field, and the document can be printed to sign by hand (rule D6).
 export function PrescriptionPanel({
   appointmentId,
   patientId,
   canIssue = true,
+  inPerson = false,
 }: {
   appointmentId: string;
   patientId: string;
   canIssue?: boolean;
+  inPerson?: boolean;
 }) {
   const [prescriptions, setPrescriptions] = useState<Prescription[]>([]);
   const [medications, setMedications] = useState<PatientMedications | null>(null);
@@ -206,6 +209,7 @@ export function PrescriptionPanel({
       {draft ? (
         <PrescriptionForm
           draft={draft}
+          inPerson={inPerson}
           saving={saving}
           onChange={(update) => setDraft((current) => (current ? update(current) : current))}
           onCancel={() => setDraft(null)}
@@ -221,12 +225,14 @@ export function PrescriptionPanel({
             <li key={prescription.id} className="flex flex-col gap-3 p-4 sm:flex-row sm:items-start sm:justify-between">
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
-                  <Badge tone={prescription.status === "Signed" ? "success" : "warning"}>
+                  <Badge tone={prescription.status === "Draft" ? "warning" : "success"}>
                     {prescription.status === "Signed"
                       ? prescription.signatureSimulated
                         ? "Assinada (simulação)"
                         : "Assinada"
-                      : "Rascunho"}
+                      : prescription.status === "IssuedOnPaper"
+                        ? "Em papel"
+                        : "Rascunho"}
                   </Badge>
                   <span className="text-xs text-slate-400">
                     {kindLabel[prescription.kind]} · {formatDateTime(prescription.updatedAt)}
@@ -280,12 +286,14 @@ export function PrescriptionPanel({
 
 function PrescriptionForm({
   draft,
+  inPerson,
   saving,
   onChange,
   onCancel,
   onSubmit,
 }: {
   draft: Draft;
+  inPerson: boolean;
   saving: boolean;
   // Functional updates: the medication picker resolves asynchronously and must not overwrite newer edits.
   onChange: (update: (draft: Draft) => Draft) => void;
@@ -313,19 +321,25 @@ function PrescriptionForm({
             <option value="ControlledSpecial">{kindLabel.ControlledSpecial}</option>
           </SelectInput>
           <span className="mt-1.5 block text-[11px] leading-4 text-slate-400">
-            Antibacteriano da base Anvisa muda o tipo para antimicrobiano sozinho. Controlado (Portaria 344, ex.: lista C1): o
-            modelo já sai em 2 vias, mas só pode ser assinado quando o MedSync estiver integrado ao SNCR da Anvisa.
+            Antibacteriano da base Anvisa muda o tipo para antimicrobiano sozinho. Controlado (Portaria 344, ex.: lista C1):
+            na consulta presencial, imprima para assinar à mão; a receita eletrônica depende do SNCR da Anvisa.
           </span>
         </label>
-        <label className="block">
-          <span className="mb-1.5 block text-xs font-bold text-slate-600">Onde o paciente está agora</span>
-          <TextInput
-            value={draft.patientLocation}
-            onChange={(event) => onChange((current) => ({ ...current, patientLocation: event.target.value }))}
-            placeholder="Cidade/UF informada na consulta"
-            maxLength={200}
-          />
-        </label>
+        {inPerson ? (
+          <p className="self-end rounded-lg bg-sky-50 px-3 py-2 text-xs leading-5 text-sky-800">
+            Consulta presencial: a receita sai com o endereço da clínica e pode ser impressa para assinar à mão.
+          </p>
+        ) : (
+          <label className="block">
+            <span className="mb-1.5 block text-xs font-bold text-slate-600">Onde o paciente está agora</span>
+            <TextInput
+              value={draft.patientLocation}
+              onChange={(event) => onChange((current) => ({ ...current, patientLocation: event.target.value }))}
+              placeholder="Cidade/UF informada na consulta"
+              maxLength={200}
+            />
+          </label>
+        )}
       </div>
 
       <div className="space-y-4">

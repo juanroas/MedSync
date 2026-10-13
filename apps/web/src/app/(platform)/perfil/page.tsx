@@ -1,7 +1,7 @@
 "use client";
 
 import { AlertBanner, Card, ErrorBanner, LoadingState, PageHeader, buttonClass, inputClass } from "@/components/ui";
-import { ROLE_LABELS, type PersonalProfile } from "@/lib/types";
+import { BRAZILIAN_STATES, ROLE_LABELS, type PersonalProfile } from "@/lib/types";
 import { isValidOptionalPhone } from "@/lib/validation";
 import { api, saveSession } from "@/services/api";
 import { CheckCircle2, KeyRound, LockKeyhole, Mail, Phone, ShieldCheck, UserRoundCog } from "lucide-react";
@@ -9,7 +9,8 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 
 export default function PersonalProfilePage() {
   const [profile, setProfile] = useState<PersonalProfile | null>(null);
-  const [form, setForm] = useState({ name: "", email: "", phone: "" });
+  const [form, setForm] = useState({ name: "", email: "", phone: "", crm: "", crmUf: "" });
+  const isMedicalAdmin = profile?.roles.includes("MedicalDirector") ?? false;
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -23,6 +24,8 @@ export default function PersonalProfilePage() {
           name: data.name,
           email: data.email,
           phone: data.phone ?? "",
+          crm: data.crm ?? "",
+          crmUf: data.crmUf ?? "",
         });
       })
       .catch((err) => setError(err instanceof Error ? err.message : "Erro ao carregar perfil."))
@@ -56,12 +59,15 @@ export default function PersonalProfilePage() {
         name: form.name,
         email: form.email,
         phone: form.phone,
+        ...(isMedicalAdmin ? { crm: form.crm, crmUf: form.crmUf } : {}),
       });
       setProfile(updated);
       setForm({
         name: updated.name,
         email: updated.email,
         phone: updated.phone ?? "",
+        crm: updated.crm ?? "",
+        crmUf: updated.crmUf ?? "",
       });
       saveSession(await api.me());
       setSuccess("Dados pessoais atualizados com auditoria.");
@@ -138,11 +144,38 @@ export default function PersonalProfilePage() {
                   />
                 </div>
               </label>
+              {isMedicalAdmin && (
+                <div className="grid grid-cols-[1fr_120px] gap-3">
+                  <label className="block">
+                    <span className="mb-2 block text-sm font-bold text-slate-700">CRM</span>
+                    <input
+                      className={inputClass}
+                      inputMode="numeric"
+                      value={form.crm}
+                      onChange={(event) => setForm({ ...form, crm: event.target.value })}
+                      maxLength={10}
+                      required
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="mb-2 block text-sm font-bold text-slate-700">UF do CRM</span>
+                    <select className={inputClass} value={form.crmUf} onChange={(event) => setForm({ ...form, crmUf: event.target.value })} required>
+                      <option value="">—</option>
+                      {BRAZILIAN_STATES.map((uf) => (
+                        <option key={uf} value={uf}>
+                          {uf}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <p className="col-span-2 text-xs text-slate-500">O CRM fica gravado em cada acesso ao prontuário com justificativa.</p>
+                </div>
+              )}
             </div>
 
             <div className="mt-7 flex flex-col gap-3 border-t border-slate-100 pt-5 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-xs text-slate-400">Atualização restrita ao próprio usuário e registrada em auditoria.</p>
-              <button className={buttonClass} disabled={saving}>
+              <button className={`${buttonClass} shrink-0 whitespace-nowrap`} disabled={saving}>
                 <CheckCircle2 size={17} />
                 {saving ? "Salvando..." : "Salvar meus dados"}
               </button>

@@ -2,7 +2,8 @@
 
 import { RealtimeProvider, useRealtimeRefresh } from "@/lib/realtime";
 
-import { AlertBanner, Button, ErrorBanner, LoadingState, secondaryButtonClass } from "@/components/ui";
+import { useConfirm } from "@/components/dialog";
+import { AlertBanner, Button, ErrorBanner, LoadingState, buttonClass, secondaryButtonClass } from "@/components/ui";
 import { formatCrm, formatDateTime, formatTime } from "@/lib/format";
 import type { PrescriptionDocument, SigningSession } from "@/lib/types";
 import { api, getSession } from "@/services/api";
@@ -31,6 +32,8 @@ function PrescriptionDocument() {
   const [signing, setSigning] = useState(false);
   const [session, setSession] = useState<SigningSession | null>(null);
   const [lifetimeHours, setLifetimeHours] = useState(8);
+  const [issuingPaper, setIssuingPaper] = useState(false);
+  const [confirm, confirmDialog] = useConfirm();
 
   useEffect(() => {
     api
@@ -57,7 +60,33 @@ function PrescriptionDocument() {
 
   const { prescription } = document;
   const signed = prescription.status === "Signed";
+  const onPaper = prescription.status === "IssuedOnPaper";
+  const inPerson = document.appointmentModality === "InPerson";
   const signBlocked = document.missingForSignature.length > 0 || !document.signatureAvailable;
+  const missingForPaper = document.missingForPaper ?? [];
+  const paperOption = isDoctor && document.paperAvailable;
+  const issuedAt = prescription.signedAt ?? prescription.issuedOnPaperAt ?? prescription.updatedAt;
+
+  // In person (rule D6): close the prescription, print it without the draft mark, and the doctor signs by hand.
+  async function issueOnPaper() {
+    const ok = await confirm({
+      title: "Imprimir para assinar à mão?",
+      description:
+        "A receita fica fechada para edição e sai sem a marca de rascunho. Assine à caneta antes de entregar ao paciente. Use só na consulta presencial.",
+      confirmLabel: "Emitir e imprimir",
+    });
+    if (!ok) return;
+    setIssuingPaper(true);
+    setSignError("");
+    try {
+      await api.issuePrescriptionOnPaper(prescription.id);
+      setDocument(await api.getPrescriptionDocument(prescription.id));
+      window.setTimeout(() => window.print(), 300);
+    } catch (err) {
+      setSignError(err instanceof Error ? err.message : "Não foi possível emitir a receita em papel.");
+    }
+    setIssuingPaper(false);
+  }
 
   const sessionActive = session?.active ?? false;
   const simulator = session?.simulated ?? false;
@@ -88,7 +117,13 @@ function PrescriptionDocument() {
   const copies = special
     ? ["1ª via — Retenção da Farmácia ou Drogaria", "2ª via — Orientação ao Paciente"]
     : [null];
-  const watermark = !signed || prescription.signatureSimulated ? (signed ? "Simulação — sem validade" : "Sem validade — rascunho") : null;
+  const watermark = onPaper
+    ? null
+    : !signed || prescription.signatureSimulated
+      ? signed
+        ? "Simulação — sem validade"
+        : "Sem validade — rascunho"
+      : null;
 
   return (
     <main className="min-h-screen bg-mist py-8 print:bg-white print:py-0">
@@ -117,11 +152,25 @@ function PrescriptionDocument() {
                   <Download size={17} /> Baixar PDF assinado
                 </a>
               </>
+            ) : onPaper ? (
+              <button type="button" className={buttonClass} onClick={() => window.print()}>
+                <Printer size={17} /> Imprimir
+              </button>
             ) : (
               <>
                 <button type="button" className={secondaryButtonClass} onClick={() => window.print()}>
                   <Printer size={17} /> Imprimir rascunho
                 </button>
+                {paperOption && (
+                  <button
+                    type="button"
+                    className={signBlocked ? buttonClass : secondaryButtonClass}
+                    onClick={issueOnPaper}
+                    disabled={issuingPaper || missingForPaper.length > 0}
+                  >
+                    <PenLine size={17} /> {issuingPaper ? "Emitindo..." : "Imprimir para assinar à mão"}
+                  </button>
+                )}
                 {isDoctor && !sessionActive && !signBlocked && (
                   <label className="flex items-center gap-2 text-xs font-bold text-slate-600">
                     Liberar por
@@ -139,7 +188,7 @@ function PrescriptionDocument() {
                     </select>
                   </label>
                 )}
-                {isDoctor && (
+                {isDoctor && !(signBlocked && paperOption) && (
                   <Button type="button" onClick={sign} isLoading={signing} disabled={signBlocked || signing}>
                     <PenLine size={17} /> {sessionActive ? "Assinar" : "Assinar com certificado digital"}
                   </Button>
@@ -188,12 +237,22 @@ function PrescriptionDocument() {
           />
         )}
         {signError && <AlertBanner tone="error" message={signError} />}
-        {!signed && (
+        {onPaper && (
+          <AlertBanner
+            tone="success"
+            title={`Emitida em papel em ${formatDateTime(prescription.issuedOnPaperAt ?? issuedAt)}`}
+            message="Assine à caneta antes de entregar ao paciente. Ela não pode mais ser editada."
+          />
+        )}
+        {!signed && !onPaper && (
           <AlertBanner
             tone="warning"
             title="Rascunho — ainda sem validade"
             message={[
-              document.missingForSignature.length > 0 && `Para assinar: ${document.missingForSignature.join("; ")}.`,
+              paperOption && missingForPaper.length === 0 &&
+                "Consulta presencial: você pode imprimir para assinar à mão.",
+              paperOption && missingForPaper.length > 0 && `Para imprimir: ${missingForPaper.join("; ")}.`,
+              document.missingForSignature.length > 0 && `Para assinar digitalmente: ${document.missingForSignature.join("; ")}.`,
               !document.signatureAvailable && "A assinatura digital ICP-Brasil (VIDaaS) ainda não está ativa no MedSync.",
               document.missingForSignature.length === 0 && document.signatureAvailable &&
                 "Confira o documento e assine com o seu certificado em nuvem.",
@@ -214,7 +273,7 @@ function PrescriptionDocument() {
           key={copy ?? "unica"}
           className="relative mx-auto mb-8 max-w-[820px] overflow-hidden bg-white px-12 py-12 shadow-soft print:mb-0 print:max-w-none print:break-after-page print:shadow-none"
         >
-          {(!signed || prescription.signatureSimulated) && (
+          {((!signed && !onPaper) || prescription.signatureSimulated) && (
             <div
               aria-hidden
               className="pointer-events-none absolute inset-0 grid place-items-center [print-color-adjust:exact]"
@@ -248,10 +307,16 @@ function PrescriptionDocument() {
             <p>
               <span className="font-semibold">Paciente:</span> {document.patientName} · CPF {formatCpf(document.patientCpf)}
             </p>
-            <p>
-              <span className="font-semibold">Local informado pelo paciente:</span>{" "}
-              {prescription.patientLocation ?? "não informado"}
-            </p>
+            {inPerson ? (
+              <p>
+                <span className="font-semibold">Consulta presencial:</span> {document.clinicAddress ?? document.clinicName}
+              </p>
+            ) : (
+              <p>
+                <span className="font-semibold">Local informado pelo paciente:</span>{" "}
+                {prescription.patientLocation ?? "não informado"}
+              </p>
+            )}
           </section>
 
           <ol className="mt-7 space-y-5">
@@ -277,9 +342,15 @@ function PrescriptionDocument() {
           )}
 
           <footer className="mt-12 border-t border-slate-300 pt-5 text-xs leading-5 text-slate-600">
-            <p>Emitida em modalidade de telemedicina (Res. CFM 2.314/2022).</p>
+            {onPaper && (
+              <div className="mb-6 mt-8 w-72 border-t border-slate-500 pt-1 text-ink">
+                <p className="uppercase">{document.doctorName}</p>
+                <p>{formatCrm(document.doctorCrm, document.doctorCrmUf)}</p>
+              </div>
+            )}
+            <p>{inPerson ? "Emitida em consulta presencial." : "Emitida em modalidade de telemedicina (Res. CFM 2.314/2022)."}</p>
             <p>
-              Data e hora: {formatDateTime(prescription.signedAt ?? prescription.updatedAt)}
+              Data e hora: {formatDateTime(issuedAt)}
               {prescription.kind === "Antimicrobial" && " · Validade: 10 dias a partir da emissão (RDC Anvisa 471/2021)."}
             </p>
             <p className="mt-3 font-semibold text-ink">
@@ -289,6 +360,8 @@ function PrescriptionDocument() {
                 </span>
               ) : signed ? (
                 `Assinado digitalmente com certificado ICP-Brasil em ${formatDateTime(prescription.signedAt!)}.`
+              ) : onPaper ? (
+                "Assinatura manual do médico."
               ) : (
                 "Assinatura digital: pendente."
               )}
@@ -296,6 +369,7 @@ function PrescriptionDocument() {
           </footer>
         </article>
       ))}
+      {confirmDialog}
     </main>
   );
 }
@@ -313,7 +387,12 @@ function SpecialCopy({
   watermark: string | null;
 }) {
   const { prescription, special } = document;
-  const issuedAt = prescription.signedAt ?? prescription.updatedAt;
+  const issuedAt = prescription.signedAt ?? prescription.issuedOnPaperAt ?? prescription.updatedAt;
+  const onPaper = prescription.status === "IssuedOnPaper";
+  const modality =
+    document.appointmentModality === "InPerson"
+      ? "Emitida em consulta presencial"
+      : "Emitida em modalidade de telemedicina (Res. CFM 2.314/2022)";
   const birth = special?.patientBirthDate;
   const age = birth ? ageOn(birth, issuedAt) : null;
   const sex = special?.patientSex === "F" ? "Feminino" : special?.patientSex === "M" ? "Masculino" : "não informado";
@@ -349,6 +428,7 @@ function SpecialCopy({
         <p className={boxTitle}>Identificação do emitente</p>
         <p className={row}>
           <b>Unidade:</b> {special?.clinicName ?? document.clinicName}
+          {special?.clinicCnes && <span className="ml-6"><b>CNES:</b> {special.clinicCnes}</span>}
           {special?.clinicTaxId && <span className="ml-6"><b>CNPJ:</b> {formatCnpj(special.clinicTaxId)}</span>}
         </p>
         <p className={row}><b>End.:</b> {special?.clinicAddress ?? "endereço da clínica não cadastrado"}</p>
@@ -416,14 +496,16 @@ function SpecialCopy({
 
       <footer className="mt-4 text-[10px] leading-4 text-slate-500">
         <p>
-          Emitida em modalidade de telemedicina (Res. CFM 2.314/2022) em {formatDateTime(issuedAt)} (Brasília). {validity}
+          {modality} em {formatDateTime(issuedAt)} (Brasília). {validity}
         </p>
         <p>
           {signed && prescription.signatureSimulated
             ? "SIMULAÇÃO: assinatura de demonstração, SEM VALIDADE JURÍDICA. Não use em farmácia."
             : signed
               ? "Assinada digitalmente com certificado ICP-Brasil. Confira em validar.iti.gov.br."
-              : "Assinatura digital: pendente."}{" "}
+              : onPaper
+                ? "Assinatura manual do médico."
+                : "Assinatura digital: pendente."}{" "}
           Documento {prescription.id}
         </p>
       </footer>

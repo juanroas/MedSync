@@ -144,6 +144,7 @@ recebem uma senha temporária, que deve ser trocada no primeiro acesso.
 | `FRONTEND_URL` | Origem aceita pelo CORS. Aceita múltiplas URLs separadas por vírgula. A primeira é usada nos redirecionamentos da assinatura digital. |
 | `MEDICATION_CATALOG_SYNC` | `false` desliga a importação da base de medicamentos da Anvisa (testes sem internet). |
 | `MEDICATION_CATALOG_URL` | Fonte alternativa do CSV da Anvisa. |
+| `SNCR_ELECTRONIC_GRACE_UNTIL` | Opcional (`AAAA-MM-DD`, padrão `2026-10-29`): último dia em que receita eletrônica de antimicrobiano é assinada sem número do SNCR (regra D6). Depois disso, só em papel na consulta presencial. |
 | `SIGNATURE_PROVIDER` | `integraicp` (real, exige as variáveis `INTEGRAICP_*`) ou `simulator` (demonstração: tudo sai marcado "SIMULAÇÃO — SEM VALIDADE"). Sem valor, assinar receita fica indisponível. |
 | `INTEGRAICP_BASE_URL` | URL da API IntegraICP (Valid). |
 | `INTEGRAICP_CHANNEL_ID` | Canal (chave de API) fornecido pela Valid. Nunca é versionado. |

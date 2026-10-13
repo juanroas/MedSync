@@ -33,8 +33,15 @@ certificado, PDF com "SIMULAÇÃO — SEM VALIDADE" e a receita marcada como sim
 Documento emitido aparece em "Meus documentos" do paciente (art. 3º §6: direito à cópia). WhatsApp e e-mail levam
 só um link que exige login; nunca o PDF anexado.
 
-## D6 — Controlados ficam de fora até o SNCR
-Receita de controle especial e notificações A/B só por serviço integrado ao SNCR da Anvisa. Até lá, o tipo
-"Controle especial" monta o rascunho no modelo de 2 vias (comprador e fornecedor em branco), mas a assinatura fica
-bloqueada com o motivo na tela; a API recusa assinar. Antimicrobiano (RDC 471/2021) usa o mesmo modelo de 2 vias e
-pode ser assinado: validade de 10 dias, quantidade obrigatória, endereço do paciente e da clínica obrigatórios.
+## D6 — Receita eletrônica de controlado e antimicrobiano só com SNCR; presencial vai em papel
+RDC Anvisa 1.000/2025: receita **eletrônica** de controle especial, notificações A/B e receitas de retenção
+(antimicrobiano) precisam do número do SNCR; receita em papel não. Decidido com o responsável médico em 13/10/2026
+(código em `PrescriptionRules.cs`, testado em `PrescriptionRulesTests`):
+- Controle especial (C1/C5): assinatura eletrônica bloqueada até o MedSync emitir o número do SNCR.
+- Antimicrobiano: assinatura eletrônica só até o fim da carência (`SNCR_ELECTRONIC_GRACE_UNTIL`, padrão 29/10/2026).
+- Consulta **presencial**: qualquer receita pode ser emitida em papel ("Imprimir para assinar à mão"): fica fechada
+  para edição, sai sem a marca de rascunho, com rodapé "Emitida em consulta presencial" e linha para a assinatura à
+  caneta; o evento `Prescription.IssuePaper` fica na auditoria.
+- Telemedicina nunca vai para papel (CFM 2.314 art. 13: documento a distância exige ICP-Brasil).
+Notificações A/B não são emitidas pelo MedSync. Os dois modelos de 2 vias exigem quantidade, endereço do paciente e da
+clínica; sem endereço profissional próprio, o médico usa o endereço da clínica.

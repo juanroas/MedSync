@@ -33,6 +33,8 @@ public sealed class MedSyncDbContext(DbContextOptions<MedSyncDbContext> options)
 
         modelBuilder.Entity<User>(entity =>
         {
+            entity.Property(x => x.ProfessionalCrm).HasMaxLength(10);
+            entity.Property(x => x.ProfessionalCrmUf).HasMaxLength(2);
             entity.HasIndex(x => x.Email).IsUnique();
             entity.Property(x => x.Email).HasMaxLength(180);
             entity.Property(x => x.Name).HasMaxLength(160);
@@ -56,6 +58,7 @@ public sealed class MedSyncDbContext(DbContextOptions<MedSyncDbContext> options)
             entity.Property(x => x.AddressState).HasMaxLength(2);
             entity.Property(x => x.Phone).HasMaxLength(20);
             entity.Property(x => x.TechnicalDirectorName).HasMaxLength(160);
+            entity.Property(x => x.Cnes).HasMaxLength(7);
             entity.Property(x => x.TechnicalDirectorCrm).HasMaxLength(20);
             entity.Property(x => x.TechnicalDirectorCrmUf).HasMaxLength(2);
             entity.Property(x => x.PlanName).HasMaxLength(120);
@@ -128,6 +131,9 @@ public sealed class MedSyncDbContext(DbContextOptions<MedSyncDbContext> options)
             entity.HasIndex(x => new { x.ActorUserId, x.CreatedAt });
             entity.HasIndex(x => new { x.PatientId, x.CreatedAt });
             entity.Property(x => x.ActorName).HasMaxLength(160);
+            entity.Property(x => x.ActorCrm).HasMaxLength(40);
+            entity.HasOne(x => x.Actor).WithMany().HasForeignKey(x => x.ActorUserId)
+                .OnDelete(DeleteBehavior.Restrict);
             entity.Property(x => x.Reason).HasConversion<string>().HasMaxLength(30);
             entity.Property(x => x.Justification).HasMaxLength(1000);
             entity.HasOne(x => x.Patient).WithMany().HasForeignKey(x => x.PatientId)

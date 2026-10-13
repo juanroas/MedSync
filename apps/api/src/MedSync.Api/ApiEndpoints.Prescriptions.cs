@@ -24,6 +24,7 @@ public static partial class ApiEndpoints
         protectedApi.MapPut("/prescriptions/{id:guid}", UpdatePrescription);
         protectedApi.MapDelete("/prescriptions/{id:guid}", DeletePrescription);
         protectedApi.MapPost("/prescriptions/{id:guid}/sign", SignPrescription);
+        protectedApi.MapPost("/prescriptions/{id:guid}/issue-paper", IssuePrescriptionOnPaper);
         protectedApi.MapGet("/prescriptions/{id:guid}/pdf", DownloadPrescriptionPdf);
         protectedApi.MapGet("/signature/session", GetSigningSession);
         protectedApi.MapDelete("/signature/session", EndSigningSession);
@@ -270,15 +271,19 @@ public static partial class ApiEndpoints
             appointment.Doctor.CrmUf,
             appointment.Doctor.Specialty,
             appointment.Doctor.Rqe,
-            appointment.Doctor.ProfessionalAddress,
+            DoctorAddress(appointment),
             appointment.Clinic.Name,
             appointment.Patient.Name,
             appointment.Patient.Cpf,
             IsAssignedDoctor(actor, appointment) ? appointment.Patient.Phone : null,
             appointment.ScheduledAt,
-            MissingForSignature(prescription, appointment.Doctor, appointment.Patient, appointment.Clinic),
+            MissingForElectronic(prescription),
             providers.Current is not null,
-            IsSpecialKind(prescription.Kind) ? SpecialIdentification(appointment.Clinic, appointment.Patient) : null));
+            IsSpecialKind(prescription.Kind) ? SpecialIdentification(appointment.Clinic, appointment.Patient) : null,
+            appointment.Modality,
+            prescription.Status == PrescriptionStatus.Draft && PrescriptionRules.CanIssueOnPaper(appointment.Modality),
+            MissingData(prescription, appointment.Doctor, appointment.Patient, appointment.Clinic),
+            appointment.Clinic.FormattedAddress()));
     }
 
     private static async Task<IResult> SignPrescription(
@@ -300,10 +305,9 @@ public static partial class ApiEndpoints
         if (prescription is null || prescription.Appointment.Doctor.UserId != actor.UserId || !actor.HasAny(ClinicRole.Doctor))
             return Results.NotFound();
         if (prescription.Status != PrescriptionStatus.Draft)
-            return Results.Conflict(new { message = "Esta receita já foi assinada." });
+            return Results.Conflict(new { message = "Esta receita já foi emitida." });
 
-        var missing = MissingForSignature(
-            prescription, prescription.Appointment.Doctor, prescription.Appointment.Patient, prescription.Appointment.Clinic);
+        var missing = MissingForElectronic(prescription);
         if (missing.Count > 0)
             return Validation("prescription", $"Antes de assinar: {string.Join("; ", missing)}.");
 
@@ -455,6 +459,10 @@ public static partial class ApiEndpoints
     {
         var appointment = prescription.Appointment;
         var signedAt = DateTime.UtcNow;
+        var inPerson = appointment.Modality == ConsultationModality.InPerson;
+        var location = inPerson
+            ? appointment.Clinic.FormattedAddress() ?? appointment.Clinic.Name
+            : prescription.PatientLocation!;
         var document = PrescriptionPdf.Render(new PrescriptionPdfData(
             prescription.Id,
             prescription.Kind,
@@ -463,18 +471,19 @@ public static partial class ApiEndpoints
             appointment.Doctor.CrmUf,
             appointment.Doctor.Specialty,
             appointment.Doctor.Rqe,
-            appointment.Doctor.ProfessionalAddress!,
+            DoctorAddress(appointment),
             appointment.Clinic.Name,
             appointment.Patient.Name,
             appointment.Patient.Cpf,
-            prescription.PatientLocation!,
+            location,
             prescription.Notes,
             signedAt,
             prescription.Items.ToList(),
             session.Simulated,
-            IsSpecialKind(prescription.Kind) ? SpecialIdentification(appointment.Clinic, appointment.Patient) : null));
+            IsSpecialKind(prescription.Kind) ? SpecialIdentification(appointment.Clinic, appointment.Patient) : null,
+            inPerson));
         var pdf = await PrescriptionPdf.SignAsync(
-            document, provider.CreatePdfSigner(session, cancellationToken), prescription.PatientLocation!);
+            document, provider.CreatePdfSigner(session, cancellationToken), location);
         var (storageKey, sha256) = await storage.SaveGeneratedAsync(
             prescription.ClinicId, "prescriptions", $"{prescription.Id:N}.pdf", pdf, cancellationToken);
 
@@ -555,6 +564,7 @@ public static partial class ApiEndpoints
                         x.Prescription.ClinicId == actor.ClinicId &&
                         x.Prescription.PatientId == patientId &&
                         (x.Prescription.Status == PrescriptionStatus.Signed ||
+                         x.Prescription.Status == PrescriptionStatus.IssuedOnPaper ||
                          (!isSelf && x.Prescription.Status == PrescriptionStatus.Draft)))
             .OrderByDescending(x => x.Prescription.CreatedAt)
             .Select(x => new
@@ -651,6 +661,11 @@ public static partial class ApiEndpoints
     }
 
     // CFM 2.314 art. 13 (rule D2): what the document still lacks before it can be signed.
+    private static string DoctorAddress(Appointment appointment) =>
+        string.IsNullOrWhiteSpace(appointment.Doctor.ProfessionalAddress)
+            ? appointment.Clinic.FormattedAddress() ?? ""
+            : appointment.Doctor.ProfessionalAddress;
+
     private static bool IsSpecialKind(PrescriptionKind kind) =>
         kind is PrescriptionKind.Antimicrobial or PrescriptionKind.ControlledSpecial;
 
@@ -665,15 +680,27 @@ public static partial class ApiEndpoints
             patient.MotherName,
             patient.BirthDate,
             patient.Sex,
-            patient.FormattedAddress());
+            patient.FormattedAddress(),
+            clinic.Cnes);
 
-    private static List<string> MissingForSignature(Prescription prescription, Doctor doctor, Patient patient, Clinic clinic)
+    // Electronic (ICP-Brasil) signature: the data every prescription needs plus the SNCR and telemedicine rules.
+    private static List<string> MissingForElectronic(Prescription prescription)
+    {
+        var appointment = prescription.Appointment;
+        var missing = MissingData(prescription, appointment.Doctor, appointment.Patient, appointment.Clinic);
+        missing.AddRange(PrescriptionRules.ElectronicBlockers(
+            prescription.Kind,
+            appointment.Modality,
+            prescription.PatientLocation,
+            PrescriptionRules.BrazilToday(),
+            PrescriptionRules.SncrGraceUntil));
+        return missing;
+    }
+
+    // What any prescription needs before it is issued, electronically or on paper.
+    private static List<string> MissingData(Prescription prescription, Doctor doctor, Patient patient, Clinic clinic)
     {
         var missing = new List<string>();
-        // Rule D6 (.agents/rules/medical-documents.md): controlled drugs only through a service integrated with
-        // Anvisa's SNCR. The model can be drafted and printed as a draft, never signed, until that integration exists.
-        if (prescription.Kind == PrescriptionKind.ControlledSpecial)
-            missing.Add("receita de controle especial (Portaria 344) só pode ser assinada no MedSync depois da integração com o SNCR da Anvisa");
         if (IsSpecialKind(prescription.Kind))
         {
             // The two-copy model identifies the issuer's address and the patient's address (Portaria 344; RDC 471).
@@ -684,11 +711,50 @@ public static partial class ApiEndpoints
         }
         if (string.IsNullOrWhiteSpace(doctor.Crm) || string.IsNullOrWhiteSpace(doctor.CrmUf))
             missing.Add("cadastre seu CRM e UF em Meu perfil");
-        if (string.IsNullOrWhiteSpace(doctor.ProfessionalAddress))
+        // Without a professional address of their own, the doctor's documents carry the clinic's address.
+        if (string.IsNullOrWhiteSpace(doctor.ProfessionalAddress) && !clinic.HasAddress)
             missing.Add("cadastre seu endereço profissional em Meu perfil");
-        if (string.IsNullOrWhiteSpace(prescription.PatientLocation))
-            missing.Add("informe onde o paciente está durante a consulta");
         return missing;
+    }
+
+    // In-person consultation: the doctor prints the prescription and signs it by hand (rule D6). It is closed for
+    // editing, leaves the draft mark behind, and stays on record (audit) like a signed one.
+    private static async Task<IResult> IssuePrescriptionOnPaper(
+        Guid id,
+        ClaimsPrincipal principal,
+        MedSyncDbContext db,
+        AuditWriter audit,
+        RealtimeNotifier realtime,
+        CancellationToken cancellationToken)
+    {
+        var actor = RequestContext.From(principal);
+        var prescription = await LoadPrescriptionForSigning(db, id, cancellationToken);
+        if (prescription is null || prescription.Appointment.Doctor.UserId != actor.UserId || !actor.HasAny(ClinicRole.Doctor))
+            return Results.NotFound();
+        if (prescription.Status != PrescriptionStatus.Draft)
+            return Results.Conflict(new { message = "Esta receita já foi emitida." });
+        var appointment = prescription.Appointment;
+        if (!PrescriptionRules.CanIssueOnPaper(appointment.Modality))
+        {
+            audit.Add(actor, "Prescription.IssuePaper", "Prescription", id, "Denied", "Consulta por telemedicina.");
+            await db.SaveChangesAsync(cancellationToken);
+            return Results.Conflict(new
+            {
+                message = "Receita em papel só em consulta presencial. Na telemedicina, a receita é assinada com certificado digital."
+            });
+        }
+        var missing = MissingData(prescription, appointment.Doctor, appointment.Patient, appointment.Clinic);
+        if (missing.Count > 0)
+            return Validation("prescription", $"Antes de imprimir: {string.Join("; ", missing)}.");
+
+        var now = DateTime.UtcNow;
+        prescription.Status = PrescriptionStatus.IssuedOnPaper;
+        prescription.IssuedOnPaperAt = now;
+        prescription.UpdatedAt = now;
+        audit.Add(actor, "Prescription.IssuePaper", "Prescription", id);
+        await db.SaveChangesAsync(cancellationToken);
+        await realtime.PrescriptionChangedAsync(prescription.Id, cancellationToken);
+        return Results.Ok(ToResponse(prescription));
     }
 
     private static PrescriptionResponse ToResponse(Prescription prescription) =>
@@ -707,5 +773,6 @@ public static partial class ApiEndpoints
             prescription.Items
                 .OrderBy(x => x.Position)
                 .Select(x => new PrescriptionItemResponse(x.Id, x.CatalogItemId, x.MedicationName, x.Dosage, x.Instructions, x.Quantity, x.ContinuousUse, x.Route))
-                .ToList());
+                .ToList(),
+            prescription.IssuedOnPaperAt);
 }

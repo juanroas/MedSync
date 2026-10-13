@@ -81,7 +81,7 @@ test.describe("receita do atendimento", () => {
     await expect(copies.first()).toContainText("Nome da mãe:");
     await expect(copies.first()).toContainText("Validade: 30 dias");
     // Regra D6: controlado não é assinado antes da integração com o SNCR.
-    await expect(doc.getByText(/integração com o SNCR/i)).toBeVisible();
+    await expect(doc.getByText(/número do SNCR/i)).toBeVisible();
     await expect(doc.getByRole("button", { name: /assinar/i })).toBeDisabled();
   });
 

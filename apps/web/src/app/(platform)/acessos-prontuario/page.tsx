@@ -85,7 +85,7 @@ function ClinicalAccess({ canRequest }: { canRequest: boolean }) {
                   </p>
                   <p className="text-xs text-slate-500">
                     {formatDateTime(grant.createdAt)} · {CLINICAL_ACCESS_REASON_LABELS[grant.reason]}
-                    {!canRequest && ` · por ${grant.actorName}`}
+                    {!canRequest && ` · por ${grant.actorName}${grant.actorCrm ? ` (${grant.actorCrm})` : ""}`}
                   </p>
                   <p className="mt-1 text-xs text-slate-600">{grant.justification}</p>
                 </div>

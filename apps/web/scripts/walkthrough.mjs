@@ -194,7 +194,7 @@ await session("clinica.admin@medsync.dev", async (page, step) => {
 });
 
 for (const [email, pages] of [
-  ["admin@medsync.dev", ["dashboard", "clinicas", "acessos", "acessos-prontuario", "ajuda"]],
+  ["admin@medsync.dev", ["dashboard", "perfil", "clinicas", "acessos", "acessos-prontuario", "ajuda"]],
   ["suporte@medsync.dev", ["dashboard", "clinicas", "ajuda"]],
   ["dpo@medsync.dev", ["dashboard", "auditoria", "acessos-prontuario", "privacidade", "ajuda"]],
 ]) {

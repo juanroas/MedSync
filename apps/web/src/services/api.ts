@@ -168,7 +168,7 @@ export const api = {
 
   me: () => request<User>("/auth/me"),
   getProfile: () => request<PersonalProfile>("/profile"),
-  updateProfile: (input: { name: string; email: string; phone?: string }) =>
+  updateProfile: (input: { name: string; email: string; phone?: string; crm?: string; crmUf?: string }) =>
     request<PersonalProfile>("/profile", {
       method: "PUT",
       body: JSON.stringify(input),
@@ -310,6 +310,7 @@ export const api = {
     technicalDirectorName?: string;
     technicalDirectorCrm?: string;
     technicalDirectorCrmUf?: string;
+    cnes?: string;
   }) =>
     request<ClinicProfile>("/clinics/me", {
       method: "PUT",
@@ -421,6 +422,8 @@ export const api = {
   getRealtimeTicket: () => request<{ ticket: string; expiresInSeconds: number }>("/realtime/ticket", { method: "POST" }),
   getSigningSession: () => request<SigningSession>("/signature/session"),
   endSigningSession: () => request<void>("/signature/session", { method: "DELETE" }),
+  issuePrescriptionOnPaper: (id: string) =>
+    request<Prescription>(`/prescriptions/${id}/issue-paper`, { method: "POST" }),
   prescriptionPdfUrl: (id: string) => `${API_URL}/prescriptions/${id}/pdf`,
   getPatientMedications: (patientId: string) =>
     request<PatientMedications>(`/patients/${patientId}/medications`),

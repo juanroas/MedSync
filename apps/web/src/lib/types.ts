@@ -54,6 +54,8 @@ export type PersonalProfile = {
   profileType: string;
   lockedFields: string[];
   mfaEnabled: boolean;
+  crm?: string | null;
+  crmUf?: string | null;
 };
 
 export type StaffUser = {
@@ -150,6 +152,7 @@ export type ClinicProfile = {
   technicalDirectorCrm?: string | null;
   technicalDirectorCrmUf?: string | null;
   activationStatus: ClinicActivationStatus;
+  cnes?: string | null;
 };
 
 export type Doctor = {
@@ -345,11 +348,18 @@ export type ClinicalAccessGrant = {
   createdAt: string;
   expiresAt: string;
   active: boolean;
+  actorCrm?: string | null;
 };
 
 export type ClinicalAccessRecords = { grant: ClinicalAccessGrant; records: PatientClinicalRecord[] };
 
-export type PatientClinicalAccessEntry = { at: string; actorName: string; actorRole: string; reason: ClinicalAccessReason };
+export type PatientClinicalAccessEntry = {
+  at: string;
+  actorName: string;
+  actorRole: string;
+  reason: ClinicalAccessReason;
+  actorCrm?: string | null;
+};
 
 export type PatientClinicalRecord = ClinicalRecord & {
   patientId: string;
@@ -420,7 +430,7 @@ export type MedicationSearchItem = {
 };
 
 export type PrescriptionKind = "Simple" | "Antimicrobial" | "ControlledSpecial";
-export type PrescriptionStatus = "Draft" | "Signed" | "Cancelled";
+export type PrescriptionStatus = "Draft" | "Signed" | "Cancelled" | "IssuedOnPaper";
 
 export type PrescriptionItemInput = {
   catalogItemId?: string | null;
@@ -445,6 +455,7 @@ export type SpecialPrescriptionIdentification = {
   patientBirthDate: string;
   patientSex?: "F" | "M" | null;
   patientAddress?: string | null;
+  clinicCnes?: string | null;
 };
 
 export type Prescription = {
@@ -460,6 +471,7 @@ export type Prescription = {
   signedAt?: string | null;
   signatureSimulated: boolean;
   items: PrescriptionItem[];
+  issuedOnPaperAt?: string | null;
 };
 
 export type SavePrescriptionInput = {
@@ -486,6 +498,10 @@ export type PrescriptionDocument = {
   missingForSignature: string[];
   signatureAvailable: boolean;
   special?: SpecialPrescriptionIdentification | null;
+  appointmentModality: ConsultationModality;
+  paperAvailable: boolean;
+  missingForPaper?: string[] | null;
+  clinicAddress?: string | null;
 };
 
 export type MedicationInUse = {

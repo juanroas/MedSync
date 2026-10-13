@@ -121,6 +121,12 @@ public static class DatabaseSeeder
         {
             var user = await EnsureUserAsync(db, passwords, demoPassword, account, cancellationToken);
             await EnsureMembershipAsync(db, PlatformClinicId, user.Id, account.Role, cancellationToken);
+            // Fictitious CRM so the demo Médico ADM can use the justified record access.
+            if (account.Role == ClinicRole.MedicalDirector && user.ProfessionalCrm is null)
+            {
+                user.ProfessionalCrm = "100000";
+                user.ProfessionalCrmUf = "SP";
+            }
         }
     }
 

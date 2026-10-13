@@ -72,12 +72,16 @@ public static partial class ApiEndpoints
         if (patient is null)
             return Results.NotFound();
         var user = await db.Users.AsNoTracking().SingleAsync(x => x.Id == actor.UserId, cancellationToken);
+        // The record names the physician by CRM, not only by name.
+        if (string.IsNullOrWhiteSpace(user.ProfessionalCrm) || string.IsNullOrWhiteSpace(user.ProfessionalCrmUf))
+            return Results.Conflict(new { message = "Cadastre seu CRM em Meus dados antes de abrir prontuário." });
 
         var now = DateTime.UtcNow;
         var grant = new ClinicalAccessGrant
         {
             ActorUserId = actor.UserId,
             ActorName = user.Name,
+            ActorCrm = PrescriptionPdf.FormatCrm(user.ProfessionalCrm, user.ProfessionalCrmUf),
             PatientId = patient.Id,
             PatientClinicId = patient.ClinicId,
             Reason = request.Reason,
@@ -110,7 +114,8 @@ public static partial class ApiEndpoints
                 x.Justification,
                 x.CreatedAt,
                 x.ExpiresAt,
-                x.ExpiresAt > now));
+                x.ExpiresAt > now,
+                x.ActorCrm));
     }
 
     // Médico ADM: their own grants. DPO: every grant (metadata and the stated purpose, never record content).
@@ -192,7 +197,7 @@ public static partial class ApiEndpoints
         var entries = await db.ClinicalAccessGrants.AsNoTracking()
             .Where(x => x.Patient.UserId == userId && x.PatientClinicId == actor.ClinicId)
             .OrderByDescending(x => x.CreatedAt)
-            .Select(x => new PatientClinicalAccessEntry(x.CreatedAt, x.ActorName, "Médico ADM MedSync", x.Reason))
+            .Select(x => new PatientClinicalAccessEntry(x.CreatedAt, x.ActorName, "Médico ADM MedSync", x.Reason, x.ActorCrm))
             .ToListAsync(cancellationToken);
         return Results.Ok(entries);
     }

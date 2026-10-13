@@ -359,6 +359,7 @@ export default function ClinicalRecordPage() {
                 appointmentId={appointmentId}
                 patientId={appointment.patientId}
                 canIssue={appointment.status !== "Cancelled"}
+                inPerson={appointment.modality === "InPerson"}
               />
             )}
           </div>
