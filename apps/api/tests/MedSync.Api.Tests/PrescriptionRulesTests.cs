@@ -4,7 +4,7 @@ using Xunit;
 
 namespace MedSync.Api.Tests;
 
-// Rule D6 as decided with the medical lead: SNCR for electronic controlled/antimicrobial, paper only in person.
+// Rule D6 as decided with the medical lead: SNCR for electronic controlled/antimicrobial; issuing outside the platform signature is always possible.
 public class PrescriptionRulesTests
 {
     private static readonly DateOnly Grace = new(2026, 10, 29);
@@ -37,9 +37,12 @@ public class PrescriptionRulesTests
     }
 
     [Fact]
-    public void Paper_only_for_in_person_consultations()
+    public void Every_modality_can_issue_outside_the_platform_signature()
     {
-        Assert.True(PrescriptionRules.CanIssueOnPaper(ConsultationModality.InPerson));
-        Assert.False(PrescriptionRules.CanIssueOnPaper(ConsultationModality.Online));
+        Assert.True(PrescriptionRules.CanIssueOutside(ConsultationModality.InPerson));
+        Assert.True(PrescriptionRules.CanIssueOutside(ConsultationModality.Online));
+        // Telemedicine still names where the patient is, however it is signed.
+        Assert.Single(PrescriptionRules.OutsideBlockers(ConsultationModality.Online, null));
+        Assert.Empty(PrescriptionRules.OutsideBlockers(ConsultationModality.InPerson, null));
     }
 }

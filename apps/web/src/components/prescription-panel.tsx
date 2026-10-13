@@ -231,7 +231,9 @@ export function PrescriptionPanel({
                         ? "Assinada (simulação)"
                         : "Assinada"
                       : prescription.status === "IssuedOnPaper"
-                        ? "Em papel"
+                        ? inPerson
+                          ? "Em papel"
+                          : "Fora do MedSync"
                         : "Rascunho"}
                   </Badge>
                   <span className="text-xs text-slate-400">

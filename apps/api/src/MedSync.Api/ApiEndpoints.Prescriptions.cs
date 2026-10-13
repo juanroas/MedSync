@@ -281,8 +281,8 @@ public static partial class ApiEndpoints
             providers.Current is not null,
             IsSpecialKind(prescription.Kind) ? SpecialIdentification(appointment.Clinic, appointment.Patient) : null,
             appointment.Modality,
-            prescription.Status == PrescriptionStatus.Draft && PrescriptionRules.CanIssueOnPaper(appointment.Modality),
-            MissingData(prescription, appointment.Doctor, appointment.Patient, appointment.Clinic),
+            prescription.Status == PrescriptionStatus.Draft && PrescriptionRules.CanIssueOutside(appointment.Modality),
+            MissingForOutside(prescription),
             appointment.Clinic.FormattedAddress()));
     }
 
@@ -521,10 +521,47 @@ public static partial class ApiEndpoints
     {
         var actor = RequestContext.From(principal);
         var prescription = await db.Prescriptions.AsNoTracking()
+            .Include(x => x.Items)
             .Include(x => x.Appointment).ThenInclude(x => x.Doctor)
             .Include(x => x.Appointment).ThenInclude(x => x.Patient)
-            .SingleOrDefaultAsync(x => x.Id == id && x.Status == PrescriptionStatus.Signed, cancellationToken);
-        if (prescription?.SignedDocumentKey is null ||
+            .Include(x => x.Appointment).ThenInclude(x => x.Clinic)
+            .SingleOrDefaultAsync(
+                x => x.Id == id && (x.Status == PrescriptionStatus.Signed || x.Status == PrescriptionStatus.IssuedOnPaper),
+                cancellationToken);
+        // Issued outside the MedSync signature: only the doctor downloads it, to sign and send it.
+        if (prescription?.Status == PrescriptionStatus.IssuedOnPaper && IsAssignedDoctor(actor, prescription.Appointment))
+        {
+            var appointment = prescription.Appointment;
+            var inPerson = appointment.Modality == ConsultationModality.InPerson;
+            var document = PrescriptionPdf.Render(new PrescriptionPdfData(
+                prescription.Id,
+                prescription.Kind,
+                appointment.Doctor.Name,
+                appointment.Doctor.Crm,
+                appointment.Doctor.CrmUf,
+                appointment.Doctor.Specialty,
+                appointment.Doctor.Rqe,
+                DoctorAddress(appointment),
+                appointment.Clinic.Name,
+                appointment.Patient.Name,
+                appointment.Patient.Cpf,
+                inPerson ? appointment.Clinic.FormattedAddress() ?? appointment.Clinic.Name : prescription.PatientLocation ?? "",
+                prescription.Notes,
+                prescription.IssuedOnPaperAt ?? prescription.UpdatedAt,
+                prescription.Items.ToList(),
+                false,
+                IsSpecialKind(prescription.Kind) ? SpecialIdentification(appointment.Clinic, appointment.Patient) : null,
+                inPerson,
+                inPerson
+                    ? "Assinatura manual do médico."
+                    : "Assinar com o certificado ICP-Brasil do médico antes de enviar ao paciente (emitida fora da assinatura do MedSync)."));
+            using var output = new MemoryStream();
+            await document.SaveAsync(output, false);
+            audit.Add(actor, "Prescription.DownloadPdf", "Prescription", id, "Success", "Emitida fora da assinatura do MedSync.");
+            await db.SaveChangesAsync(cancellationToken);
+            return Results.File(output.ToArray(), "application/pdf", $"receita-{prescription.IssuedOnPaperAt:yyyyMMdd}-para-assinar.pdf");
+        }
+        if (prescription?.Status != PrescriptionStatus.Signed || prescription.SignedDocumentKey is null ||
             !(IsAssignedDoctor(actor, prescription.Appointment) || IsPatient(actor, prescription.Appointment)))
             return Results.NotFound();
 
@@ -697,6 +734,14 @@ public static partial class ApiEndpoints
         return missing;
     }
 
+    private static List<string> MissingForOutside(Prescription prescription)
+    {
+        var appointment = prescription.Appointment;
+        var missing = MissingData(prescription, appointment.Doctor, appointment.Patient, appointment.Clinic);
+        missing.AddRange(PrescriptionRules.OutsideBlockers(appointment.Modality, prescription.PatientLocation));
+        return missing;
+    }
+
     // What any prescription needs before it is issued, electronically or on paper.
     private static List<string> MissingData(Prescription prescription, Doctor doctor, Patient patient, Clinic clinic)
     {
@@ -734,24 +779,16 @@ public static partial class ApiEndpoints
         if (prescription.Status != PrescriptionStatus.Draft)
             return Results.Conflict(new { message = "Esta receita já foi emitida." });
         var appointment = prescription.Appointment;
-        if (!PrescriptionRules.CanIssueOnPaper(appointment.Modality))
-        {
-            audit.Add(actor, "Prescription.IssuePaper", "Prescription", id, "Denied", "Consulta por telemedicina.");
-            await db.SaveChangesAsync(cancellationToken);
-            return Results.Conflict(new
-            {
-                message = "Receita em papel só em consulta presencial. Na telemedicina, a receita é assinada com certificado digital."
-            });
-        }
-        var missing = MissingData(prescription, appointment.Doctor, appointment.Patient, appointment.Clinic);
+        var missing = MissingForOutside(prescription);
         if (missing.Count > 0)
-            return Validation("prescription", $"Antes de imprimir: {string.Join("; ", missing)}.");
+            return Validation("prescription", $"Antes de emitir: {string.Join("; ", missing)}.");
 
         var now = DateTime.UtcNow;
         prescription.Status = PrescriptionStatus.IssuedOnPaper;
         prescription.IssuedOnPaperAt = now;
         prescription.UpdatedAt = now;
-        audit.Add(actor, "Prescription.IssuePaper", "Prescription", id);
+        audit.Add(actor, "Prescription.IssuePaper", "Prescription", id, "Success",
+            appointment.Modality == ConsultationModality.InPerson ? "Papel, assinatura manual." : "Telemedicina, assinatura fora do MedSync.");
         await db.SaveChangesAsync(cancellationToken);
         await realtime.PrescriptionChangedAsync(prescription.Id, cancellationToken);
         return Results.Ok(ToResponse(prescription));

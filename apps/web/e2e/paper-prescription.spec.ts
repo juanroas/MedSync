@@ -3,12 +3,12 @@ import { baseApiURL, loginByApi, loginByUi, sharedPassword, users } from "./fixt
 
 const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
-// Rule D6 as decided with the medical lead: in an in-person consultation, controlled and antimicrobial prescriptions
-// are printed and signed by hand; telemedicine never goes to paper.
+// Rule D6: in person, controlled and antimicrobial prescriptions are printed and signed by hand; in telemedicine any
+// prescription can be issued as a PDF the doctor signs with their own certificate (second way when the platform fails).
 test.describe("receita em papel na consulta presencial", () => {
   test.skip(!sharedPassword, "defina MEDSYNC_E2E_PASSWORD para executar login E2E");
 
-  test("controle especial presencial: imprime para assinar a mao, fecha a edicao e telemedicina nao vai para papel", async ({ page }) => {
+  test("controle especial presencial: imprime para assinar a mao; telemedicina emite PDF para assinar fora", async ({ page }) => {
     const tomorrow = new Date(Date.now() - 3 * 3600_000 + 24 * 3600_000);
     const doctor = await request.newContext({ baseURL: baseApiURL });
     await loginByApi(doctor, users.doctor);
@@ -91,8 +91,13 @@ test.describe("receita em papel na consulta presencial", () => {
       });
       expect(draft.status()).toBe(201);
       const draftId = ((await draft.json()) as { id: string }).id;
-      expect((await doctor.post(`/prescriptions/${draftId}/issue-paper`)).status()).toBe(409);
-      await doctor.delete(`/prescriptions/${draftId}`);
+      // Telemedicine also has a second way out: issue, download the PDF, sign with the doctor's own certificate.
+      expect((await doctor.post(`/prescriptions/${draftId}/issue-paper`)).status()).toBe(200);
+      const pdf = await doctor.get(`/prescriptions/${draftId}/pdf`);
+      expect(pdf.status()).toBe(200);
+      expect(pdf.headers()["content-type"]).toContain("application/pdf");
+      const patientPdf = await patient.get(`/prescriptions/${draftId}/pdf`);
+      expect(patientPdf.status()).toBe(404);
     } finally {
       if (appointmentId) await doctor.post(`/appointments/${appointmentId}/cancel`, { data: { reason: "Limpeza do teste E2E" } });
       await doctor.delete(`/doctors/me/availability/${slot.id}`);

@@ -39,9 +39,12 @@ RDC Anvisa 1.000/2025: receita **eletrônica** de controle especial, notificaç�
 (código em `PrescriptionRules.cs`, testado em `PrescriptionRulesTests`):
 - Controle especial (C1/C5): assinatura eletrônica bloqueada até o MedSync emitir o número do SNCR.
 - Antimicrobiano: assinatura eletrônica só até o fim da carência (`SNCR_ELECTRONIC_GRACE_UNTIL`, padrão 29/10/2026).
-- Consulta **presencial**: qualquer receita pode ser emitida em papel ("Imprimir para assinar à mão"): fica fechada
-  para edição, sai sem a marca de rascunho, com rodapé "Emitida em consulta presencial" e linha para a assinatura à
-  caneta; o evento `Prescription.IssuePaper` fica na auditoria.
-- Telemedicina nunca vai para papel (CFM 2.314 art. 13: documento a distância exige ICP-Brasil).
+- Sempre existe uma segunda via de emissão, para o paciente não esperar a plataforma (decisão de 13/10/2026):
+  - Consulta **presencial**: "Imprimir para assinar à mão" — fecha a receita, sai sem a marca de rascunho, com rodapé
+    "Emitida em consulta presencial" e linha para a assinatura à caneta.
+  - **Telemedicina**: "Emitir para assinar fora do MedSync" — fecha a receita e libera ao médico o PDF sem assinatura;
+    o médico assina com o próprio certificado ICP-Brasil (CFM 2.314 art. 13) e envia ao paciente (ex.: WhatsApp).
+    Controle especial e antimicrobiano por telemedicina continuam dependendo do SNCR no sistema que o médico usar.
+  - O evento `Prescription.IssuePaper` fica na auditoria; o paciente não baixa esse PDF pelo MedSync.
 Notificações A/B não são emitidas pelo MedSync. Os dois modelos de 2 vias exigem quantidade, endereço do paciente e da
 clínica; sem endereço profissional próprio, o médico usa o endereço da clínica.

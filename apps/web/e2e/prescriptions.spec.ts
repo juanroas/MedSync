@@ -39,7 +39,9 @@ test.describe("receita do atendimento", () => {
     await expect(doc.getByText(medication, { exact: false })).toBeVisible();
     // Sem o certificado em nuvem configurado, assinar fica indisponível e o motivo aparece (regra D2).
     test.skip(process.env.MEDSYNC_E2E_SIGNING === "1", "com o simulador ligado a assinatura fica disponível");
-    await expect(doc.getByRole("button", { name: /assinar com certificado digital/i })).toBeDisabled();
+    // Sem a assinatura do MedSync, a segunda via é emitir para assinar fora dele (o paciente não espera a plataforma).
+    await expect(doc.getByRole("button", { name: /assinar com certificado digital/i })).toHaveCount(0);
+    await expect(doc.getByRole("button", { name: /emitir para assinar fora do medsync/i })).toBeEnabled();
     await expect(doc.getByText(/assinatura digital ICP-Brasil \(VIDaaS\) ainda não está ativa/i)).toBeVisible();
   });
 
@@ -82,7 +84,8 @@ test.describe("receita do atendimento", () => {
     await expect(copies.first()).toContainText("Validade: 30 dias");
     // Regra D6: controlado não é assinado antes da integração com o SNCR.
     await expect(doc.getByText(/número do SNCR/i)).toBeVisible();
-    await expect(doc.getByRole("button", { name: /assinar/i })).toBeDisabled();
+    await expect(doc.getByRole("button", { name: /assinar com certificado/i })).toHaveCount(0);
+    await expect(doc.getByRole("button", { name: /emitir para assinar fora do medsync/i })).toBeEnabled();
   });
 
   test("simulador: aprova uma vez, assina com um clique e encerra a liberacao", async ({ page }) => {

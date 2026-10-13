@@ -66,14 +66,17 @@ function PrescriptionDocument() {
   const missingForPaper = document.missingForPaper ?? [];
   const paperOption = isDoctor && document.paperAvailable;
   const issuedAt = prescription.signedAt ?? prescription.issuedOnPaperAt ?? prescription.updatedAt;
+  const outsideLabel = inPerson ? "Imprimir para assinar à mão" : "Emitir para assinar fora do MedSync";
 
-  // In person (rule D6): close the prescription, print it without the draft mark, and the doctor signs by hand.
+  // A second way to issue, so the patient never waits on the platform signature (rule D6): in person the doctor
+  // signs the printout by hand; in telemedicine the doctor signs the PDF with their own ICP-Brasil certificate.
   async function issueOnPaper() {
     const ok = await confirm({
-      title: "Imprimir para assinar à mão?",
-      description:
-        "A receita fica fechada para edição e sai sem a marca de rascunho. Assine à caneta antes de entregar ao paciente. Use só na consulta presencial.",
-      confirmLabel: "Emitir e imprimir",
+      title: `${outsideLabel}?`,
+      description: inPerson
+        ? "A receita fica fechada para edição e sai sem a marca de rascunho. Assine à caneta antes de entregar ao paciente."
+        : "A receita fica fechada para edição. Baixe o PDF, assine com o seu certificado ICP-Brasil (exigido na telemedicina) e envie ao paciente, por exemplo pelo WhatsApp.",
+      confirmLabel: inPerson ? "Emitir e imprimir" : "Emitir",
     });
     if (!ok) return;
     setIssuingPaper(true);
@@ -81,9 +84,9 @@ function PrescriptionDocument() {
     try {
       await api.issuePrescriptionOnPaper(prescription.id);
       setDocument(await api.getPrescriptionDocument(prescription.id));
-      window.setTimeout(() => window.print(), 300);
+      if (inPerson) window.setTimeout(() => window.print(), 300);
     } catch (err) {
-      setSignError(err instanceof Error ? err.message : "Não foi possível emitir a receita em papel.");
+      setSignError(err instanceof Error ? err.message : "Não foi possível emitir a receita.");
     }
     setIssuingPaper(false);
   }
@@ -153,9 +156,25 @@ function PrescriptionDocument() {
                 </a>
               </>
             ) : onPaper ? (
-              <button type="button" className={buttonClass} onClick={() => window.print()}>
-                <Printer size={17} /> Imprimir
-              </button>
+              inPerson ? (
+                <>
+                  <a href={api.prescriptionPdfUrl(prescription.id)} className={secondaryButtonClass}>
+                    <Download size={17} /> Baixar PDF
+                  </a>
+                  <button type="button" className={buttonClass} onClick={() => window.print()}>
+                    <Printer size={17} /> Imprimir
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button type="button" className={secondaryButtonClass} onClick={() => window.print()}>
+                    <Printer size={17} /> Imprimir
+                  </button>
+                  <a href={api.prescriptionPdfUrl(prescription.id)} className={buttonLinkClass}>
+                    <Download size={17} /> Baixar PDF para assinar
+                  </a>
+                </>
+              )
             ) : (
               <>
                 <button type="button" className={secondaryButtonClass} onClick={() => window.print()}>
@@ -168,7 +187,7 @@ function PrescriptionDocument() {
                     onClick={issueOnPaper}
                     disabled={issuingPaper || missingForPaper.length > 0}
                   >
-                    <PenLine size={17} /> {issuingPaper ? "Emitindo..." : "Imprimir para assinar à mão"}
+                    <PenLine size={17} /> {issuingPaper ? "Emitindo..." : outsideLabel}
                   </button>
                 )}
                 {isDoctor && !sessionActive && !signBlocked && (
@@ -240,8 +259,12 @@ function PrescriptionDocument() {
         {onPaper && (
           <AlertBanner
             tone="success"
-            title={`Emitida em papel em ${formatDateTime(prescription.issuedOnPaperAt ?? issuedAt)}`}
-            message="Assine à caneta antes de entregar ao paciente. Ela não pode mais ser editada."
+            title={`${inPerson ? "Emitida em papel" : "Emitida para assinar fora do MedSync"} em ${formatDateTime(prescription.issuedOnPaperAt ?? issuedAt)}`}
+            message={
+              inPerson
+                ? "Assine à caneta antes de entregar ao paciente. Ela não pode mais ser editada."
+                : "Baixe o PDF, assine com o seu certificado ICP-Brasil e envie ao paciente. Ela não pode mais ser editada."
+            }
           />
         )}
         {!signed && !onPaper && (
@@ -250,8 +273,10 @@ function PrescriptionDocument() {
             title="Rascunho — ainda sem validade"
             message={[
               paperOption && missingForPaper.length === 0 &&
-                "Consulta presencial: você pode imprimir para assinar à mão.",
-              paperOption && missingForPaper.length > 0 && `Para imprimir: ${missingForPaper.join("; ")}.`,
+                (inPerson
+                  ? "Consulta presencial: você pode imprimir para assinar à mão."
+                  : "Se a assinatura do MedSync não estiver disponível, emita para assinar fora dele com o seu certificado."),
+              paperOption && missingForPaper.length > 0 && `Para emitir fora do MedSync: ${missingForPaper.join("; ")}.`,
               document.missingForSignature.length > 0 && `Para assinar digitalmente: ${document.missingForSignature.join("; ")}.`,
               !document.signatureAvailable && "A assinatura digital ICP-Brasil (VIDaaS) ainda não está ativa no MedSync.",
               document.missingForSignature.length === 0 && document.signatureAvailable &&
@@ -342,7 +367,7 @@ function PrescriptionDocument() {
           )}
 
           <footer className="mt-12 border-t border-slate-300 pt-5 text-xs leading-5 text-slate-600">
-            {onPaper && (
+            {onPaper && inPerson && (
               <div className="mb-6 mt-8 w-72 border-t border-slate-500 pt-1 text-ink">
                 <p className="uppercase">{document.doctorName}</p>
                 <p>{formatCrm(document.doctorCrm, document.doctorCrmUf)}</p>
@@ -361,7 +386,7 @@ function PrescriptionDocument() {
               ) : signed ? (
                 `Assinado digitalmente com certificado ICP-Brasil em ${formatDateTime(prescription.signedAt!)}.`
               ) : onPaper ? (
-                "Assinatura manual do médico."
+                inPerson ? "Assinatura manual do médico." : "Assinar com o certificado ICP-Brasil do médico fora do MedSync."
               ) : (
                 "Assinatura digital: pendente."
               )}
@@ -504,7 +529,9 @@ function SpecialCopy({
             : signed
               ? "Assinada digitalmente com certificado ICP-Brasil. Confira em validar.iti.gov.br."
               : onPaper
-                ? "Assinatura manual do médico."
+                ? document.appointmentModality === "InPerson"
+                  ? "Assinatura manual do médico."
+                  : "Assinar com o certificado ICP-Brasil do médico fora do MedSync."
                 : "Assinatura digital: pendente."}{" "}
           Documento {prescription.id}
         </p>

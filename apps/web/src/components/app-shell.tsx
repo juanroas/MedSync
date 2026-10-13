@@ -3,7 +3,7 @@
 import { Logo } from "@/components/logo";
 import { RealtimeProvider } from "@/lib/realtime";
 import { ROLE_LABELS, type ClinicRole, type User } from "@/lib/types";
-import { api, clearSession, getSession, saveSession } from "@/services/api";
+import { ApiError, api, clearSession, getSession, saveSession } from "@/services/api";
 import {
   Building2,
   FileLock2,
@@ -60,9 +60,17 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         if (current.mustChangePassword) router.replace("/alterar-senha");
         else setReady(true);
       })
-      .catch(() => {
-        clearSession();
-        router.replace("/login");
+      .catch((error) => {
+        // Only an expired session logs out. A network blip, or leaving the page before /auth/me answers,
+        // keeps the cached session: the API still decides every access.
+        if (error instanceof ApiError && error.status === 401) {
+          clearSession();
+          router.replace("/login");
+        } else if (getSession()) {
+          setReady(true);
+        } else {
+          router.replace("/login");
+        }
       });
   }, [router]);
 

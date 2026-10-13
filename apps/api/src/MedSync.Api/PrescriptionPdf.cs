@@ -27,7 +27,9 @@ public sealed record PrescriptionPdfData(
     IReadOnlyList<PrescriptionItem> Items,
     bool Simulated = false,
     SpecialPrescriptionIdentification? Special = null,
-    bool InPerson = false);
+    bool InPerson = false,
+    // Issued outside the MedSync signature: replaces the "signed with ICP-Brasil" line.
+    string? SignatureNote = null);
 
 // Builds the prescription PDF on the server and signs it through any IDigitalSigner (PAdES with PDFsharp).
 // The signer is the doctor's ICP-Brasil cloud certificate in production (rule D1); tests use a local certificate.
@@ -130,9 +132,9 @@ public static class PrescriptionPdf
         if (data.Kind == PrescriptionKind.Antimicrobial)
             dateLine += " · Validade: 10 dias a partir da emissão (RDC Anvisa 471/2021).";
         y = Write(graphics, dateLine, small, muted, Margin, y, width);
-        y = Write(graphics, data.Simulated
+        y = Write(graphics, data.SignatureNote ?? (data.Simulated
             ? "SIMULAÇÃO: assinatura de demonstração, SEM VALIDADE JURÍDICA. Não use em farmácia."
-            : "Assinada digitalmente com certificado ICP-Brasil. Confira em validar.iti.gov.br.", small, muted, Margin, y, width);
+            : "Assinada digitalmente com certificado ICP-Brasil. Confira em validar.iti.gov.br."), small, muted, Margin, y, width);
         Write(graphics, $"Documento {data.PrescriptionId}", small, muted, Margin, y, width);
     }
 
@@ -242,9 +244,9 @@ public static class PrescriptionPdf
         var footerY = page.Height.Point - Margin + 8;
         var modality = data.InPerson ? "Emitida em consulta presencial" : "Emitida em modalidade de telemedicina (Res. CFM 2.314/2022)";
         footerY = Write(graphics, $"{modality} em {issuedAt:dd/MM/yyyy HH:mm} (Brasília). {validity}", small, muted, left, footerY, width);
-        Write(graphics, (data.Simulated
+        Write(graphics, (data.SignatureNote ?? (data.Simulated
             ? "SIMULAÇÃO: assinatura de demonstração, SEM VALIDADE JURÍDICA. Não use em farmácia."
-            : "Assinada digitalmente com certificado ICP-Brasil. Confira em validar.iti.gov.br.") + $" Documento {data.PrescriptionId}", small, muted, left, footerY, width);
+            : "Assinada digitalmente com certificado ICP-Brasil. Confira em validar.iti.gov.br.")) + $" Documento {data.PrescriptionId}", small, muted, left, footerY, width);
     }
 
     // A titled box with one text line per row; ruled boxes get a line under each row for handwriting.
