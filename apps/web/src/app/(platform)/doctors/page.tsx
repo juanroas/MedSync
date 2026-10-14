@@ -90,10 +90,10 @@ function DoctorsDirectory() {
       <PageHeader
         eyebrow="Rede assistencial"
         title="Médicos"
-        description="Médicos que atendem na clínica, por especialidade."
+        description="Médicos que atendem aqui, por especialidade."
         action={canManage ? (
           <button className={buttonClass} onClick={() => setShowForm((value) => !value)}>
-            <Plus size={17} /> Novo medico
+            <Plus size={17} /> Novo médico
           </button>
         ) : undefined}
       />
@@ -107,7 +107,10 @@ function DoctorsDirectory() {
         <form onSubmit={submit} className="mb-7 rounded-lg border border-teal-100 bg-white p-6 shadow-soft">
           <div className="mb-5">
             <h2 className="font-bold text-ink">Cadastrar médico</h2>
-            <p className="mt-1 text-xs text-slate-400">Adicione um profissional a rede assistencial.</p>
+            <p className="mt-1 text-xs text-slate-400">
+              Se o médico já atende por outro local no MedSync, use o mesmo e-mail: ele entra com a senha que já tem e
+              escolhe o local no topo da tela.
+            </p>
           </div>
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {[
@@ -117,7 +120,7 @@ function DoctorsDirectory() {
               ["crmUf", "UF do CRM", "text"],
               ["specialty", "Especialidade", "text"],
               ["phone", "Telefone", "tel"],
-              ["temporaryPassword", "Senha temporária", "password"],
+              ["temporaryPassword", "Senha temporária (só para conta nova)", "password"],
             ].map(([key, label, type]) => (
               <label key={key} className="block">
                 <span className="mb-2 block text-xs font-bold text-slate-600">{label}</span>
@@ -131,7 +134,7 @@ function DoctorsDirectory() {
                       [key]: key === "crmUf" ? event.target.value.toUpperCase().slice(0, 2) : event.target.value,
                     })
                   }
-                  required={key !== "phone"}
+                  required={key !== "phone" && key !== "temporaryPassword"}
                   minLength={key === "temporaryPassword" ? 12 : undefined}
                   maxLength={key === "crmUf" ? 2 : undefined}
                 />

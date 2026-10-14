@@ -166,6 +166,31 @@ export const api = {
       body: JSON.stringify(input),
     }),
 
+  // "Sou médico": the doctor's own practice; the account is its doctor and its admin (ADR-0005).
+  registerPractice: (input: {
+    name: string;
+    email: string;
+    password: string;
+    phone?: string;
+    crm: string;
+    crmUf: string;
+    specialty: string;
+    rqe?: string;
+    legalName: string;
+    tradeName?: string;
+    taxId: string;
+    address: Address;
+  }) =>
+    request<LoginResponse>("/auth/register-practice", {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
+  switchClinic: (clinicId: string) =>
+    request<LoginResponse>("/auth/switch-clinic", {
+      method: "POST",
+      body: JSON.stringify({ clinicId }),
+    }),
+
   me: () => request<User>("/auth/me"),
   getProfile: () => request<PersonalProfile>("/profile"),
   updateProfile: (input: { name: string; email: string; phone?: string; crm?: string; crmUf?: string }) =>

@@ -19,6 +19,7 @@ public static partial class ApiEndpoints
         app.MapPost("/auth/login", Login).AllowAnonymous().RequireRateLimiting("auth");
         app.MapPost("/auth/login/mfa", LoginMfa).AllowAnonymous().RequireRateLimiting("auth");
         app.MapPost("/auth/register-clinic", RegisterClinic).AllowAnonymous().RequireRateLimiting("auth");
+        app.MapPost("/auth/register-practice", RegisterPractice).AllowAnonymous().RequireRateLimiting("auth");
         // Public (clinic sign-up has no session yet) and rate-limited like the auth routes.
         app.MapGet("/address/zip/{zip}", LookupZipCode).AllowAnonymous().RequireRateLimiting("auth");
         app.MapPost("/payments/mercadopago/webhook", MercadoPagoWebhook).AllowAnonymous();
@@ -40,6 +41,7 @@ public static partial class ApiEndpoints
         protectedApi.MapPost("/clinics/onboarding", CreateClinicOnboarding);
         protectedApi.MapGet("/clinics/me", GetMyClinic);
         protectedApi.MapGet("/clinics/current", GetCurrentClinicSummary);
+        protectedApi.MapPost("/auth/switch-clinic", SwitchClinic);
         protectedApi.MapPut("/clinics/me", UpdateMyClinic);
         protectedApi.MapGet("/clinics/activation", GetClinicActivations);
         protectedApi.MapPut("/clinics/{id:guid}/activation", UpdateClinicActivation);
@@ -491,7 +493,8 @@ public static partial class ApiEndpoints
             clinic.FormattedAddress(),
             string.IsNullOrWhiteSpace(clinic.TechnicalDirectorName)
                 ? null
-                : $"{clinic.TechnicalDirectorName} · {PrescriptionPdf.FormatCrm(clinic.TechnicalDirectorCrm ?? "", clinic.TechnicalDirectorCrmUf ?? "")}");
+                : $"{clinic.TechnicalDirectorName} · {PrescriptionPdf.FormatCrm(clinic.TechnicalDirectorCrm ?? "", clinic.TechnicalDirectorCrmUf ?? "")}",
+            clinic.IsPrivatePractice);
 
     private const string ClinicPendingStaffMessage =
         "A clínica ainda está em ativação. Pacientes e consultas são liberados assim que o Médico ADM MedSync ativar o cadastro.";
@@ -866,7 +869,42 @@ public static partial class ApiEndpoints
         var actor = new RequestContext(user.Id, clinic.Id, roles.ToHashSet(), clinic.IsPlatform);
         audit.Add(actor, "Auth.Login", "User", user.Id);
         await db.SaveChangesAsync(cancellationToken);
-        return Results.Ok(new LoginResponse(ToUserSummary(user, clinic, roles)));
+        var doctorId = await OwnDoctorIdAsync(db, user.Id, clinic.Id, roles, cancellationToken);
+        return Results.Ok(new LoginResponse(ToUserSummary(user, clinic, roles, user.Memberships, doctorId)));
+    }
+
+    // ADR-0005: someone who works in more than one place picks where the session applies. The token is reissued for
+    // that clinic only; data never mixes between places.
+    private static async Task<IResult> SwitchClinic(
+        SwitchClinicRequest request,
+        ClaimsPrincipal principal,
+        HttpContext http,
+        MedSyncDbContext db,
+        ITokenService tokens,
+        AuditWriter audit,
+        IConfiguration configuration,
+        CancellationToken cancellationToken)
+    {
+        var actor = RequestContext.From(principal);
+        var user = await db.Users
+            .Include(x => x.Memberships)
+            .ThenInclude(x => x.Clinic)
+            .SingleAsync(x => x.Id == actor.UserId, cancellationToken);
+        var memberships = user.Memberships.Where(x => x.ClinicId == request.ClinicId && x.Clinic.IsActive).ToList();
+        if (memberships.Count == 0)
+        {
+            audit.Add(actor, "Auth.SwitchClinic", "Clinic", request.ClinicId, "Denied", "Sem vínculo com este local.");
+            await db.SaveChangesAsync(cancellationToken);
+            return Results.Forbid();
+        }
+
+        var clinic = memberships[0].Clinic;
+        var roles = memberships.Select(x => x.Role).Distinct().ToArray();
+        SetSessionCookie(http, tokens.CreateJwt(user, clinic, roles), configuration);
+        audit.Add(new RequestContext(user.Id, clinic.Id, roles.ToHashSet(), clinic.IsPlatform), "Auth.SwitchClinic", "Clinic", clinic.Id);
+        await db.SaveChangesAsync(cancellationToken);
+        var doctorId = await OwnDoctorIdAsync(db, user.Id, clinic.Id, roles, cancellationToken);
+        return Results.Ok(new LoginResponse(ToUserSummary(user, clinic, roles, user.Memberships, doctorId)));
     }
 
     private static async Task<IResult> EnrollMfa(
@@ -1016,15 +1054,121 @@ public static partial class ApiEndpoints
             new LoginResponse(ToUserSummary(user, clinic, roles)));
     }
 
+    private static async Task<IResult> RegisterPractice(
+        RegisterPracticeRequest request,
+        HttpContext http,
+        MedSyncDbContext db,
+        IPasswordService passwords,
+        ITokenService tokens,
+        AuditWriter audit,
+        IConfiguration configuration,
+        RealtimeNotifier realtime,
+        CancellationToken cancellationToken)
+    {
+        var name = (request.Name ?? "").Trim();
+        if (name.Length is < 3 or > 160)
+            return Validation("name", "Informe seu nome completo.");
+        if (!IsValidEmail(request.Email))
+            return Validation("email", "Informe um e-mail válido.");
+        if (PasswordPolicy.Validate(request.Password) is { } passwordError)
+            return Validation("password", passwordError);
+        if (!IsValidOptionalPhone(request.Phone))
+            return Validation("phone", "Informe um telefone válido com DDD.");
+        var crm = DigitsOnly(request.Crm ?? "");
+        if (crm.Length is < 4 or > 10)
+            return Validation("crm", "Informe o número do seu CRM.");
+        var crmUf = (request.CrmUf ?? "").Trim().ToUpperInvariant();
+        if (!BrazilianStates.Contains(crmUf))
+            return Validation("crmUf", "Escolha a UF do CRM.");
+        var specialty = (request.Specialty ?? "").Trim();
+        if (specialty.Length is < 3 or > 80)
+            return Validation("specialty", "Informe a sua especialidade.");
+        var rqe = string.IsNullOrWhiteSpace(request.Rqe) ? null : request.Rqe.Trim();
+        if (rqe?.Length > 20)
+            return Validation("rqe", "O RQE deve ter até 20 caracteres.");
+        var taxId = DigitsOnly(request.TaxId ?? "");
+        if (!IsValidCnpj(taxId))
+            return Validation("taxId", "Informe um CNPJ válido.");
+        var legalName = (request.LegalName ?? "").Trim();
+        if (legalName.Length is < 3 or > 180)
+            return Validation("legalName", "Informe a razão social do consultório.");
+        var tradeName = string.IsNullOrWhiteSpace(request.TradeName) ? legalName : request.TradeName.Trim();
+        if (tradeName.Length > 160)
+            return Validation("tradeName", "Nome fantasia deve ter até 160 caracteres.");
+        if (request.Address is null)
+            return Validation("address", "Informe o endereço do consultório.");
+        if (ValidateAddress(request.Address) is { } addressError)
+            return addressError;
+        var cnes = DigitsOnly(request.Cnes ?? "");
+        if (cnes.Length is not (0 or 7))
+            return Validation("cnes", "O CNES tem 7 dígitos.");
+
+        var email = request.Email.Trim().ToLowerInvariant();
+        if (await db.Users.AnyAsync(x => x.Email == email, cancellationToken))
+            return Results.Conflict(new { message = "Já existe uma conta com este e-mail. Entre com ela ou peça à clínica para incluir você." });
+        if (await db.Clinics.AnyAsync(x => x.TaxId == taxId, cancellationToken))
+            return Results.Conflict(new { message = "Já existe um cadastro com este CNPJ." });
+
+        // The practice waits for the Médico ADM MedSync like any clinic; the doctor is its technical director.
+        var clinic = new Clinic
+        {
+            Name = tradeName,
+            Slug = SecurityText.Slug(tradeName),
+            LegalName = legalName,
+            TaxId = taxId,
+            IsPrivatePractice = true,
+            ActivationStatus = ClinicActivationStatus.Pending,
+            Phone = string.IsNullOrWhiteSpace(request.Phone) ? null : request.Phone.Trim(),
+            Cnes = cnes.Length == 0 ? null : cnes,
+            TechnicalDirectorName = name,
+            TechnicalDirectorCrm = crm,
+            TechnicalDirectorCrmUf = crmUf
+        };
+        ApplyAddress(clinic, request.Address);
+        var user = new User { Name = name, Email = email, PasswordHash = passwords.Hash(request.Password) };
+        var doctor = new Doctor
+        {
+            Clinic = clinic,
+            User = user,
+            Name = name,
+            Email = email,
+            Crm = crm,
+            CrmUf = crmUf,
+            Specialty = specialty,
+            Phone = clinic.Phone,
+            Rqe = rqe
+        };
+        var memberships = new[]
+        {
+            new ClinicMembership { Clinic = clinic, User = user, Role = ClinicRole.ClinicAdmin },
+            new ClinicMembership { Clinic = clinic, User = user, Role = ClinicRole.Doctor }
+        };
+        db.AddRange(clinic, user, doctor);
+        db.AddRange(memberships);
+        var roles = new[] { ClinicRole.ClinicAdmin, ClinicRole.Doctor };
+        var actor = new RequestContext(user.Id, clinic.Id, roles.ToHashSet());
+        audit.Add(actor, "Clinic.RegisterPractice", "Clinic", clinic.Id);
+        await db.SaveChangesAsync(cancellationToken);
+
+        SetSessionCookie(http, tokens.CreateJwt(user, clinic, roles), configuration);
+        await realtime.ClinicChangedAsync(clinic.Id);
+        return Results.Created($"/clinics/{clinic.Id}", new LoginResponse(ToUserSummary(user, clinic, roles, memberships, doctor.Id)));
+    }
+
     private static async Task<IResult> Me(
         ClaimsPrincipal principal,
         MedSyncDbContext db,
         CancellationToken cancellationToken)
     {
         var actor = RequestContext.From(principal);
-        var user = await db.Users.AsNoTracking().SingleAsync(x => x.Id == actor.UserId, cancellationToken);
+        var user = await db.Users.AsNoTracking()
+            .Include(x => x.Memberships)
+            .ThenInclude(x => x.Clinic)
+            .SingleAsync(x => x.Id == actor.UserId, cancellationToken);
         var clinic = await db.Clinics.AsNoTracking().SingleAsync(x => x.Id == actor.ClinicId, cancellationToken);
-        return Results.Ok(ToUserSummary(user, clinic, actor.Roles.ToArray()));
+        var roles = actor.Roles.ToArray();
+        var doctorId = await OwnDoctorIdAsync(db, user.Id, clinic.Id, roles, cancellationToken);
+        return Results.Ok(ToUserSummary(user, clinic, roles, user.Memberships, doctorId));
     }
 
     private static async Task<IResult> Logout(
@@ -1407,6 +1551,8 @@ public static partial class ApiEndpoints
         var user = await db.Users.SingleOrDefaultAsync(x => x.Email == email, cancellationToken);
         if (user is null)
         {
+            if (string.IsNullOrWhiteSpace(request.TemporaryPassword))
+                return Validation("temporaryPassword", "Este e-mail ainda não tem conta no MedSync: informe uma senha temporária.");
             if (PasswordPolicy.Validate(request.TemporaryPassword) is { } passwordError)
                 return Validation("temporaryPassword", passwordError);
             user = new User
@@ -3223,8 +3369,40 @@ public static partial class ApiEndpoints
     private static UserSummary ToUserSummary(
         User user,
         Clinic clinic,
-        IReadOnlyCollection<ClinicRole> roles) =>
-        new(user.Id, user.Name, user.Email, clinic.Id, clinic.Name, roles, user.MustChangePassword, clinic.ActivationStatus);
+        IReadOnlyCollection<ClinicRole> roles,
+        IEnumerable<ClinicMembership>? memberships = null,
+        Guid? doctorId = null) =>
+        new(
+            user.Id,
+            user.Name,
+            user.Email,
+            clinic.Id,
+            clinic.Name,
+            roles,
+            user.MustChangePassword,
+            clinic.ActivationStatus,
+            clinic.IsPrivatePractice,
+            (memberships ?? [])
+                .Where(x => x.Clinic is { IsActive: true })
+                .GroupBy(x => x.ClinicId)
+                .Select(x => new ClinicOptionResponse(x.Key, x.First().Clinic.Name, x.First().Clinic.IsPrivatePractice))
+                .OrderBy(x => x.Name)
+                .DefaultIfEmpty(new ClinicOptionResponse(clinic.Id, clinic.Name, clinic.IsPrivatePractice))
+                .ToList(),
+            doctorId);
+
+    private static async Task<Guid?> OwnDoctorIdAsync(
+        MedSyncDbContext db,
+        Guid userId,
+        Guid clinicId,
+        IReadOnlyCollection<ClinicRole> roles,
+        CancellationToken cancellationToken) =>
+        roles.Contains(ClinicRole.Doctor)
+            ? await db.Doctors.AsNoTracking()
+                .Where(x => x.ClinicId == clinicId && x.UserId == userId)
+                .Select(x => (Guid?)x.Id)
+                .FirstOrDefaultAsync(cancellationToken)
+            : null;
 
     private static PersonalProfileResponse ToPersonalProfile(
         User user,

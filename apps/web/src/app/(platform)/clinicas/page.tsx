@@ -256,6 +256,7 @@ export default function ClinicsPage() {
                     <div className="flex flex-wrap items-center gap-2">
                       <p className="truncate font-bold text-ink" title={clinic.clinicName}>{clinic.clinicName}</p>
                       <Badge tone={statusTone[clinic.activationStatus]}>{statusLabel[clinic.activationStatus]}</Badge>
+                      {clinic.isPrivatePractice && <Badge tone="neutral">Consultório</Badge>}
                     </div>
                     <p className="mt-1 truncate text-xs text-slate-500" title={clinic.legalName}>
                       {clinic.legalName ?? "Razão social não informada"} · CNPJ {clinic.taxIdMasked ?? "—"}

@@ -190,6 +190,9 @@ namespace MedSync.Infrastructure.Migrations
                     b.Property<bool>("IsPlatform")
                         .HasColumnType("boolean");
 
+                    b.Property<bool>("IsPrivatePractice")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("LegalName")
                         .HasMaxLength(180)
                         .HasColumnType("character varying(180)");

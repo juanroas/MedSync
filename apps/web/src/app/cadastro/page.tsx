@@ -6,13 +6,25 @@ import { ErrorBanner, buttonClass, inputClass } from "@/components/ui";
 import { BRAZILIAN_STATES } from "@/lib/types";
 import type { Address } from "@/lib/types";
 import { api, saveSession } from "@/services/api";
-import { ArrowLeft, Building2 } from "lucide-react";
+import { ArrowLeft, Building2, Stethoscope } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { FormEvent, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { FormEvent, Suspense, useState } from "react";
 
-export default function RegisterCompanyPage() {
+type Kind = "clinic" | "practice";
+
+export default function RegisterPage() {
+  return (
+    <Suspense fallback={<main className="min-h-[100dvh] bg-mist" />}>
+      <RegisterForm />
+    </Suspense>
+  );
+}
+
+function RegisterForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const [kind, setKind] = useState<Kind>(searchParams.get("tipo") === "consultorio" ? "practice" : "clinic");
   const [form, setForm] = useState({
     clinicName: "",
     tradeName: "",
@@ -25,32 +37,57 @@ export default function RegisterCompanyPage() {
     technicalDirectorCrm: "",
     technicalDirectorCrmUf: "",
   });
+  // Consultório: the doctor's own registration, printed on prescriptions and used as technical director.
+  const [doctor, setDoctor] = useState({ crm: "", crmUf: "", specialty: "", rqe: "" });
   const [address, setAddress] = useState<Address>(emptyAddress);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const practice = kind === "practice";
+  const place = practice ? "do consultório" : "da clínica";
 
   async function submit(event: FormEvent) {
     event.preventDefault();
     setError("");
     if (!isAddressComplete(address)) {
-      setError("Preencha o endereço completo da clínica (CEP, logradouro, número, bairro, cidade e UF).");
+      setError(
+        `Preencha o endereço completo ${practice ? "do consultório" : "da clínica"} (CEP, logradouro, número, bairro, cidade e UF).`,
+      );
+      return;
+    }
+    if (practice && !doctor.crmUf) {
+      setError("Escolha a UF do seu CRM.");
       return;
     }
     setLoading(true);
     try {
-      const session = await api.registerClinic({
-        ...form,
-        taxId: onlyDigits(form.taxId),
-        address,
-        phone: form.phone || undefined,
-        technicalDirectorName: form.technicalDirectorName || undefined,
-        technicalDirectorCrm: form.technicalDirectorCrm || undefined,
-        technicalDirectorCrmUf: form.technicalDirectorCrmUf || undefined,
-      });
+      const session = practice
+        ? await api.registerPractice({
+            name: form.name,
+            email: form.email,
+            password: form.password,
+            phone: form.phone || undefined,
+            crm: doctor.crm,
+            crmUf: doctor.crmUf,
+            specialty: doctor.specialty,
+            rqe: doctor.rqe || undefined,
+            legalName: form.clinicName,
+            tradeName: form.tradeName || undefined,
+            taxId: onlyDigits(form.taxId),
+            address,
+          })
+        : await api.registerClinic({
+            ...form,
+            taxId: onlyDigits(form.taxId),
+            address,
+            phone: form.phone || undefined,
+            technicalDirectorName: form.technicalDirectorName || undefined,
+            technicalDirectorCrm: form.technicalDirectorCrm || undefined,
+            technicalDirectorCrmUf: form.technicalDirectorCrmUf || undefined,
+          });
       saveSession(session);
       router.push("/dashboard");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Não foi possível criar a conta da clínica.");
+      setError(err instanceof Error ? err.message : `Não foi possível criar a conta ${place}.`);
     } finally {
       setLoading(false);
     }
@@ -70,14 +107,30 @@ export default function RegisterCompanyPage() {
         </div>
         <form onSubmit={submit} className="mt-6 rounded-2xl border border-slate-200 bg-white p-8 shadow-card">
           <span className="grid size-12 place-items-center rounded-2xl bg-teal-50 text-teal-600">
-            <Building2 size={22} />
+            {practice ? <Stethoscope size={22} /> : <Building2 size={22} />}
           </span>
           <h1 className="mt-6 text-h1 font-bold uppercase tracking-tight text-ink">Cadastrar clínica ou consultório</h1>
-          <p className="mt-2 text-caption text-slate-500">
-            Esta conta será a administradora do seu consultório ou da sua clínica no MedSync. Você já entra e pode
-            configurar a equipe e a agenda na hora — nossa equipe confere o CNPJ e combina o plano com você em paralelo
-            para liberar os atendimentos. Se você é médico e já atende por uma clínica que usa o MedSync, não precisa criar outra conta:
-            peça ao administrador da clínica para incluir você na equipe.
+          <fieldset className="mt-6">
+            <legend className="mb-2 block text-label font-semibold text-slate-700">Quem está cadastrando</legend>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <KindOption
+                checked={!practice}
+                onSelect={() => setKind("clinic")}
+                title="Clínica"
+                description="Administrador cadastra os médicos e a recepção."
+              />
+              <KindOption
+                checked={practice}
+                onSelect={() => setKind("practice")}
+                title="Consultório (sou médico)"
+                description="Você atende e administra o próprio consultório."
+              />
+            </div>
+          </fieldset>
+          <p className="mt-5 text-caption text-slate-500">
+            {practice
+              ? "Você será o médico e o administrador do consultório: cadastra pacientes, agenda e atende. Se tiver recepcionista, inclua depois em Equipe e acessos. Nossa equipe confere o CNPJ e combina o plano com você em paralelo para liberar os atendimentos."
+              : "Esta conta será a administradora da sua clínica no MedSync. Você já entra e pode configurar a equipe e a agenda na hora — nossa equipe confere o CNPJ e combina o plano com você em paralelo para liberar os atendimentos. Se você é médico e já atende por uma clínica que usa o MedSync, não precisa criar outra conta: peça ao administrador da clínica para incluir você na equipe."}
           </p>
           <div className="mt-8 space-y-5">
             {error && <ErrorBanner message={error} />}
@@ -101,7 +154,9 @@ export default function RegisterCompanyPage() {
               placeholder="00.000.000/0000-00"
             />
             <label className="block">
-              <span className="mb-2 block text-label font-semibold text-slate-700">Telefone da clínica (opcional)</span>
+              <span className="mb-2 block text-label font-semibold text-slate-700">
+                {practice ? "Telefone do consultório (opcional)" : "Telefone da clínica (opcional)"}
+              </span>
               <input className={inputClass} type="tel" value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value })} />
             </label>
             <div className="border-t border-slate-100 pt-5">
@@ -109,40 +164,76 @@ export default function RegisterCompanyPage() {
               <p className="mt-1 text-caption text-slate-400">Aparece para o paciente que escolhe consulta presencial e sai nas receitas.</p>
             </div>
             <AddressFields value={address} onChange={setAddress} />
-            <div className="border-t border-slate-100 pt-5">
-              <p className="text-label font-semibold text-ink">Responsável técnico (opcional agora)</p>
-              <p className="mt-1 text-caption text-slate-400">Médico responsável pela clínica no CRM. Pode ser informado depois em Dados da clínica.</p>
-            </div>
-            <div className="grid gap-4 sm:grid-cols-[2fr_1fr_1fr]">
-              <label className="block">
-                <span className="mb-2 block text-label font-semibold text-slate-700">Nome do médico</span>
-                <input className={inputClass} value={form.technicalDirectorName} maxLength={160} onChange={(event) => setForm({ ...form, technicalDirectorName: event.target.value })} />
-              </label>
-              <label className="block">
-                <span className="mb-2 block text-label font-semibold text-slate-700">CRM</span>
-                <input className={inputClass} inputMode="numeric" value={form.technicalDirectorCrm} maxLength={10} onChange={(event) => setForm({ ...form, technicalDirectorCrm: event.target.value })} />
-              </label>
-              <label className="block">
-                <span className="mb-2 block text-label font-semibold text-slate-700">UF do CRM</span>
-                <select className={inputClass} value={form.technicalDirectorCrmUf} onChange={(event) => setForm({ ...form, technicalDirectorCrmUf: event.target.value })}>
-                  <option value="">—</option>
-                  {BRAZILIAN_STATES.map((uf) => (
-                    <option key={uf} value={uf}>
-                      {uf}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
-            <div className="border-t border-slate-100 pt-5">
-              <p className="text-label font-semibold text-ink">Seu acesso de administrador</p>
-            </div>
-            <Field
-              label="Seu nome"
-              value={form.name}
-              maxLength={160}
-              onChange={(name) => setForm({ ...form, name })}
-            />
+            {practice ? (
+              <>
+                <div className="border-t border-slate-100 pt-5">
+                  <p className="text-label font-semibold text-ink">Seus dados de médico</p>
+                  <p className="mt-1 text-caption text-slate-400">
+                    Saem nas receitas e fazem de você o responsável técnico do consultório.
+                  </p>
+                </div>
+                <Field label="Seu nome" value={form.name} maxLength={160} onChange={(name) => setForm({ ...form, name })} />
+                <div className="grid gap-4 sm:grid-cols-[1fr_1fr]">
+                  <label className="block">
+                    <span className="mb-2 block text-label font-semibold text-slate-700">CRM</span>
+                    <input className={inputClass} inputMode="numeric" value={doctor.crm} maxLength={10} required onChange={(event) => setDoctor({ ...doctor, crm: event.target.value })} />
+                  </label>
+                  <label className="block">
+                    <span className="mb-2 block text-label font-semibold text-slate-700">UF do CRM</span>
+                    <select className={inputClass} value={doctor.crmUf} required onChange={(event) => setDoctor({ ...doctor, crmUf: event.target.value })}>
+                      <option value="">—</option>
+                      {BRAZILIAN_STATES.map((uf) => (
+                        <option key={uf} value={uf}>
+                          {uf}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+                <div className="grid gap-4 sm:grid-cols-[2fr_1fr]">
+                  <Field label="Especialidade" value={doctor.specialty} maxLength={80} onChange={(specialty) => setDoctor({ ...doctor, specialty })} />
+                  <label className="block">
+                    <span className="mb-2 block text-label font-semibold text-slate-700">RQE (opcional)</span>
+                    <input className={inputClass} value={doctor.rqe} maxLength={20} onChange={(event) => setDoctor({ ...doctor, rqe: event.target.value })} />
+                  </label>
+                </div>
+                <div className="border-t border-slate-100 pt-5">
+                  <p className="text-label font-semibold text-ink">Seu acesso</p>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="border-t border-slate-100 pt-5">
+                  <p className="text-label font-semibold text-ink">Responsável técnico (opcional agora)</p>
+                  <p className="mt-1 text-caption text-slate-400">Médico responsável pela clínica no CRM. Pode ser informado depois em Dados da clínica.</p>
+                </div>
+                <div className="grid gap-4 sm:grid-cols-[2fr_1fr_1fr]">
+                  <label className="block">
+                    <span className="mb-2 block text-label font-semibold text-slate-700">Nome do médico</span>
+                    <input className={inputClass} value={form.technicalDirectorName} maxLength={160} onChange={(event) => setForm({ ...form, technicalDirectorName: event.target.value })} />
+                  </label>
+                  <label className="block">
+                    <span className="mb-2 block text-label font-semibold text-slate-700">CRM</span>
+                    <input className={inputClass} inputMode="numeric" value={form.technicalDirectorCrm} maxLength={10} onChange={(event) => setForm({ ...form, technicalDirectorCrm: event.target.value })} />
+                  </label>
+                  <label className="block">
+                    <span className="mb-2 block text-label font-semibold text-slate-700">UF do CRM</span>
+                    <select className={inputClass} value={form.technicalDirectorCrmUf} onChange={(event) => setForm({ ...form, technicalDirectorCrmUf: event.target.value })}>
+                      <option value="">—</option>
+                      {BRAZILIAN_STATES.map((uf) => (
+                        <option key={uf} value={uf}>
+                          {uf}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+                <div className="border-t border-slate-100 pt-5">
+                  <p className="text-label font-semibold text-ink">Seu acesso de administrador</p>
+                </div>
+                <Field label="Seu nome" value={form.name} maxLength={160} onChange={(name) => setForm({ ...form, name })} />
+              </>
+            )}
             <Field
               label="E-mail"
               type="email"
@@ -168,6 +259,32 @@ export default function RegisterCompanyPage() {
         </form>
       </div>
     </main>
+  );
+}
+
+function KindOption({
+  checked,
+  onSelect,
+  title,
+  description,
+}: {
+  checked: boolean;
+  onSelect: () => void;
+  title: string;
+  description: string;
+}) {
+  return (
+    <label
+      className={`flex cursor-pointer gap-3 rounded-lg border p-4 transition ${
+        checked ? "border-teal-500 bg-teal-50 ring-1 ring-teal-500" : "border-slate-200 hover:border-teal-200"
+      }`}
+    >
+      <input type="radio" name="kind" className="mt-1 accent-teal-600" checked={checked} onChange={onSelect} />
+      <span>
+        <span className="block text-label font-bold text-ink">{title}</span>
+        <span className="mt-1 block text-caption text-slate-500">{description}</span>
+      </span>
+    </label>
   );
 }
 

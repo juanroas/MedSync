@@ -40,6 +40,7 @@ Qualquer PR que adicione tela, item de menu ou botão que navega **atualiza este
 | Médico | Painel · Agenda · Pacientes vinculados · Meu perfil · Ajuda |
 | ADM da clínica | Painel · Meus dados · Consultas · Pacientes · Médicos · Dados da clínica · Equipe e acessos · Auditoria (da clínica) · Ajuda |
 | Recepção (ADR-0005) | Painel · Meus dados · Consultas · Pacientes · Ajuda |
+| Dono do consultório (Médico + ADM, ADR-0005) | Painel · Meus dados · Consultas · Pacientes · Médicos · Dados do consultório · Equipe e acessos · Auditoria · Ajuda |
 | Médico ADM MedSync | Painel · Meus dados · Clínicas · Equipe MedSync · Acessos ao prontuário · Ajuda (fila) |
 | Suporte | Painel · Meus dados · Clínicas · Ajuda (fila) |
 | DPO MedSync | Painel · Meus dados · Auditoria (todas as clínicas) · Acessos ao prontuário · Ajuda · Privacidade (fila) |
@@ -50,6 +51,10 @@ Os seis perfis são os do ADR-0003. A equipe MedSync (Médico ADM, Suporte, DPO)
 Definição única em `navigation` + `navigationLabel()` de `components/app-shell.tsx`. O menu não tem mais
 o bloco fixo "Nova consulta" — a ação vive no header de `/consultas` e no Painel de quem agenda.
 
+**Local de atendimento** (ADR-0005): quem tem vínculo com mais de um local (ex.: médico da clínica associado a um
+consultório) vê no topo da tela o seletor "Local de atendimento" no lugar do nome da clínica. Trocar recarrega o Painel
+com a sessão do local escolhido (`POST /auth/switch-clinic`); os dados de cada local não se misturam.
+
 ## 4. Tela → ação principal (uma por tela/estado)
 
 | Tela | Quem | Ação principal (header ou formulário) | Observação |
@@ -57,8 +62,9 @@ o bloco fixo "Nova consulta" — a ação vive no header de `/consultas` e no Pa
 | `/dashboard` Paciente | Paciente | Cartão "Próximo atendimento": Solicitar consulta → vira Acompanhar status / Entrar na sala | o vazio da lista só explica em texto |
 | `/dashboard` Central de operação | ADM da clínica | **Nova consulta** (some enquanto a clínica está em análise) | "Ver auditoria" só para quem tem Auditoria no menu |
 | `/dashboard` Médico | Médico | **Entrar na sala** no cartão "Próxima consulta", só com a janela aberta (15 min antes) | "Ver prontuário" e "Ver agenda" são links secundários; a agenda de hoje não tem botão por linha |
+| `/dashboard` Consultório | Dono do consultório | **Agendar consulta** (some enquanto o consultório está em análise) | Mesmo painel do médico, só com as consultas dele; banners de análise e de endereço |
 | `/dashboard` demais perfis | Médico ADM (clínicas em análise), Suporte (pedidos abertos), DPO | nenhuma (leitura) | links "Ver todas/Ver agenda" dentro de painéis são permitidos |
-| `/consultas` | Paciente / quem agenda | **Solicitar consulta** / **Agendar consulta** | vazio sem botão (o header já tem) |
+| `/consultas` | Paciente / quem agenda | **Solicitar consulta** / **Agendar consulta** | vazio sem botão (o header já tem). Médico + ADM (consultório): também "Horários de atendimento" no header; coluna Médico aparece quando há mais de um; Prontuário/sala só nas consultas dele |
 | `/consultas` (Agenda) | Médico (só médico) | **Horários de atendimento** (link para `/consultas/horarios`) | Abre em "Dia" (hoje); "Semana" mostra a grade com as faixas (online/presencial) e folgas; "Mês" mostra o mês inteiro com o total de consultas por dia, e clicar no dia abre "Dia". Por consulta: Prontuário, Iniciar/Entrar na sala (botão escuro, não primário), **Concluir** (sala aberta, dentro ou depois do horário; mesma janela da sala), Cancelar. Canceladas saem do dia ("Mostrar canceladas"). Desfechos: "Não realizada" (ninguém abriu a sala), "Paciente não entrou", "Sala expirada", "Não compareceu" (registrado pelo médico). Quem é médico e ADM ao mesmo tempo usa a lista da clínica |
 | `/consultas/horarios` | Médico | **Salvar regras** (duração da consulta e até quando o paciente marca: 7 a 180 dias, padrão 90) | Semana-padrão: "Adicionar faixa" por dia (início, fim, online/presencial/os dois) e remover faixa; "Bloquear datas" para folgas. "Voltar para a agenda" no header. Outros perfis veem aviso, sem entrada no menu |
 | `/consultas/nova` | Paciente / ADM da clínica | **Solicitar** / **Confirmar agendamento** | exige clínica ativa. Paciente escolhe **Online** ou **Presencial** (só o que algum médico da especialidade oferece); o cartão do médico mostra CRM e, no presencial, clínica + endereço + "Ver no mapa"; calendário e horários filtram pela modalidade. Presencial não tem sala de vídeo nem termo de telemedicina: o médico conclui pela agenda a partir do horário marcado. **ADM da clínica (recepção)**: busca o paciente por CPF completo ou nome ("Cadastrar pessoa" leva a `/patients?novo=1` e volta com ele selecionado), escolhe médico e modalidade (presencial por padrão), dia e horário livre, ou "Encaixe em outro horário"; ao lado, "Hoje na clínica" |
@@ -74,9 +80,10 @@ o bloco fixo "Nova consulta" — a ação vive no header de `/consultas` e no Pa
 | `/clinicas` | Suporte, Médico ADM | **Cadastrar clínica** (onboarding assistido) | só o Médico ADM ativa/suspende e define plano, por linha |
 | `/patients` (Pacientes) | ADM da clínica | **Novo paciente** | Cadastro de pessoa física: nome, nome social, CPF, nascimento, sexo, nome da mãe (ou "Não declarado"), contato, endereço com busca de CEP. Abre direto com `?novo=1` (vindo do agendamento da recepção) |
 | `/clinica` (Dados da clínica) | ADM da clínica | **Salvar dados** | Nome fantasia, telefone, endereço de atendimento e responsável técnico; razão social e CNPJ só leitura (correção pela Ajuda) |
-| `/cadastro` | visitante | **Criar conta** | Clínica informa razão social, nome fantasia, CNPJ, telefone, **endereço de atendimento** (obrigatório) e responsável técnico (opcional) |
+| `/cadastro` | visitante | **Criar conta** | Escolha "Clínica" ou "Consultório (sou médico)" (`?tipo=consultorio`). Clínica: razão social, nome fantasia, CNPJ, telefone, **endereço de atendimento** (obrigatório) e responsável técnico (opcional). Consultório: os mesmos dados da empresa + CRM, UF, especialidade e RQE do médico, que vira responsável técnico, médico e ADM |
 | `/acessos-prontuario` | Médico ADM (DPO só leitura) | **Solicitar acesso** (só Médico ADM) | Janela: CPF completo → paciente, motivo (lista fechada), finalidade (mín. 30 caracteres), declaração de sigilo → "Abrir prontuário por 30 min" (somente leitura). Por linha ativa: "Abrir prontuário". DPO vê todos os acessos com a finalidade, sem conteúdo clínico. Paciente vê "Quem acessou meu prontuário" em Meu cadastro |
-| `/acessos` | ADM da clínica, Médico ADM | **Novo acesso** | ADM cria ADM da clínica; Médico ADM cria Médico ADM/Suporte/DPO; ninguém desabilita o próprio acesso |
+| `/acessos` | ADM da clínica, Médico ADM | **Novo acesso** | ADM cria ADM da clínica ou Recepção; Médico ADM cria Médico ADM/Suporte/DPO; ninguém desabilita o próprio acesso |
+| `/doctors` (Médicos) | ADM da clínica, dono do consultório | **Novo médico** | Com o e-mail de quem já atende em outro local, a conta existente é vinculada (sem senha nova) e passa a ter o seletor de local |
 
 Clínica sem endereço de atendimento (comum em clínica cadastrada pelo Suporte): presencial não chega ao paciente e a API
 recusa marcar presencial. Todos são avisados: o médico em Horários de atendimento (se tiver faixa presencial), o ADM no

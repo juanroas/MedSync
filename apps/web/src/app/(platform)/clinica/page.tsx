@@ -25,6 +25,8 @@ export default function ClinicProfilePage() {
 }
 
 function ClinicProfileEditor() {
+  const practice = Boolean(getSession()?.user.clinicIsPrivatePractice);
+  const place = practice ? "consultório" : "clínica";
   const [clinic, setClinic] = useState<ClinicProfile | null>(null);
   const [form, setForm] = useState({
     name: "",
@@ -60,7 +62,7 @@ function ClinicProfileEditor() {
     event.preventDefault();
     setError("");
     setSaved(false);
-    if (form.name.trim().length < 3) return setError("Informe o nome da clínica.");
+    if (form.name.trim().length < 3) return setError(`Informe o nome ${practice ? "do consultório" : "da clínica"}.`);
     if (!isValidOptionalPhone(form.phone)) return setError("Informe um telefone válido com DDD.");
     if (!isAddressComplete(address)) return setError("Preencha o endereço completo (CEP, logradouro, número, bairro, cidade e UF).");
     setSaving(true);
@@ -89,19 +91,19 @@ function ClinicProfileEditor() {
   return (
     <>
       <PageHeader
-        eyebrow="Portal da clínica"
-        title="Dados da clínica"
+        eyebrow={practice ? "Consultório" : "Portal da clínica"}
+        title={`Dados ${practice ? "do consultório" : "da clínica"}`}
         description="O endereço aparece para o paciente que escolhe consulta presencial e sai nos documentos dos médicos daqui."
       />
       {error && <ErrorBanner message={error} />}
-      {saved && <AlertBanner tone="success" message="Dados da clínica salvos." />}
+      {saved && <AlertBanner tone="success" message={`Dados ${practice ? "do consultório" : "da clínica"} salvos.`} />}
       {!clinic ? (
-        <LoadingState label="Carregando dados da clínica..." />
+        <LoadingState label={`Carregando dados ${practice ? "do consultório" : "da clínica"}...`} />
       ) : (
         <form onSubmit={submit} className="grid gap-6 xl:grid-cols-[1fr_320px]">
           <Card className="space-y-6 p-6">
             <section>
-              <h2 className="mb-3 text-sm font-bold text-ink">Clínica</h2>
+              <h2 className="mb-3 text-sm font-bold capitalize text-ink">{place}</h2>
               <div className="grid gap-4 md:grid-cols-4">
                 <label className="block md:col-span-2">
                   <span className={label}>Nome fantasia</span>

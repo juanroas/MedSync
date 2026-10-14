@@ -109,6 +109,8 @@ public sealed class Clinic
     public required string Slug { get; set; }
     public bool IsActive { get; set; } = true;
     public bool IsPlatform { get; set; }
+    // ADR-0005: a doctor's own practice (consultório): the owner is both doctor and admin.
+    public bool IsPrivatePractice { get; set; }
     public string? LegalName { get; set; }
     public string? TaxId { get; set; }
     public ClinicActivationStatus ActivationStatus { get; set; } = ClinicActivationStatus.Pending;

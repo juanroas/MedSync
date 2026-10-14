@@ -149,7 +149,7 @@ export default function AccessPage() {
       <PageHeader
         eyebrow="Governança de acesso"
         title="Equipe e acessos"
-        description={isMedicalAdmin ? "Contas da equipe MedSync: Médico ADM, Suporte e DPO." : "Contas de administração da sua clínica. Médicos e pacientes são cadastrados nas telas próprias."}
+        description={isMedicalAdmin ? "Contas da equipe MedSync: Médico ADM, Suporte e DPO." : "Contas de administração e de recepção. Médicos e pacientes são cadastrados nas telas próprias."}
         action={canCreateAccess ? (
           <button className={buttonClass} onClick={() => setShowForm((value) => !value)}>
             <Plus size={17} /> Novo acesso

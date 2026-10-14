@@ -12,6 +12,7 @@ controle de acesso. Conformidade LGPD/CFM ainda depende de validação jurídica
 | Médico (`Doctor`) | Clínica onde atende | Consultas em que é o médico designado |
 | ADM da clínica (`ClinicAdmin`) | A própria clínica | Operação da clínica: pacientes, médicos, agenda, equipe, auditoria |
 | Recepção (`Receptionist`, ADR-0005) | A própria clínica ou consultório | Pacientes (cadastro) e agenda; nunca dado clínico |
+| Dono do consultório (`Doctor` + `ClinicAdmin`, ADR-0005) | O próprio consultório | Soma dos dois perfis: como ADM, pacientes, agenda, equipe e auditoria do consultório; como médico, só o conteúdo clínico das consultas que ele atende (nunca o do médico associado) |
 | Médico ADM MedSync (`MedicalDirector`) | Clínica plataforma "MedSync Operação" | Responsável técnico: ativa clínicas, gerencia a equipe MedSync, fila de Ajuda |
 | Suporte MedSync (`Support`) | Clínica plataforma | Onboarding de clínicas e fila de Ajuda de todas as clínicas |
 | DPO MedSync (`DataProtectionOfficer`) | Clínica plataforma | Direitos do titular e trilha de auditoria de todas as clínicas |
@@ -54,7 +55,9 @@ Regras de acesso ao conteúdo clínico: [`.agents/rules/clinical-data-access.md`
 - ADM da clínica não recebe token de videochamada.
 - Médico e Médico ADM não criam agenda por API.
 - Suporte e ADM da clínica não ativam clínica.
-- ADM da clínica só cria ADM da clínica; Médico ADM só cria equipe MedSync.
+- ADM da clínica só cria ADM da clínica ou Recepção; Médico ADM só cria equipe MedSync.
+- Troca de local (`POST /auth/switch-clinic`) só para clínica em que a conta tem vínculo ativo; a sessão passa a valer
+  só para o local escolhido e a tentativa negada fica na auditoria.
 
 ## Decisões pendentes
 

@@ -7,12 +7,12 @@ test.describe("recepcao agenda pelo paciente", () => {
   test.skip(!sharedPassword, "defina MEDSYNC_E2E_PASSWORD para executar login E2E");
 
   test("ADM da clinica busca por CPF e marca consulta presencial num horario livre", async ({ page }) => {
-    // Amanhã (Brasília) a Dra. Marina atende presencialmente das 08:00 às 10:00.
+    // Amanhã (Brasília) a Dra. Marina atende presencialmente das 10:00 às 12:00 (faixa própria deste spec).
     const tomorrow = new Date(Date.now() - 3 * 3600_000 + 24 * 3600_000);
     const doctor = await request.newContext({ baseURL: baseApiURL });
     await loginByApi(doctor, users.doctor);
     const created = await doctor.post("/doctors/me/availability", {
-      data: { dayOfWeek: WEEKDAYS[tomorrow.getUTCDay()], startTime: "08:00:00", endTime: "10:00:00", modality: "InPerson" },
+      data: { dayOfWeek: WEEKDAYS[tomorrow.getUTCDay()], startTime: "10:00:00", endTime: "12:00:00", modality: "InPerson" },
     });
     expect(created.status()).toBeLessThan(400);
     const window = (await created.json()) as { id: string };
@@ -31,8 +31,8 @@ test.describe("recepcao agenda pelo paciente", () => {
       await expect(page.getByRole("button", { name: "Presencial" })).toHaveAttribute("aria-pressed", "true");
       const calendar = page.getByRole("grid", { name: /dias disponíveis/i });
       await calendar.getByRole("button", { name: `${tomorrow.getUTCDate()}, com horários` }).click();
-      await page.getByRole("button", { name: "09:00" }).click();
-      await expect(page.getByTestId("booking-summary")).toContainText("às 09:00");
+      await page.getByRole("button", { name: "11:00" }).click();
+      await expect(page.getByTestId("booking-summary")).toContainText("às 11:00");
 
       const booked = page.waitForResponse((response) => response.url().endsWith("/appointments") && response.request().method() === "POST");
       await page.getByRole("button", { name: /confirmar agendamento/i }).click();

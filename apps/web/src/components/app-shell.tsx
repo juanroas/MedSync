@@ -2,7 +2,7 @@
 
 import { Logo } from "@/components/logo";
 import { RealtimeProvider } from "@/lib/realtime";
-import { ROLE_LABELS, type ClinicRole, type User } from "@/lib/types";
+import { ROLE_LABELS, isPracticeOwner, type ClinicRole, type User } from "@/lib/types";
 import { ApiError, api, clearSession, getSession, saveSession } from "@/services/api";
 import {
   Building2,
@@ -51,6 +51,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [ready, setReady] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [user, setUser] = useState<User | null>(() => getSession()?.user ?? null);
+  const [switching, setSwitching] = useState(false);
 
   useEffect(() => {
     api.me()
@@ -73,6 +74,19 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         }
       });
   }, [router]);
+
+  // ADR-0005: the session applies to one place at a time. A full reload drops screens and realtime of the old one.
+  async function switchClinic(clinicId: string) {
+    if (!user || clinicId === user.clinicId) return;
+    setSwitching(true);
+    try {
+      const session = await api.switchClinic(clinicId);
+      saveSession(session);
+      window.location.assign("/dashboard");
+    } catch {
+      setSwitching(false);
+    }
+  }
 
   async function logout() {
     await api.logout().catch(() => undefined);
@@ -122,7 +136,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <nav className="mt-6 space-y-1.5">
           {visibleNavigation.map(({ href, label, icon: Icon }) => {
             const active = pathname === href || (href !== "/dashboard" && pathname.startsWith(`${href}/`));
-            const displayLabel = navigationLabel(href, label, user.roles);
+            const displayLabel = navigationLabel(href, label, user);
             return (
               <Link
                 key={`${href}-${displayLabel}`}
@@ -160,10 +174,30 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           >
             <Menu size={20} />
           </button>
-          <div className="hidden lg:block">
-            <p className="text-xs text-slate-400">{workspaceLabel(user.roles)}</p>
-            <p className="mt-0.5 text-sm font-bold text-ink">{user.clinicName}</p>
-          </div>
+          {(user.clinics?.length ?? 0) > 1 ? (
+            <label className="flex min-w-0 flex-col">
+              <span className="text-xs text-slate-400">Local de atendimento</span>
+              <select
+                aria-label="Local de atendimento"
+                className="mt-0.5 max-w-[220px] truncate rounded-md border border-slate-200 bg-white px-2 py-1 text-sm font-bold text-ink sm:max-w-xs"
+                value={user.clinicId}
+                disabled={switching}
+                onChange={(event) => switchClinic(event.target.value)}
+              >
+                {user.clinics!.map((clinic) => (
+                  <option key={clinic.id} value={clinic.id}>
+                    {clinic.name}
+                    {clinic.isPrivatePractice ? " (consultório)" : ""}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : (
+            <div className="hidden lg:block">
+              <p className="text-xs text-slate-400">{workspaceLabel(user)}</p>
+              <p className="mt-0.5 text-sm font-bold text-ink">{user.clinicName}</p>
+            </div>
+          )}
           <Link
             href={isPatientOnly ? "/patients" : isDoctorOnly ? "/doctors" : "/perfil"}
             className="group flex items-center gap-3 rounded-lg px-2 py-1.5 transition hover:bg-teal-50"
@@ -189,7 +223,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   );
 }
 
-function navigationLabel(href: string, label: string, roles: ClinicRole[]) {
+function navigationLabel(href: string, label: string, user: User) {
+  const roles = user.roles;
   const isPatient = roles.includes("Patient") && !roles.some((role) => role !== "Patient");
   const isDoctor = roles.includes("Doctor") && !roles.some((role) => role !== "Doctor");
 
@@ -199,10 +234,13 @@ function navigationLabel(href: string, label: string, roles: ClinicRole[]) {
   if (isDoctor && href === "/patients") return "Pacientes vinculados";
   if (isDoctor && href === "/doctors") return "Meu perfil";
   if (roles.includes("MedicalDirector") && href === "/acessos") return "Equipe MedSync";
+  if (user.clinicIsPrivatePractice && href === "/clinica") return "Dados do consultório";
   return label;
 }
 
-function workspaceLabel(roles: ClinicRole[]) {
+function workspaceLabel(user: User) {
+  const roles: ClinicRole[] = user.roles;
+  if (isPracticeOwner(user)) return "Consultório";
   const isPatient = roles.includes("Patient") && !roles.some((role) => role !== "Patient");
   const isDoctor = roles.includes("Doctor") && !roles.some((role) => role !== "Doctor");
   if (isPatient) return "Portal do paciente";

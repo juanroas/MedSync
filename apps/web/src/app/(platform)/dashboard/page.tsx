@@ -32,6 +32,7 @@ import type {
   Patient,
   SupportRequest,
 } from "@/lib/types";
+import { isPracticeOwner } from "@/lib/types";
 import { api, getSession } from "@/services/api";
 import {
   ArrowRight,
@@ -59,7 +60,7 @@ const joinRoles = ["Doctor", "Patient"];
 const appointmentLoadRoles = [...schedulingRoles, "Patient", "Doctor"];
 const patientLoadRoles = [...schedulingRoles, "Patient", "Doctor"];
 
-function ClinicPendingBanner() {
+function ClinicPendingBanner({ practice = false }: { practice?: boolean }) {
   return (
     <section className="mb-7 flex flex-col gap-4 rounded-lg border border-amber-200 bg-amber-50 p-6 sm:flex-row sm:items-center sm:justify-between">
       <div className="flex items-start gap-3">
@@ -67,15 +68,18 @@ function ClinicPendingBanner() {
           <ShieldCheck size={20} />
         </span>
         <div>
-          <p className="font-bold text-amber-900">Cadastro recebido — você já pode configurar a clínica.</p>
+          <p className="font-bold text-amber-900">
+            Cadastro recebido — você já pode configurar {practice ? "o consultório" : "a clínica"}.
+          </p>
           <p className="mt-1 text-sm leading-6 text-amber-800">
-            Cadastre a equipe e a agenda enquanto o Médico ADM MedSync confere o CNPJ. Pacientes e consultas são
-            liberados assim que a clínica for ativada. Fale com o suporte para acelerar.
+            {practice
+              ? "Defina seus horários e, se tiver, inclua a recepção enquanto o Médico ADM MedSync confere o CNPJ. Pacientes e consultas são liberados assim que o consultório for ativado. Fale com o suporte para acelerar."
+              : "Cadastre a equipe e a agenda enquanto o Médico ADM MedSync confere o CNPJ. Pacientes e consultas são liberados assim que a clínica for ativada. Fale com o suporte para acelerar."}
           </p>
         </div>
       </div>
       <Link
-        href={`/ajuda?subject=${encodeURIComponent("Finalizar ativação da clínica")}`}
+        href={`/ajuda?subject=${encodeURIComponent(practice ? "Finalizar ativação do consultório" : "Finalizar ativação da clínica")}`}
         className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-lg bg-amber-600 px-5 text-sm font-bold text-white hover:bg-amber-700"
       >
         Falar com o suporte
@@ -91,6 +95,7 @@ export default function DashboardPage() {
     roles.includes("ClinicAdmin") && (session?.user.clinicActivationStatus ?? "Active") !== "Active";
   const isPatientHome = roles.includes("Patient") && !roles.some((role) => role !== "Patient");
   const isDoctorHome = roles.includes("Doctor") && !roles.some((role) => role !== "Doctor");
+  const practiceOwner = isPracticeOwner(session?.user);
   const isMedicalAdminHome = roles.includes("MedicalDirector");
   const isSupportHome = roles.includes("Support") && !isMedicalAdminHome;
   const isDpoHome = roles.includes("DataProtectionOfficer") && !isMedicalAdminHome;
@@ -151,12 +156,16 @@ export default function DashboardPage() {
     );
   }
 
-  if (isDoctorHome) {
+  if (isDoctorHome || practiceOwner) {
+    // The consultório owner sees their own day here; the whole agenda of the practice stays in Consultas.
+    const ownDoctorId = session?.user.doctorId;
     return (
       <DoctorHome
-        appointments={appointments}
+        appointments={practiceOwner ? appointments.filter((item) => item.doctorId === ownDoctorId) : appointments}
         loading={loading}
         error={error}
+        practiceOwner={practiceOwner}
+        clinicPending={clinicPending}
       />
     );
   }
@@ -279,10 +288,14 @@ function DoctorHome({
   appointments,
   loading,
   error,
+  practiceOwner = false,
+  clinicPending = false,
 }: {
   appointments: Appointment[];
   loading: boolean;
   error: string;
+  practiceOwner?: boolean;
+  clinicPending?: boolean;
 }) {
   const now = new Date();
   const byTime = (a: Appointment, b: Appointment) =>
@@ -303,11 +316,22 @@ function DoctorHome({
   return (
     <>
       <PageHeader
-        eyebrow="Portal médico"
+        eyebrow={practiceOwner ? "Consultório" : "Portal médico"}
         title="Painel"
-        description="Suas consultas de hoje e a próxima a atender. Os agendamentos são criados pela clínica ou solicitados pelo paciente."
+        description={
+          practiceOwner
+            ? "Suas consultas de hoje e a próxima a atender. Você mesmo cadastra pacientes e agenda, ou deixa isso com a recepção."
+            : "Suas consultas de hoje e a próxima a atender. Os agendamentos são criados pela clínica ou solicitados pelo paciente."
+        }
+        action={practiceOwner && !clinicPending ? (
+          <Link href="/consultas/nova" className={buttonClass}>
+            <CalendarCheck2 size={17} /> Agendar consulta
+          </Link>
+        ) : undefined}
       />
       {error && <ErrorBanner message={error} />}
+      {practiceOwner && clinicPending && <ClinicPendingBanner practice />}
+      {practiceOwner && <ClinicAddressBanner audience="admin" />}
       {loading ? (
         <LoadingState label="Carregando sua agenda..." />
       ) : (

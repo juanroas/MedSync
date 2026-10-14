@@ -27,9 +27,26 @@ export type User = {
   roles: ClinicRole[];
   mustChangePassword: boolean;
   clinicActivationStatus: ClinicActivationStatus;
+  clinicIsPrivatePractice?: boolean;
+  // Every place this account works at; more than one shows the location switch (ADR-0005).
+  clinics?: ClinicOption[];
+  // The doctor record in the current clinic, to tell "my appointments" apart for a consultório owner.
+  doctorId?: string | null;
+};
+
+export type ClinicOption = {
+  id: string;
+  name: string;
+  isPrivatePractice: boolean;
 };
 
 export type ClinicActivationStatus = "Pending" | "Active" | "Suspended";
+
+// Consultório owner: doctor and admin of their own practice (ADR-0005). Screens show the doctor's day first and keep
+// the admin tools (patients, agenda, team) one click away.
+export function isPracticeOwner(user?: Pick<User, "roles" | "clinicIsPrivatePractice"> | null) {
+  return Boolean(user?.clinicIsPrivatePractice && user.roles.includes("Doctor") && user.roles.includes("ClinicAdmin"));
+}
 
 export type LoginResponse = {
   user: User;
@@ -89,6 +106,7 @@ export type ClinicActivation = {
   createdAt: string;
   formattedAddress?: string | null;
   technicalDirector?: string | null;
+  isPrivatePractice?: boolean;
 };
 
 export type ClinicSummary = {

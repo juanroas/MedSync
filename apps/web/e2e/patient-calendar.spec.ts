@@ -7,13 +7,14 @@ test.describe("calendario de solicitacao de consulta", () => {
   test.skip(!sharedPassword, "defina MEDSYNC_E2E_PASSWORD para executar login E2E");
 
   test("so os dias com horario livre do medico podem ser escolhidos", async ({ page }) => {
-    // Amanhã (horário de Brasília) ganha uma janela de atendimento da Dra. Marina.
+    // Amanhã (horário de Brasília) ganha uma janela de atendimento da Dra. Marina. Cada spec usa uma faixa própria
+    // (papel 06-07, presencial 08-10, recepção 10-12, calendário 13-15) para não sobrepor quando rodam em paralelo.
     const tomorrow = new Date(Date.now() - 3 * 3600_000 + 24 * 3600_000);
     const tomorrowKey = tomorrow.toISOString().slice(0, 10);
     const doctor = await request.newContext({ baseURL: baseApiURL });
     await loginByApi(doctor, users.doctor);
     const created = await doctor.post("/doctors/me/availability", {
-      data: { dayOfWeek: WEEKDAYS[tomorrow.getUTCDay()], startTime: "08:00:00", endTime: "18:00:00" },
+      data: { dayOfWeek: WEEKDAYS[tomorrow.getUTCDay()], startTime: "13:00:00", endTime: "15:00:00" },
     });
     expect(created.status()).toBeLessThan(400);
     const slot = (await created.json()) as { id: string };
@@ -31,9 +32,9 @@ test.describe("calendario de solicitacao de consulta", () => {
       await expect(calendar.getByRole("button", { name: /sem horários/ }).first()).toBeDisabled();
 
       await calendar.getByRole("button", { name: `${day}, com horários` }).click();
-      await expect(page.getByRole("button", { name: "08:00" })).toBeVisible();
-      await page.getByRole("button", { name: "08:30" }).click();
-      await expect(page.getByRole("button", { name: "08:30" })).toHaveClass(/bg-teal-600/);
+      await expect(page.getByRole("button", { name: "13:00" })).toBeVisible();
+      await page.getByRole("button", { name: "13:30" }).click();
+      await expect(page.getByRole("button", { name: "13:30" })).toHaveClass(/bg-teal-600/);
     } finally {
       await doctor.delete(`/doctors/me/availability/${slot.id}`);
       await doctor.dispose();

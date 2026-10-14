@@ -72,7 +72,33 @@ public sealed record UserSummary(
     string ClinicName,
     IReadOnlyCollection<ClinicRole> Roles,
     bool MustChangePassword,
-    ClinicActivationStatus ClinicActivationStatus);
+    ClinicActivationStatus ClinicActivationStatus,
+    bool ClinicIsPrivatePractice = false,
+    // Every place this account works at; more than one shows the location switch (ADR-0005).
+    IReadOnlyList<ClinicOptionResponse>? Clinics = null,
+    // The doctor record of this account in the current clinic, so screens tell "my appointments" apart when the
+    // same person also runs the place (consultório owner).
+    Guid? DoctorId = null);
+
+public sealed record ClinicOptionResponse(Guid Id, string Name, bool IsPrivatePractice);
+
+public sealed record SwitchClinicRequest(Guid ClinicId);
+
+// "Sou médico": the doctor registers their own practice and becomes its doctor and admin (ADR-0005).
+public sealed record RegisterPracticeRequest(
+    string Name,
+    string Email,
+    string Password,
+    string? Phone,
+    string Crm,
+    string CrmUf,
+    string Specialty,
+    string? Rqe,
+    string LegalName,
+    string? TradeName,
+    string TaxId,
+    AddressInput Address,
+    string? Cnes = null);
 
 public sealed record PersonalProfileResponse(
     Guid Id,
@@ -146,7 +172,8 @@ public sealed record ClinicActivationResponse(
     DateTime? ActivatedAt,
     DateTime CreatedAt,
     string? FormattedAddress = null,
-    string? TechnicalDirector = null);
+    string? TechnicalDirector = null,
+    bool IsPrivatePractice = false);
 
 public sealed record UpdateClinicActivationRequest(
     ClinicActivationStatus Status,

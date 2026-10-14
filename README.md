@@ -110,7 +110,21 @@ npm run test:e2e:ui
 | `MEDSYNC_E2E_PASSWORD` | Senha das contas de homologação. |
 | `MEDSYNC_E2E_MUTATING` | Use `1` para habilitar teste que cria paciente e consulta. |
 
+| `MEDSYNC_E2E_SIGNING` | Use `1` quando a API roda com `SIGNATURE_PROVIDER=simulator`: as receitas online saem assinadas no simulador. |
+
 O relatório HTML é gerado em `apps/web/playwright-report`.
+
+#### Massa de teste (clínica e consultório)
+
+`e2e/test-data-flows.spec.ts` cria pela tela, e deixa no banco, os dois fluxos completos: clínica (cadastro, ativação
+pelo Médico ADM, médico, recepção, paciente, consulta presencial e online, receitas) e consultório (o médico cadastra o
+próprio consultório, cadastra paciente sem recepção, associa o médico da clínica, inclui recepção, receitas). Os nomes
+e e-mails levam um número da execução (ex.: `massa.consultorio.1234567@medsync.dev`) e todas as contas terminam com a
+senha de `MEDSYNC_E2E_PASSWORD`.
+
+```bash
+npx playwright test e2e/test-data-flows.spec.ts --project=chromium
+```
 
 ### Usuários de demonstração
 

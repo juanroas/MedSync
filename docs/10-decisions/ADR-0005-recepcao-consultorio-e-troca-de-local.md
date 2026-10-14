@@ -36,3 +36,10 @@ não uma recepcionista). Complementa o ADR-0003 (seis perfis), que passa a ter s
   `ManageDoctors`, Dados da clínica, Equipe e Auditoria continuam só do ADM.
 - Matriz de permissões, mapa de telas e seed de demonstração (`recepcao@medsync.dev`) atualizados no mesmo PR.
 - Consultório de pessoa física (CPF, sem CNPJ) fica para depois: hoje o cadastro exige CNPJ.
+- Implementação: `Clinic.IsPrivatePractice`, `POST /auth/register-practice`, `POST /auth/switch-clinic`; a sessão
+  (`UserSummary`) traz os locais da conta (`clinics`), se o local é consultório e o `doctorId` do médico no local, para a
+  tela separar "minhas consultas" das do médico associado. Massa de teste dos dois fluxos em
+  `apps/web/e2e/test-data-flows.spec.ts`.
+- O ADM da clínica já faz tudo o que a Recepção faz: a mesma pessoa pode cuidar das duas coisas com uma conta só. A
+  conta de Recepção é opcional, para quando a recepção é outra pessoa e não deve ver equipe, dados da clínica nem
+  auditoria.

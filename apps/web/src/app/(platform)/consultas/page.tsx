@@ -18,7 +18,7 @@ import {
 import { formatDateTime, statusClass, statusLabel } from "@/lib/format";
 import type { Appointment } from "@/lib/types";
 import { api, getSession } from "@/services/api";
-import { CalendarDays, Clock3, FileText, MapPin, Plus, Stethoscope, UserRound, Video, XCircle } from "lucide-react";
+import { CalendarClock, CalendarDays, Clock3, FileText, MapPin, Plus, Stethoscope, UserRound, Video, XCircle } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -49,27 +49,33 @@ export default function AppointmentsPage() {
 function AppointmentsList() {
   const router = useRouter();
   const [confirm, confirmDialog] = useConfirm();
-  const roles = getSession()?.user.roles ?? [];
+  const sessionUser = getSession()?.user;
+  const roles = sessionUser?.roles ?? [];
   const isDoctor = roles.includes("Doctor");
   const isPatient = roles.includes("Patient");
   const canOperationalSchedule = roles.some((role) =>
     role === "ClinicAdmin" || role === "Receptionist",
   );
+  // Doctor + admin (consultório owner): the list has the whole agenda, but the doctor actions belong only to the
+  // owner's own appointments; the API refuses the rest anyway.
+  const isMine = (appointment: Appointment) =>
+    isDoctor && (!canOperationalSchedule || appointment.doctorId === sessionUser?.doctorId);
+  const doctorDesk = isDoctor && !canOperationalSchedule;
   const canRequestOrSchedule = isPatient || canOperationalSchedule;
   const canJoinRole = roles.some((role) =>
     ["Doctor", "Patient"].includes(role),
   );
   // Simplificacao de tela: quando o proprio perfil ja e o paciente ou o medico da linha, a coluna
   // correspondente so repetiria o mesmo nome em toda a lista, entao ela e omitida.
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
   const showPatientColumn = !isPatient;
-  const showDoctorColumn = !isDoctor;
+  const showDoctorColumn = !isDoctor || (canOperationalSchedule && new Set(appointments.map((item) => item.doctorId)).size > 1);
   const columnsClass =
     showPatientColumn && showDoctorColumn
       ? "lg:grid-cols-[1.05fr_.95fr_1fr_.55fr_300px]"
       : showPatientColumn
         ? "lg:grid-cols-[1.05fr_1fr_.55fr_300px]"
         : "lg:grid-cols-[.95fr_1fr_.55fr_300px]";
-  const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [startingId, setStartingId] = useState("");
@@ -186,23 +192,24 @@ function AppointmentsList() {
   }
 
   function renderAppointmentAction(appointment: Appointment) {
+    const mine = isMine(appointment);
     const canCancel =
       appointment.status === "Scheduled" &&
       !isAppointmentMissed(appointment) &&
       (isPatient || isDoctor || canOperationalSchedule);
 
     return (
-      <div className={isDoctor ? "grid w-full gap-2 sm:grid-cols-[132px_minmax(144px,1fr)] lg:w-[300px]" : "flex flex-col items-end gap-2"}>
-        {isDoctor && (
+      <div className={mine ? "grid w-full gap-2 sm:grid-cols-[132px_minmax(144px,1fr)] lg:w-[300px]" : "flex flex-col items-end gap-2"}>
+        {mine && (
           <Link
             href={`/prontuario/${appointment.id}`}
             className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-teal-200 bg-teal-50 px-4 text-xs font-bold text-teal-700 hover:bg-teal-100"
           >
-            <FileText size={15} /> Prontuario
+            <FileText size={15} /> Prontuário
           </Link>
         )}
 
-        {isDoctor && canStartRoom(appointment) ? (
+        {mine && canStartRoom(appointment) ? (
           <button
             type="button"
             onClick={() => startRoom(appointment.id)}
@@ -211,14 +218,14 @@ function AppointmentsList() {
           >
             <Video size={15} /> {startingId === appointment.id ? "Iniciando..." : "Iniciar sala"}
           </button>
-        ) : (isAppointmentRoomJoinable(appointment) || canDoctorEnterExistingRoom(appointment)) ? (
+        ) : (isPatient || mine) && (isAppointmentRoomJoinable(appointment) || canDoctorEnterExistingRoom(appointment)) ? (
           <Link
             href={`/sala/${appointment.id}`}
             className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-ink px-4 text-xs font-bold text-white hover:bg-teal-700"
           >
             <Video size={15} /> Entrar na sala
           </Link>
-        ) : isDoctor && isAppointmentStaleInProgress(appointment) ? (
+        ) : mine && isAppointmentStaleInProgress(appointment) ? (
           <button
             type="button"
             onClick={() => endRoom(appointment.id)}
@@ -239,7 +246,7 @@ function AppointmentsList() {
           <span className="inline-flex h-10 w-full items-center justify-center px-3 text-xs text-slate-300">
             —
           </span>
-        ) : isDoctor ? (
+        ) : mine ? (
           <DoctorRoomNextStep appointment={appointment} />
         ) : (
           <AppointmentNextStep appointment={appointment} />
@@ -263,21 +270,33 @@ function AppointmentsList() {
     <>
       <PageHeader
         eyebrow="Agenda assistencial"
-        title={isDoctor ? "Agenda" : isPatient ? "Minhas consultas" : "Consultas"}
+        title={doctorDesk ? "Agenda" : isPatient ? "Minhas consultas" : "Consultas"}
         description={
-          isDoctor
+          doctorDesk
             ? "Consultas vinculadas ao seu atendimento. A agenda é montada pela clínica."
             : isPatient
               ? "Acompanhe seus atendimentos autorizados e a entrada na sala."
-              : "Consultas da clínica: agende pelo paciente, acompanhe os horários e cancele quando preciso."
+              : isDoctor
+                ? "Toda a agenda: agende pelo paciente, atenda as suas consultas e cancele quando preciso."
+                : "Consultas da clínica: agende pelo paciente, acompanhe os horários e cancele quando preciso."
         }
         action={canRequestOrSchedule ? (
-          <Link
-            href="/consultas/nova"
-            className="inline-flex h-11 items-center gap-2 rounded-lg bg-teal-600 px-5 text-sm font-bold text-white hover:bg-teal-700"
-          >
-            <Plus size={17} /> {isPatient ? "Solicitar consulta" : "Agendar consulta"}
-          </Link>
+          <div className="flex flex-wrap items-center gap-2">
+            {isDoctor && (
+              <Link
+                href="/consultas/horarios"
+                className="inline-flex h-11 items-center gap-2 rounded-lg border border-slate-200 bg-white px-5 text-sm font-bold text-slate-700 hover:border-teal-200 hover:bg-teal-50"
+              >
+                <CalendarClock size={17} /> Horários de atendimento
+              </Link>
+            )}
+            <Link
+              href="/consultas/nova"
+              className="inline-flex h-11 items-center gap-2 rounded-lg bg-teal-600 px-5 text-sm font-bold text-white hover:bg-teal-700"
+            >
+              <Plus size={17} /> {isPatient ? "Solicitar consulta" : "Agendar consulta"}
+            </Link>
+          </div>
         ) : undefined}
       />
       {error && <ErrorBanner message={error} />}
@@ -288,9 +307,9 @@ function AppointmentsList() {
       ) : appointments.length === 0 ? (
         <EmptyState
           icon={<CalendarDays size={22} />}
-          title={isDoctor ? "Sem atendimentos vinculados" : isPatient ? "Você ainda não tem consultas" : "Agenda vazia"}
+          title={doctorDesk ? "Sem atendimentos vinculados" : isPatient ? "Você ainda não tem consultas" : "Agenda vazia"}
           description={
-            isDoctor
+            doctorDesk
               ? "Quando uma consulta for vinculada ao seu atendimento, ela aparece aqui."
               : isPatient
                 ? "Quando você solicitar uma consulta, ela aparece aqui."

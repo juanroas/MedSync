@@ -57,6 +57,20 @@ export async function loginByApi(request: APIRequestContext, email: string, pass
   return response.json();
 }
 
+export function validCnpjFromSeed(seed: number) {
+  const base = String(seed).padStart(12, "0").slice(-12);
+  const firstDigit = cnpjDigit(base, [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]);
+  const partial = `${base}${firstDigit}`;
+  const secondDigit = cnpjDigit(partial, [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]);
+  return `${partial}${secondDigit}`;
+}
+
+function cnpjDigit(value: string, weights: number[]) {
+  const sum = weights.reduce((total, weight, index) => total + Number(value[index]) * weight, 0);
+  const remainder = sum % 11;
+  return remainder < 2 ? 0 : 11 - remainder;
+}
+
 export function validCpfFromSeed(seed: number) {
   const base = String(seed).padStart(9, "0").slice(-9);
   const firstSum = base
