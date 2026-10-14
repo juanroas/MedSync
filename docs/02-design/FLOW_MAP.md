@@ -38,11 +38,11 @@ Qualquer PR que adicione tela, item de menu ou botão que navega **atualiza este
 |---|---|
 | Paciente | Painel · Minhas consultas · Meu cadastro · Ajuda (inclui "Pedido sobre meus dados") |
 | Médico | Painel · Agenda · Pacientes vinculados · Meu perfil · Relatórios · Ajuda |
-| ADM da clínica | Painel · Meus dados · Consultas · Pacientes · Médicos · Relatórios · Dados da clínica · Equipe e acessos · Auditoria (da clínica) · Ajuda |
+| ADM da clínica | Painel · Meus dados · Consultas · Pacientes · Médicos · Relatórios · Financeiro · Dados da clínica · Equipe e acessos · Auditoria (da clínica) · Ajuda |
 | Recepção (ADR-0005) | Painel · Meus dados · Consultas · Pacientes · Relatórios · Ajuda |
-| Dono do consultório (Médico + ADM, ADR-0005) | Painel · Meus dados · Consultas · Pacientes · Médicos · Relatórios · Dados do consultório · Equipe e acessos · Auditoria · Ajuda |
-| Médico ADM MedSync | Painel · Meus dados · Clínicas · Equipe MedSync · Acessos ao prontuário · Ajuda (fila) |
-| Suporte | Painel · Meus dados · Clínicas · Ajuda (fila) |
+| Dono do consultório (Médico + ADM, ADR-0005) | Painel · Meus dados · Consultas · Pacientes · Médicos · Relatórios · Financeiro · Dados do consultório · Equipe e acessos · Auditoria · Ajuda |
+| Médico ADM MedSync | Painel · Meus dados · Clínicas · Financeiro · Equipe MedSync · Acessos ao prontuário · Ajuda (fila) |
+| Suporte | Painel · Meus dados · Clínicas · Financeiro · Ajuda (fila) |
 | DPO MedSync | Painel · Meus dados · Relatórios · Auditoria (todas as clínicas) · Acessos ao prontuário · Ajuda · Privacidade (fila) |
 
 Os seis perfis são os do ADR-0003. A equipe MedSync (Médico ADM, Suporte, DPO) mora na clínica plataforma
@@ -86,6 +86,9 @@ com a sessão do local escolhido (`POST /auth/switch-clinic`); os dados de cada 
 | `/relatorios` (DPO) | DPO | **Baixar relatório (PDF)** | CPF completo do titular → PDF "Quem acessou os dados" de todas as clínicas (LGPD art. 18 e 19); o CPF vai no corpo do pedido, nunca na URL |
 | `/patients` (Meu cadastro) | Paciente | **Atualizar cadastro** | Secundária em "Quem acessou meu prontuário": "Baixar relatório de acessos (PDF)", sem as ações do próprio titular |
 | `/consultas` (Histórico) | Paciente, ADM, Recepção, médico da consulta | por linha concluída: "Declaração de comparecimento" (PDF) | Comprova presença, sem diagnóstico nem afastamento; só sai com a consulta concluída |
+| `/financeiro` (equipe MedSync) | Suporte, Médico ADM | **Lançar cobrança** (secundária: "Baixar relatório (PDF)", ano até o mês atual) | Cartões Pagamento informado, Em aberto, Em atraso, Recebido no mês; filtros por situação e clínica. Por linha: "Confirmar pagamento" (data, forma, observação; só depois de ver o valor no extrato), "Fatura"/"Recibo" e "Cancelar" (com motivo). Uma cobrança por clínica e mês |
+| `/financeiro` (clínica) | ADM da clínica, dono do consultório | nenhuma no header | Cartão por cobrança em aberto: Pix copia e cola (valor e código da fatura como identificação), "Copiar código Pix", "Baixar fatura (PDF)", "Já paguei" (avisa o MedSync). Histórico com "Recibo (PDF)" depois da confirmação. Sem chave Pix configurada: "Fale com o suporte" |
+| `/consultas` (Agenda, Dia) | Médico | por consulta concluída: "Declaração de comparecimento" | Mesmo PDF da recepção e do paciente |
 | `/acessos` | ADM da clínica, Médico ADM | **Novo acesso** | ADM cria ADM da clínica ou Recepção; Médico ADM cria Médico ADM/Suporte/DPO; ninguém desabilita o próprio acesso |
 | `/doctors` (Médicos) | ADM da clínica, dono do consultório | **Novo médico** | Com o e-mail de quem já atende em outro local, a conta existente é vinculada (sem senha nova) e passa a ter o seletor de local |
 

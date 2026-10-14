@@ -173,6 +173,9 @@ recebem uma senha temporária, que deve ser trocada no primeiro acesso.
 | `PUBLIC_API_URL` | URL pública usada no webhook do pagamento. |
 | `MERCADOPAGO_ACCESS_TOKEN` | Token do Checkout Pro. |
 | `MERCADOPAGO_WEBHOOK_SECRET` | Segredo de validação do webhook. |
+| `MEDSYNC_PIX_KEY` | Chave Pix do MedSync para a mensalidade das clínicas (Financeiro). Sem ela, a clínica vê "fale com o suporte" no lugar do Pix copia e cola. |
+| `MEDSYNC_PIX_RECEIVER` | Nome do recebedor no Pix (até 25 caracteres, sem acento). Padrão: `MedSync`. |
+| `MEDSYNC_PIX_CITY` | Cidade do recebedor no Pix (até 15 caracteres). Padrão: `Sao Paulo`. |
 
 ### Web
 

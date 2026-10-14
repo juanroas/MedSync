@@ -26,6 +26,7 @@ public sealed class MedSyncDbContext(DbContextOptions<MedSyncDbContext> options)
     public DbSet<MedicationCatalogItem> MedicationCatalog => Set<MedicationCatalogItem>();
     public DbSet<Prescription> Prescriptions => Set<Prescription>();
     public DbSet<PrescriptionItem> PrescriptionItems => Set<PrescriptionItem>();
+    public DbSet<ClinicInvoice> ClinicInvoices => Set<ClinicInvoice>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -212,6 +213,22 @@ public sealed class MedSyncDbContext(DbContextOptions<MedSyncDbContext> options)
                 .HasForeignKey(x => x.AppointmentId).OnDelete(DeleteBehavior.Restrict);
             entity.HasOne(x => x.ClinicalRecord).WithMany(x => x.Attachments)
                 .HasForeignKey(x => x.ClinicalRecordId).OnDelete(DeleteBehavior.SetNull);
+        });
+
+        modelBuilder.Entity<ClinicInvoice>(entity =>
+        {
+            entity.HasIndex(x => new { x.ClinicId, x.Reference });
+            entity.HasIndex(x => new { x.Status, x.DueDate });
+            entity.Property(x => x.Reference).HasMaxLength(7);
+            entity.Property(x => x.Description).HasMaxLength(200);
+            entity.Property(x => x.Amount).HasPrecision(12, 2);
+            entity.Property(x => x.Status).HasConversion<string>().HasMaxLength(30);
+            entity.Property(x => x.PaymentMethod).HasConversion<string>().HasMaxLength(30);
+            entity.Property(x => x.InformedNote).HasMaxLength(300);
+            entity.Property(x => x.PaymentNote).HasMaxLength(300);
+            entity.Property(x => x.CancelReason).HasMaxLength(300);
+            entity.Ignore(x => x.Code);
+            entity.HasOne(x => x.Clinic).WithMany().HasForeignKey(x => x.ClinicId).OnDelete(DeleteBehavior.Restrict);
         });
 
         modelBuilder.Entity<Payment>(entity =>

@@ -11,6 +11,8 @@ const ALLOWED_PATHS = [
   /^appointments\/[0-9a-f-]{36}\/attendance-declaration$/,
   /^prescriptions\/[0-9a-f-]{36}\/pdf$/,
   /^appointments\/[0-9a-f-]{36}\/clinical-record\/attachments\/[0-9a-f-]{36}\/download$/,
+  /^billing\/invoices\/[0-9a-f-]{36}\/pdf$/,
+  /^billing\/report\/pdf$/,
 ];
 
 const apiTarget = (process.env.API_PROXY_TARGET ?? process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080").replace(/\/$/, "");

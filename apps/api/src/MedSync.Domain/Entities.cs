@@ -503,6 +503,53 @@ public sealed class AuditEvent
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }
 
+public enum InvoiceStatus
+{
+    Open,
+    // The clinic says it paid; the MedSync team still has to see the money and confirm.
+    PaymentInformed,
+    Paid,
+    Cancelled
+}
+
+public enum InvoicePaymentMethod
+{
+    Pix,
+    BankTransfer,
+    Boleto,
+    Other
+}
+
+// MedSync monthly fee of a clinic or consultório (14/10/2026): the MedSync team charges and confirms by hand; the
+// clinic pays by Pix, says it paid, and prints the invoice and the receipt.
+public sealed class ClinicInvoice
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid ClinicId { get; set; }
+    public Clinic Clinic { get; set; } = null!;
+    // Month charged, "yyyy-MM".
+    public required string Reference { get; set; }
+    public required string Description { get; set; }
+    public decimal Amount { get; set; }
+    public DateOnly DueDate { get; set; }
+    public InvoiceStatus Status { get; set; } = InvoiceStatus.Open;
+    public Guid CreatedByUserId { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime? InformedAt { get; set; }
+    public Guid? InformedByUserId { get; set; }
+    public string? InformedNote { get; set; }
+    public DateOnly? PaidOn { get; set; }
+    public InvoicePaymentMethod? PaymentMethod { get; set; }
+    public string? PaymentNote { get; set; }
+    public DateTime? ConfirmedAt { get; set; }
+    public Guid? ConfirmedByUserId { get; set; }
+    public DateTime? CancelledAt { get; set; }
+    public string? CancelReason { get; set; }
+
+    // Short code printed on the invoice and used as the Pix identifier (txid), so the payment is found in the statement.
+    public string Code => $"MS{Id.ToString("N")[..8].ToUpperInvariant()}";
+}
+
 public sealed class PrivacyRequest
 {
     public Guid Id { get; set; } = Guid.NewGuid();

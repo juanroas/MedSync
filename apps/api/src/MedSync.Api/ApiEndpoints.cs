@@ -99,6 +99,7 @@ public static partial class ApiEndpoints
         MapPrescriptionEndpoints(protectedApi);
         MapClinicalAccessEndpoints(protectedApi);
         MapReportEndpoints(protectedApi);
+        MapBillingEndpoints(protectedApi);
         MapSignatureCallback(app);
 
         return app;

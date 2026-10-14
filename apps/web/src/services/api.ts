@@ -1,6 +1,8 @@
 import type {
   Appointment,
   AppointmentReport,
+  ClinicInvoice,
+  InvoicePaymentMethod,
   AvailableDays,
   MedicationSearchItem,
   PatientMedications,
@@ -493,6 +495,24 @@ export const api = {
   // POST so the CPF never goes in the URL.
   downloadDataAccessReport: (cpf: string) =>
     download("/privacy/data-access-report", "relatorio-de-acessos-titular.pdf", { method: "POST", body: JSON.stringify({ cpf }) }),
+  getInvoices: (filters: { status?: string; clinicId?: string } = {}) => {
+    const query = new URLSearchParams();
+    if (filters.status) query.set("status", filters.status);
+    if (filters.clinicId) query.set("clinicId", filters.clinicId);
+    return request<ClinicInvoice[]>(`/billing/invoices${query.size ? `?${query}` : ""}`);
+  },
+  createInvoice: (input: { clinicId: string; reference: string; amount?: number; dueDate: string; description?: string }) =>
+    request<ClinicInvoice>("/billing/invoices", { method: "POST", body: JSON.stringify(input) }),
+  informInvoicePayment: (id: string, note?: string) =>
+    request<ClinicInvoice>(`/billing/invoices/${id}/inform`, { method: "POST", body: JSON.stringify({ note }) }),
+  confirmInvoicePayment: (id: string, input: { paidOn: string; method: InvoicePaymentMethod; note?: string }) =>
+    request<ClinicInvoice>(`/billing/invoices/${id}/confirm`, { method: "POST", body: JSON.stringify(input) }),
+  cancelInvoice: (id: string, reason: string) =>
+    request<ClinicInvoice>(`/billing/invoices/${id}/cancel`, { method: "POST", body: JSON.stringify({ reason }) }),
+  downloadInvoicePdf: (invoice: Pick<ClinicInvoice, "id" | "code" | "status">) =>
+    download(`/billing/invoices/${invoice.id}/pdf`, `${invoice.status === "Paid" ? "recibo" : "fatura"}-${invoice.code}.pdf`),
+  downloadBillingReport: (from: string, to: string) =>
+    download(`/billing/report/pdf?${new URLSearchParams({ from, to })}`, `relatorio-financeiro-${from}-a-${to}.pdf`),
   downloadAttendanceDeclaration: (appointmentId: string) =>
     download(`/appointments/${appointmentId}/attendance-declaration`, "declaracao-de-comparecimento.pdf"),
   getPatientMedications: (patientId: string) =>

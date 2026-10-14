@@ -182,6 +182,14 @@ test.describe("relatorios", () => {
     await page.getByRole("button", { name: /declaração de comparecimento/i }).click();
     expect((await download).suggestedFilename()).toBe("declaracao-de-comparecimento.pdf");
 
+    // The doctor also downloads it from the day view of the agenda.
+    await page.context().clearCookies();
+    await loginByUi(page, doctorEmail);
+    await page.getByRole("navigation").getByRole("link", { name: "Agenda", exact: true }).click();
+    const agendaDownload = page.waitForEvent("download");
+    await page.getByRole("button", { name: /declaração de comparecimento/i }).click();
+    expect((await agendaDownload).suggestedFilename()).toBe("declaracao-de-comparecimento.pdf");
+
     for (const context of [admin, doctor, patient, reception]) await context.dispose();
   });
 });

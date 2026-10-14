@@ -289,6 +289,9 @@ export function DoctorAgenda() {
                     }, "Não foi possível iniciar a sala.")
                   }
                   onConclude={() => setConcludingId(appointment.id)}
+                  onDeclaration={() =>
+                    run(appointment.id, () => api.downloadAttendanceDeclaration(appointment.id), "Não foi possível gerar a declaração.")
+                  }
                   onCancel={async () => {
                     const ok = await confirm({
                       title: "Cancelar esta consulta?",
@@ -468,12 +471,14 @@ function DayRow({
   busy,
   onStart,
   onConclude,
+  onDeclaration,
   onCancel,
 }: {
   appointment: Appointment;
   busy: boolean;
   onStart: () => void;
   onConclude: () => void;
+  onDeclaration: () => void;
   onCancel: () => void;
 }) {
   const canCancel = appointment.status === "Scheduled" && !isAppointmentMissed(appointment);
@@ -521,6 +526,16 @@ function DayRow({
             className="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-xs font-bold text-slate-700 hover:border-teal-200 hover:bg-teal-50"
           >
             <CheckCircle2 size={15} /> Concluir
+          </button>
+        )}
+        {appointment.status === "Completed" && (
+          <button
+            type="button"
+            onClick={onDeclaration}
+            disabled={busy}
+            className="inline-flex h-10 items-center gap-1.5 px-2 text-xs font-bold text-teal-700 hover:text-teal-900 disabled:cursor-not-allowed disabled:text-slate-300"
+          >
+            <FileText size={14} /> Declaração de comparecimento
           </button>
         )}
         {canCancel && (

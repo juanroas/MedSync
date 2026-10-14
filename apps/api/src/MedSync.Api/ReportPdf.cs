@@ -227,7 +227,7 @@ public static class ReportPdf
     }
 
     // A4 pages with a running footer; tables break across pages and repeat their header.
-    private sealed class Canvas
+    internal sealed class Canvas
     {
         private readonly PdfDocument document = new();
         private readonly string footer;
@@ -323,6 +323,23 @@ public static class ReportPdf
         }
 
         public void Gap(double points) => y += points;
+
+        // Long text without spaces (the Pix code) breaks by character.
+        public void Code(string text)
+        {
+            var line = "";
+            foreach (var character in text)
+            {
+                if (graphics.MeasureString(line + character, Cell).Width > Width)
+                {
+                    Line(line, Cell);
+                    line = "";
+                }
+                line += character;
+            }
+            if (line.Length > 0)
+                Line(line, Cell);
+        }
 
         public void Rule()
         {

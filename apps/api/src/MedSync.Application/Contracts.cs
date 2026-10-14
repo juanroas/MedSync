@@ -701,3 +701,41 @@ public sealed record AppointmentReportResponse(
     DateTime GeneratedAt);
 
 public sealed record DataAccessReportRequest(string? Cpf);
+
+// MedSync monthly fee charged by hand (14/10/2026). Pix fields only while the invoice can still be paid.
+public sealed record ClinicInvoiceResponse(
+    Guid Id,
+    string Code,
+    Guid ClinicId,
+    string ClinicName,
+    bool ClinicIsPrivatePractice,
+    string Reference,
+    string Description,
+    decimal Amount,
+    DateOnly DueDate,
+    InvoiceStatus Status,
+    bool Overdue,
+    DateTime CreatedAt,
+    DateTime? InformedAt,
+    string? InformedNote,
+    DateOnly? PaidOn,
+    InvoicePaymentMethod? PaymentMethod,
+    string? PaymentNote,
+    DateTime? CancelledAt,
+    string? CancelReason,
+    string? PixCode,
+    string? PixKey,
+    string? PixReceiver);
+
+public sealed record CreateClinicInvoiceRequest(
+    Guid ClinicId,
+    string Reference,
+    decimal? Amount,
+    DateOnly DueDate,
+    string? Description);
+
+public sealed record InformInvoicePaymentRequest(string? Note);
+
+public sealed record ConfirmInvoicePaymentRequest(DateOnly PaidOn, InvoicePaymentMethod Method, string? Note);
+
+public sealed record CancelInvoiceRequest(string Reason);

@@ -605,3 +605,46 @@ export const REPORT_OUTCOME_LABELS: Record<ReportOutcome, string> = {
   Cancelled: "Cancelada",
   Upcoming: "A realizar",
 };
+
+// MedSync monthly fee charged by hand (14/10/2026).
+export type InvoiceStatus = "Open" | "PaymentInformed" | "Paid" | "Cancelled";
+export type InvoicePaymentMethod = "Pix" | "BankTransfer" | "Boleto" | "Other";
+
+export type ClinicInvoice = {
+  id: string;
+  code: string;
+  clinicId: string;
+  clinicName: string;
+  clinicIsPrivatePractice: boolean;
+  reference: string;
+  description: string;
+  amount: number;
+  dueDate: string;
+  status: InvoiceStatus;
+  overdue: boolean;
+  createdAt: string;
+  informedAt?: string | null;
+  informedNote?: string | null;
+  paidOn?: string | null;
+  paymentMethod?: InvoicePaymentMethod | null;
+  paymentNote?: string | null;
+  cancelledAt?: string | null;
+  cancelReason?: string | null;
+  pixCode?: string | null;
+  pixKey?: string | null;
+  pixReceiver?: string | null;
+};
+
+export const INVOICE_METHOD_LABELS: Record<InvoicePaymentMethod, string> = {
+  Pix: "Pix",
+  BankTransfer: "Transferência bancária",
+  Boleto: "Boleto",
+  Other: "Outro",
+};
+
+export function invoiceStatusLabel(invoice: Pick<ClinicInvoice, "status" | "overdue">) {
+  if (invoice.status === "Paid") return "Paga";
+  if (invoice.status === "PaymentInformed") return "Pagamento informado";
+  if (invoice.status === "Cancelled") return "Cancelada";
+  return invoice.overdue ? "Em atraso" : "Em aberto";
+}

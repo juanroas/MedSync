@@ -61,6 +61,10 @@ Regras de acesso ao conteúdo clínico: [`.agents/rules/clinical-data-access.md`
   conteúdo clínico (regra C5). O relatório LGPD de acessos é do próprio paciente (`/me/data-access-report`) ou do DPO
   pelo CPF (`POST /privacy/data-access-report`); a declaração de comparecimento sai para o paciente, o médico da
   consulta, ADM e Recepção, só com a consulta concluída. Toda geração fica na auditoria.
+- Financeiro (14/10/2026): a mensalidade do MedSync é lançada, confirmada e cancelada só pela equipe MedSync (Suporte e
+  Médico ADM), que vê todas as clínicas e o relatório financeiro. O ADM da clínica (e o dono do consultório) vê só as
+  cobranças da própria clínica, avisa o pagamento e baixa fatura e recibo; Recepção, Médico, Paciente e DPO recebem 403.
+  A confirmação é manual (não há integração bancária); toda ação fica na auditoria.
 - Troca de local (`POST /auth/switch-clinic`) só para clínica em que a conta tem vínculo ativo; a sessão passa a valer
   só para o local escolhido e a tentativa negada fica na auditoria.
 
