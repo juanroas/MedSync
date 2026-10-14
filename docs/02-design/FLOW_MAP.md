@@ -37,13 +37,13 @@ Qualquer PR que adicione tela, item de menu ou botão que navega **atualiza este
 | Perfil | Itens do menu |
 |---|---|
 | Paciente | Painel · Minhas consultas · Meu cadastro · Ajuda (inclui "Pedido sobre meus dados") |
-| Médico | Painel · Agenda · Pacientes vinculados · Meu perfil · Ajuda |
-| ADM da clínica | Painel · Meus dados · Consultas · Pacientes · Médicos · Dados da clínica · Equipe e acessos · Auditoria (da clínica) · Ajuda |
-| Recepção (ADR-0005) | Painel · Meus dados · Consultas · Pacientes · Ajuda |
-| Dono do consultório (Médico + ADM, ADR-0005) | Painel · Meus dados · Consultas · Pacientes · Médicos · Dados do consultório · Equipe e acessos · Auditoria · Ajuda |
+| Médico | Painel · Agenda · Pacientes vinculados · Meu perfil · Relatórios · Ajuda |
+| ADM da clínica | Painel · Meus dados · Consultas · Pacientes · Médicos · Relatórios · Dados da clínica · Equipe e acessos · Auditoria (da clínica) · Ajuda |
+| Recepção (ADR-0005) | Painel · Meus dados · Consultas · Pacientes · Relatórios · Ajuda |
+| Dono do consultório (Médico + ADM, ADR-0005) | Painel · Meus dados · Consultas · Pacientes · Médicos · Relatórios · Dados do consultório · Equipe e acessos · Auditoria · Ajuda |
 | Médico ADM MedSync | Painel · Meus dados · Clínicas · Equipe MedSync · Acessos ao prontuário · Ajuda (fila) |
 | Suporte | Painel · Meus dados · Clínicas · Ajuda (fila) |
-| DPO MedSync | Painel · Meus dados · Auditoria (todas as clínicas) · Acessos ao prontuário · Ajuda · Privacidade (fila) |
+| DPO MedSync | Painel · Meus dados · Relatórios · Auditoria (todas as clínicas) · Acessos ao prontuário · Ajuda · Privacidade (fila) |
 
 Os seis perfis são os do ADR-0003. A equipe MedSync (Médico ADM, Suporte, DPO) mora na clínica plataforma
 "MedSync Operação" e enxerga as filas de todas as clínicas.
@@ -82,6 +82,10 @@ com a sessão do local escolhido (`POST /auth/switch-clinic`); os dados de cada 
 | `/clinica` (Dados da clínica) | ADM da clínica | **Salvar dados** | Nome fantasia, telefone, endereço de atendimento e responsável técnico; razão social e CNPJ só leitura (correção pela Ajuda) |
 | `/cadastro` | visitante | **Criar conta** | Escolha "Clínica" ou "Consultório (sou médico)" (`?tipo=consultorio`). Clínica: razão social, nome fantasia, CNPJ, telefone, **endereço de atendimento** (obrigatório) e responsável técnico (opcional). Consultório: os mesmos dados da empresa + CRM, UF, especialidade e RQE do médico, que vira responsável técnico, médico e ADM |
 | `/acessos-prontuario` | Médico ADM (DPO só leitura) | **Solicitar acesso** (só Médico ADM) | Janela: CPF completo → paciente, motivo (lista fechada), finalidade (mín. 30 caracteres), declaração de sigilo → "Abrir prontuário por 30 min" (somente leitura). Por linha ativa: "Abrir prontuário". DPO vê todos os acessos com a finalidade, sem conteúdo clínico. Paciente vê "Quem acessou meu prontuário" em Meu cadastro |
+| `/relatorios` (clínica, recepção, médico) | ADM da clínica, Recepção, dono do consultório, Médico | **Baixar PDF** (secundária: "Baixar planilha (CSV)") | Filtros De/Até ("Este mês", "Mês passado"), Médico (só quem vê a clínica) e Modalidade. Cartões Realizadas, Paciente faltou, Não realizadas, Canceladas; "Por médico"; "Receitas emitidas por mim" (só quem é médico, só as dele); "Consultas do período". Sem conteúdo clínico (regra C5). Médico vê só a própria produção |
+| `/relatorios` (DPO) | DPO | **Baixar relatório (PDF)** | CPF completo do titular → PDF "Quem acessou os dados" de todas as clínicas (LGPD art. 18 e 19); o CPF vai no corpo do pedido, nunca na URL |
+| `/patients` (Meu cadastro) | Paciente | **Atualizar cadastro** | Secundária em "Quem acessou meu prontuário": "Baixar relatório de acessos (PDF)", sem as ações do próprio titular |
+| `/consultas` (Histórico) | Paciente, ADM, Recepção, médico da consulta | por linha concluída: "Declaração de comparecimento" (PDF) | Comprova presença, sem diagnóstico nem afastamento; só sai com a consulta concluída |
 | `/acessos` | ADM da clínica, Médico ADM | **Novo acesso** | ADM cria ADM da clínica ou Recepção; Médico ADM cria Médico ADM/Suporte/DPO; ninguém desabilita o próprio acesso |
 | `/doctors` (Médicos) | ADM da clínica, dono do consultório | **Novo médico** | Com o e-mail de quem já atende em outro local, a conta existente é vinculada (sem senha nova) e passa a ter o seletor de local |
 

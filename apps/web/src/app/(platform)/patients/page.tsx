@@ -3,13 +3,13 @@
 import { AddressFields, addressFromResponse, emptyAddress, isAddressComplete } from "@/components/address-fields";
 import { DoctorPatients } from "@/components/doctor-patients";
 import { PersonForm } from "@/components/person-form";
-import { ErrorBanner, EmptyState, LoadingState, PageHeader, SearchField, buttonClass, inputClass } from "@/components/ui";
+import { Button, ErrorBanner, EmptyState, LoadingState, PageHeader, SearchField, buttonClass, inputClass } from "@/components/ui";
 import { formatDate, formatDateTime, statusClass, statusLabel } from "@/lib/format";
 import { CLINICAL_ACCESS_REASON_LABELS } from "@/lib/types";
 import type { Address, Appointment, AppointmentStatus, Patient, PatientClinicalAccessEntry } from "@/lib/types";
 import { isValidOptionalPhone } from "@/lib/validation";
 import { api, getSession, saveSession } from "@/services/api";
-import { Mail, MapPin, Phone, Pill, Plus, UserRound } from "lucide-react";
+import { Download, Mail, MapPin, Phone, Pill, Plus, UserRound } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
 const initialEditForm = {
@@ -441,16 +441,39 @@ function PatientsRegistry() {
 // Rule C3: the patient sees every justified access to their record by the MedSync medical team.
 function ClinicalAccessLog() {
   const [entries, setEntries] = useState<PatientClinicalAccessEntry[] | null>(null);
+  const [downloading, setDownloading] = useState(false);
+  const [downloadError, setDownloadError] = useState("");
   useEffect(() => {
     api.getMyClinicalAccessLog().then(setEntries).catch(() => setEntries([]));
   }, []);
+  // LGPD art. 18 e 19: the full list of who touched the patient's data, as a PDF.
+  async function downloadReport() {
+    setDownloading(true);
+    setDownloadError("");
+    try {
+      await api.downloadMyDataAccessReport();
+    } catch (err) {
+      setDownloadError(err instanceof Error ? err.message : "Não foi possível gerar o relatório.");
+    } finally {
+      setDownloading(false);
+    }
+  }
   if (entries === null) return null;
   return (
     <section className="mb-7 rounded-lg border border-slate-200 bg-white p-6 shadow-sm" aria-label="Quem acessou meu prontuário">
-      <h2 className="font-bold text-ink">Quem acessou meu prontuário</h2>
-      <p className="mt-1 text-xs leading-5 text-slate-500">
-        Além dos médicos que atenderam você, só o Médico ADM MedSync pode abrir seu prontuário, com motivo registrado.
-      </p>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h2 className="font-bold text-ink">Quem acessou meu prontuário</h2>
+          <p className="mt-1 text-xs leading-5 text-slate-500">
+            Além dos médicos que atenderam você, só o Médico ADM MedSync pode abrir seu prontuário, com motivo registrado.
+            O relatório completo lista todos que acessaram ou alteraram seus dados.
+          </p>
+        </div>
+        <Button type="button" variant="secondary" className="shrink-0" onClick={downloadReport} isLoading={downloading}>
+          <Download size={16} /> Baixar relatório de acessos (PDF)
+        </Button>
+      </div>
+      {downloadError && <p className="mt-2 text-xs font-semibold text-red-600">{downloadError}</p>}
       {entries.length === 0 ? (
         <p className="mt-3 text-sm text-slate-500">Nenhum acesso da equipe médica MedSync até agora.</p>
       ) : (

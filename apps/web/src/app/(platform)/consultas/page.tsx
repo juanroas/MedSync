@@ -81,6 +81,7 @@ function AppointmentsList() {
   const [startingId, setStartingId] = useState("");
   const [endingId, setEndingId] = useState("");
   const [cancelingId, setCancelingId] = useState("");
+  const [declarationId, setDeclarationId] = useState("");
   const [tab, setTab] = useState<AppointmentTab>("active");
   const [, setNowTick] = useState(() => Date.now());
   const isMountedRef = useRef(false);
@@ -177,6 +178,19 @@ function AppointmentsList() {
     }
   }
 
+  // Proof of attendance for work or school: the patient, the front desk or the doctor downloads it once concluded.
+  async function downloadDeclaration(appointmentId: string) {
+    setDeclarationId(appointmentId);
+    setError("");
+    try {
+      await api.downloadAttendanceDeclaration(appointmentId);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Não foi possível gerar a declaração.");
+    } finally {
+      setDeclarationId("");
+    }
+  }
+
   async function cancelAppointment(appointmentId: string) {
     if (!(await confirm({ title: "Cancelar esta consulta?", description: "Esta ação não pode ser desfeita.", confirmLabel: "Cancelar consulta", danger: true }))) return;
     setCancelingId(appointmentId);
@@ -250,6 +264,17 @@ function AppointmentsList() {
           <DoctorRoomNextStep appointment={appointment} />
         ) : (
           <AppointmentNextStep appointment={appointment} />
+        )}
+
+        {appointment.status === "Completed" && (isPatient || canOperationalSchedule || mine) && (
+          <button
+            type="button"
+            onClick={() => downloadDeclaration(appointment.id)}
+            disabled={declarationId === appointment.id}
+            className="inline-flex h-10 items-center justify-center gap-1.5 px-3 text-xs font-bold text-teal-700 hover:text-teal-900 disabled:cursor-not-allowed disabled:text-slate-300"
+          >
+            <FileText size={14} /> {declarationId === appointment.id ? "Gerando..." : "Declaração de comparecimento"}
+          </button>
         )}
 
         {canCancel && (

@@ -145,7 +145,7 @@ test.describe("receita do atendimento", () => {
     await page.goto(`/receita/${first}`);
     await expect(page.getByRole("link", { name: /baixar pdf assinado/i })).toBeVisible();
     await expect(page.getByRole("link", { name: /enviar pelo whatsapp/i })).toHaveCount(0);
-    const pdf = await page.request.get(`/api/prescriptions/${first}/pdf`);
+    const pdf = await page.request.get(`/files/prescriptions/${first}/pdf`);
     expect(pdf.status()).toBe(200);
   });
 

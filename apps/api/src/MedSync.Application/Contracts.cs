@@ -650,3 +650,54 @@ public sealed record AvailableDaysResponse(
 
 // How the doctor closes the consultation: it happened, or the patient never joined the call.
 public sealed record EndConsultationRequest(string? Outcome);
+
+// Reports (rule C5: no clinical content). Outcomes: Completed, NoShow, NotHeld (time passed, never concluded),
+// Cancelled, Upcoming.
+public sealed record AppointmentReportTotals(
+    int Total,
+    int Completed,
+    int NoShow,
+    int NotHeld,
+    int Cancelled,
+    int Upcoming,
+    int Online,
+    int InPerson);
+
+public sealed record AppointmentReportDoctorRow(Guid DoctorId, string DoctorName, AppointmentReportTotals Totals);
+
+public sealed record AppointmentReportItem(
+    Guid Id,
+    DateTime ScheduledAt,
+    int DurationMinutes,
+    string PatientName,
+    Guid DoctorId,
+    string DoctorName,
+    ConsultationModality Modality,
+    string Outcome);
+
+// Only in the doctor's own report: prescriptions the doctor issued in the period, by kind and by how they left.
+public sealed record PrescriptionReportTotals(
+    int Total,
+    int Signed,
+    int OutsideMedSync,
+    int Drafts,
+    int Simple,
+    int Antimicrobial,
+    int ControlledSpecial);
+
+public sealed record AppointmentReportResponse(
+    string ClinicName,
+    DateOnly From,
+    DateOnly To,
+    // "clinic" (ADM, Recepção, dono do consultório) or "own" (médico).
+    string Scope,
+    string? DoctorFilter,
+    ConsultationModality? ModalityFilter,
+    AppointmentReportTotals Totals,
+    IReadOnlyList<AppointmentReportDoctorRow> ByDoctor,
+    IReadOnlyList<AppointmentReportItem> Items,
+    bool ItemsTruncated,
+    PrescriptionReportTotals? Prescriptions,
+    DateTime GeneratedAt);
+
+public sealed record DataAccessReportRequest(string? Cpf);

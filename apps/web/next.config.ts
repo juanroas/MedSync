@@ -7,6 +7,8 @@ const apiProxyTarget =
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  // JSON calls go through this rewrite. Files (PDF, CSV, attachments) use app/files/[...path]/route.ts instead: the
+  // rewrite proxy of `next start` can cut larger bodies.
   async rewrites() {
     return [
       {

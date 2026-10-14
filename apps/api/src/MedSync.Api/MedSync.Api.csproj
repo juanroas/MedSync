@@ -26,5 +26,8 @@
     <EmbeddedResource Include="Fonts\*.ttf" />
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="MedSync.Api.Tests" />
+  </ItemGroup>
 </Project>
 

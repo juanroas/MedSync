@@ -289,7 +289,7 @@ public static class PrescriptionPdf
     }
 
     // Draws wrapped text and returns the next baseline.
-    private static double Write(XGraphics graphics, string text, XFont font, XBrush brush, double x, double y, double width)
+    internal static double Write(XGraphics graphics, string text, XFont font, XBrush brush, double x, double y, double width)
     {
         var lineHeight = font.GetHeight() * 1.25;
         foreach (var paragraph in text.Split('\n'))
@@ -329,7 +329,7 @@ public static class PrescriptionPdf
         return digits.Length == 11 ? $"{digits[..3]}.{digits[3..6]}.{digits[6..9]}-{digits[9..]}" : value;
     }
 
-    private static void EnsureFonts()
+    internal static void EnsureFonts()
     {
         if (GlobalFontSettings.FontResolver is EmbeddedFontResolver)
             return;

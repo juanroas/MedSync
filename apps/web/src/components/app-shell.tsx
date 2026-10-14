@@ -5,6 +5,7 @@ import { RealtimeProvider } from "@/lib/realtime";
 import { ROLE_LABELS, isPracticeOwner, type ClinicRole, type User } from "@/lib/types";
 import { ApiError, api, clearSession, getSession, saveSession } from "@/services/api";
 import {
+  BarChart3,
   Building2,
   FileLock2,
   CalendarDays,
@@ -37,6 +38,7 @@ const navigation: Array<{
   { href: "/consultas", label: "Consultas", icon: CalendarDays, roles: ["Patient", "Doctor", "ClinicAdmin", "Receptionist"] },
   { href: "/patients", label: "Pacientes", icon: Users, roles: ["Doctor", "Patient", "ClinicAdmin", "Receptionist"] },
   { href: "/doctors", label: "Médicos", icon: Stethoscope, roles: ["Doctor", "ClinicAdmin"] },
+  { href: "/relatorios", label: "Relatórios", icon: BarChart3, roles: ["Doctor", "ClinicAdmin", "Receptionist", "DataProtectionOfficer"] },
   { href: "/clinica", label: "Dados da clínica", icon: Building2, roles: ["ClinicAdmin"] },
   { href: "/acessos", label: "Equipe e acessos", icon: UserCog, roles: ["ClinicAdmin", "MedicalDirector"] },
   { href: "/auditoria", label: "Auditoria", icon: ListChecks, roles: ["ClinicAdmin", "DataProtectionOfficer"] },

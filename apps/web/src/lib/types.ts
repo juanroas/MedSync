@@ -551,3 +551,57 @@ export type AvailableDays = {
   to: string;
   days: string[];
 };
+
+// Reports (rule C5: no clinical content). Outcome reads like the agenda.
+export type ReportOutcome = "Completed" | "NoShow" | "NotHeld" | "Cancelled" | "Upcoming";
+
+export type AppointmentReportTotals = {
+  total: number;
+  completed: number;
+  noShow: number;
+  notHeld: number;
+  cancelled: number;
+  upcoming: number;
+  online: number;
+  inPerson: number;
+};
+
+export type AppointmentReport = {
+  clinicName: string;
+  from: string;
+  to: string;
+  scope: "clinic" | "own";
+  doctorFilter?: string | null;
+  modalityFilter?: ConsultationModality | null;
+  totals: AppointmentReportTotals;
+  byDoctor: Array<{ doctorId: string; doctorName: string; totals: AppointmentReportTotals }>;
+  items: Array<{
+    id: string;
+    scheduledAt: string;
+    durationMinutes: number;
+    patientName: string;
+    doctorId: string;
+    doctorName: string;
+    modality: ConsultationModality;
+    outcome: ReportOutcome;
+  }>;
+  itemsTruncated: boolean;
+  prescriptions?: {
+    total: number;
+    signed: number;
+    outsideMedSync: number;
+    drafts: number;
+    simple: number;
+    antimicrobial: number;
+    controlledSpecial: number;
+  } | null;
+  generatedAt: string;
+};
+
+export const REPORT_OUTCOME_LABELS: Record<ReportOutcome, string> = {
+  Completed: "Realizada",
+  NoShow: "Paciente faltou",
+  NotHeld: "Não realizada",
+  Cancelled: "Cancelada",
+  Upcoming: "A realizar",
+};

@@ -1,5 +1,6 @@
 import type {
   Appointment,
+  AppointmentReport,
   AvailableDays,
   MedicationSearchItem,
   PatientMedications,
@@ -49,6 +50,8 @@ import type {
 } from "@/lib/types";
 
 const API_URL = process.env.NEXT_PUBLIC_API_BASE_PATH ?? "/api";
+// Files (PDF, CSV, attachments) stream through app/files/[...path]/route.ts, not the /api rewrite, which cuts larger bodies.
+const FILES_URL = "/files";
 const USER_KEY = "medsync_user";
 
 export class ApiError extends Error {
@@ -60,6 +63,37 @@ export class ApiError extends Error {
   ) {
     super(message);
   }
+}
+
+// Fetches a file (PDF, CSV) and hands it to the browser, so errors show on the screen instead of a JSON page.
+async function download(path: string, fileName: string, options: RequestInit = {}) {
+  const headers = new Headers(options.headers);
+  if (options.body) headers.set("Content-Type", "application/json");
+  const response = await fetch(`${FILES_URL}${path}`, { ...options, headers, credentials: "include", cache: "no-store" });
+  if (!response.ok) {
+    const body = await response.json().catch(() => null);
+    const validationMessage = body?.errors ? (Object.values(body.errors).flat()[0] as string | undefined) : undefined;
+    throw new ApiError(
+      body?.message ?? validationMessage ??
+        (response.status === 403 ? "Seu perfil não tem acesso a este documento." : "Não foi possível gerar o arquivo."),
+      response.status,
+    );
+  }
+  const url = URL.createObjectURL(await response.blob());
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function reportQuery(filters: { from: string; to: string; doctorId?: string; modality?: string }) {
+  const query = new URLSearchParams({ from: filters.from, to: filters.to });
+  if (filters.doctorId) query.set("doctorId", filters.doctorId);
+  if (filters.modality) query.set("modality", filters.modality);
+  return query.toString();
 }
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
@@ -420,7 +454,7 @@ export const api = {
       method: "DELETE",
     }),
   clinicalRecordAttachmentDownloadUrl: (appointmentId: string, attachmentId: string) =>
-    `${API_URL}/appointments/${appointmentId}/clinical-record/attachments/${attachmentId}/download`,
+    `${FILES_URL}/appointments/${appointmentId}/clinical-record/attachments/${attachmentId}/download`,
   getPatientClinicalRecords: (patientId: string) =>
     request<PatientClinicalRecord[]>(`/patients/${patientId}/clinical-records`),
   searchMedications: (query: string) =>
@@ -449,7 +483,18 @@ export const api = {
   endSigningSession: () => request<void>("/signature/session", { method: "DELETE" }),
   issuePrescriptionOnPaper: (id: string) =>
     request<Prescription>(`/prescriptions/${id}/issue-paper`, { method: "POST" }),
-  prescriptionPdfUrl: (id: string) => `${API_URL}/prescriptions/${id}/pdf`,
+  prescriptionPdfUrl: (id: string) => `${FILES_URL}/prescriptions/${id}/pdf`,
+
+  getAppointmentReport: (filters: { from: string; to: string; doctorId?: string; modality?: string }) =>
+    request<AppointmentReport>(`/reports/appointments?${reportQuery(filters)}`),
+  downloadAppointmentReport: (filters: { from: string; to: string; doctorId?: string; modality?: string }, format: "pdf" | "csv") =>
+    download(`/reports/appointments/${format}?${reportQuery(filters)}`, `atendimentos-${filters.from}-a-${filters.to}.${format}`),
+  downloadMyDataAccessReport: () => download("/me/data-access-report", "acessos-aos-meus-dados.pdf"),
+  // POST so the CPF never goes in the URL.
+  downloadDataAccessReport: (cpf: string) =>
+    download("/privacy/data-access-report", "relatorio-de-acessos-titular.pdf", { method: "POST", body: JSON.stringify({ cpf }) }),
+  downloadAttendanceDeclaration: (appointmentId: string) =>
+    download(`/appointments/${appointmentId}/attendance-declaration`, "declaracao-de-comparecimento.pdf"),
   getPatientMedications: (patientId: string) =>
     request<PatientMedications>(`/patients/${patientId}/medications`),
   createAppointment: (appointment: {

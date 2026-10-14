@@ -56,6 +56,11 @@ Regras de acesso ao conteúdo clínico: [`.agents/rules/clinical-data-access.md`
 - Médico e Médico ADM não criam agenda por API.
 - Suporte e ADM da clínica não ativam clínica.
 - ADM da clínica só cria ADM da clínica ou Recepção; Médico ADM só cria equipe MedSync.
+- Relatórios (14/10/2026): atendimentos da clínica para ADM, Recepção e dono do consultório; o médico só a própria
+  produção e as próprias receitas (contagem); Suporte, Médico ADM e paciente recebem 403. Nenhum relatório traz
+  conteúdo clínico (regra C5). O relatório LGPD de acessos é do próprio paciente (`/me/data-access-report`) ou do DPO
+  pelo CPF (`POST /privacy/data-access-report`); a declaração de comparecimento sai para o paciente, o médico da
+  consulta, ADM e Recepção, só com a consulta concluída. Toda geração fica na auditoria.
 - Troca de local (`POST /auth/switch-clinic`) só para clínica em que a conta tem vínculo ativo; a sessão passa a valer
   só para o local escolhido e a tentativa negada fica na auditoria.
 
