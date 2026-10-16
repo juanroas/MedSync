@@ -76,7 +76,30 @@ public static class DatabaseSeeder
                 new(Guid.Parse("12000000-0000-0000-0000-000000000001"), "Dra. Renata Souza", "medico.empresa3@medsync.dev", ClinicRole.Doctor),
                 new(Guid.Parse("12000000-0000-0000-0000-000000000002"), "Joao Beta", "paciente.empresa3@medsync.dev", ClinicRole.Patient),
                 new(Guid.Parse("12000000-0000-0000-0000-000000000006"), "Marcos Clínica Beta", "clinica3.admin@medsync.dev", ClinicRole.ClinicAdmin)
-            ])
+            ]),
+        // ADR-0005: a doctor's own practice. The same account is the doctor and the admin; the front desk is optional.
+        new(
+            ClinicId: Guid.Parse("01000000-0000-0000-0000-000000000004"),
+            Name: "Consultório Dra. Helena Souza",
+            Slug: "consultorio-helena",
+            LegalName: "Helena Souza Serviços Médicos Ltda",
+            TaxId: "42345678000156",
+            PlanName: "Plano Consultório",
+            MonthlyFee: 149.90m,
+            DoctorId: Guid.Parse("20000000-0000-0000-0000-000000000004"),
+            PatientId: Guid.Parse("30000000-0000-0000-0000-000000000004"),
+            AppointmentId: Guid.Parse("40000000-0000-0000-0000-000000000004"),
+            PatientCpf: "41827364513",
+            HasExtraPatients: false,
+            Accounts:
+            [
+                new(Guid.Parse("14000000-0000-0000-0000-000000000001"), "Dra. Helena Souza", "consultorio@medsync.dev", ClinicRole.Doctor),
+                new(Guid.Parse("14000000-0000-0000-0000-000000000001"), "Dra. Helena Souza", "consultorio@medsync.dev", ClinicRole.ClinicAdmin),
+                new(Guid.Parse("14000000-0000-0000-0000-000000000002"), "Lucas Consultório", "paciente.consultorio@medsync.dev", ClinicRole.Patient),
+                new(Guid.Parse("14000000-0000-0000-0000-000000000003"), "Paula Recepção", "recepcao.consultorio@medsync.dev", ClinicRole.Receptionist)
+            ],
+            IsPrivatePractice: true,
+            Specialty: "Cardiologia")
     ];
 
     private static readonly ExtraPatient[] ExtraPatients =
@@ -155,6 +178,7 @@ public static class DatabaseSeeder
         clinic.ActivatedAt ??= DateTime.UtcNow;
         clinic.PlanName = demo.PlanName;
         clinic.MonthlyFee = demo.MonthlyFee;
+        clinic.IsPrivatePractice = demo.IsPrivatePractice;
         if (!clinic.HasAddress && DemoAddresses.TryGetValue(demo.Slug, out var address))
         {
             clinic.AddressZipCode = address.ZipCode;
@@ -176,6 +200,13 @@ public static class DatabaseSeeder
         }
 
         var doctor = await EnsureDoctorAsync(db, demo, users[ClinicRole.Doctor], cancellationToken);
+        // A consultório has its owner as technical director (ADR-0005).
+        if (demo.IsPrivatePractice && clinic.TechnicalDirectorName is null)
+        {
+            clinic.TechnicalDirectorName = doctor.Name;
+            clinic.TechnicalDirectorCrm = new string(doctor.Crm.Where(char.IsDigit).ToArray());
+            clinic.TechnicalDirectorCrmUf = doctor.CrmUf;
+        }
         var patient = await EnsurePatientAsync(
             db, demo.ClinicId, demo.PatientId, users[ClinicRole.Patient], demo.PatientCpf, new DateOnly(1990, 5, 14), "(11) 99999-0202", cancellationToken);
         await EnsureAppointmentAsync(db, demo, doctor.Id, patient.Id, cancellationToken);
@@ -261,7 +292,7 @@ public static class DatabaseSeeder
                 Email = doctorUser.Email,
                 Crm = $"CRM-SP {demo.DoctorId.ToString("N")[..6]}",
                 CrmUf = "SP",
-                Specialty = "Clínica geral",
+                Specialty = demo.Specialty,
                 Phone = "(11) 99999-0101"
             };
             db.Doctors.Add(doctor);
@@ -273,7 +304,7 @@ public static class DatabaseSeeder
         doctor.Name = doctorUser.Name;
         doctor.Email = doctorUser.Email;
         doctor.CrmUf = "SP";
-        doctor.Specialty = "Clínica geral";
+        doctor.Specialty = demo.Specialty;
         return doctor;
     }
 
@@ -391,6 +422,7 @@ public static class DatabaseSeeder
         ["clinica-demo"] = new("01310-100", "Avenida Paulista", "1000", "sala 32", "Bela Vista", "São Paulo", "SP", "(11) 3000-0000"),
         ["clinica-alfa"] = new("01304-000", "Rua Augusta", "500", null, "Consolação", "São Paulo", "SP", "(11) 3000-0001"),
         ["clinica-beta"] = new("20040-002", "Avenida Rio Branco", "100", "4º andar", "Centro", "Rio de Janeiro", "RJ", "(21) 3000-0002"),
+        ["consultorio-helena"] = new("01414-001", "Rua Haddock Lobo", "595", "conj. 81", "Cerqueira César", "São Paulo", "SP", "(11) 3000-0004"),
     };
 
     private sealed record DemoAddress(
@@ -416,7 +448,9 @@ public static class DatabaseSeeder
         Guid AppointmentId,
         string PatientCpf,
         bool HasExtraPatients,
-        DemoAccount[] Accounts);
+        DemoAccount[] Accounts,
+        bool IsPrivatePractice = false,
+        string Specialty = "Clínica geral");
 
     private sealed record DemoAccount(
         Guid Id,

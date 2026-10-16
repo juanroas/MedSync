@@ -170,9 +170,9 @@ function PatientsRegistry() {
     <>
       <PageHeader
         eyebrow={isPatient ? "MedSync Care" : "Cadastros"}
-        title={isDoctor ? "Pacientes vinculados" : isPatient ? "Meu cadastro" : "Pacientes"}
+        title={isDoctor && !canManage ? "Pacientes vinculados" : isPatient ? "Meu cadastro" : "Pacientes"}
         description={
-          isDoctor
+          isDoctor && !canManage
             ? "Pacientes aparecem aqui somente quando existe consulta vinculada ao seu atendimento."
             : isPatient
               ? "Confira e atualize seus dados cadastrais permitidos."
