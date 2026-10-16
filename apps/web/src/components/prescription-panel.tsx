@@ -162,7 +162,7 @@ export function PrescriptionPanel({
           </div>
           <h2 className="text-xl font-bold text-ink">Receita</h2>
           <p className="mt-1 text-sm leading-6 text-slate-500">
-            Monte a receita com a base de medicamentos da Anvisa. Controlados (Portaria 344) não são emitidos aqui.
+            Monte a receita com a base de medicamentos da Anvisa. Controle especial (Portaria 344) não assina eletronicamente: sai impresso para assinar à mão ou em PDF para assinar fora do MedSync.
           </p>
         </div>
         {!draft && !canIssue && (

@@ -4,7 +4,7 @@ import { AlertBanner, Button, Card, ErrorBanner, LoadingState, PageHeader, TextA
 import { ClinicalAttachmentsPanel } from "@/components/clinical-attachments-panel";
 import { PrescriptionPanel } from "@/components/prescription-panel";
 import { PrescriptionHistory } from "@/components/prescription-history";
-import { formatDateTime } from "@/lib/format";
+import { formatDateTime, statusLabel } from "@/lib/format";
 import type { Appointment, ClinicalRecord, PatientClinicalRecord } from "@/lib/types";
 import { ApiError, api, getSession } from "@/services/api";
 import { ArrowLeft, ClipboardPlus, Eye, FileClock, Mic, MicOff, Pill, Save, ShieldCheck, Stethoscope, X } from "lucide-react";
@@ -249,7 +249,7 @@ export default function ClinicalRecordPage() {
       <PageHeader
         eyebrow="MedSync Medical"
         title="Prontuário do atendimento"
-        description="Registre a evolucao clínica do atendimento e consulte o histórico assistencial do paciente."
+        description="Registre a evolução clínica do atendimento e consulte o histórico assistencial do paciente."
         action={<BackToSchedule />}
       />
 
@@ -278,7 +278,7 @@ export default function ClinicalRecordPage() {
                 </div>
                 <div className="grid gap-3 text-sm text-slate-500 sm:grid-cols-2 lg:min-w-80">
                   <InfoPill label="Horário" value={formatDateTime(appointment.scheduledAt)} />
-                  <InfoPill label="Status" value={appointment.status} />
+                  <InfoPill label="Situação" value={statusLabel[appointment.status]} />
                 </div>
               </div>
               {appointment.patientContinuousMedications && !canEditClinicalRecord && (
@@ -300,7 +300,7 @@ export default function ClinicalRecordPage() {
                   </div>
                   <h2 className="text-xl font-bold text-ink">Registro clínico</h2>
                   <p className="mt-1 text-sm leading-6 text-slate-500">
-                    Use este campo para evolucao, achados relevantes, orientação e conduta do atendimento.
+                    Use este campo para evolução, achados relevantes, orientação e conduta do atendimento.
                   </p>
                 </div>
                 <div className="flex shrink-0 flex-col items-end gap-2">
@@ -325,7 +325,7 @@ export default function ClinicalRecordPage() {
 
               <form onSubmit={saveRecord} className="space-y-4">
                 <label className="block">
-                  <span className="mb-2 block text-sm font-bold text-ink">Evolucao e conduta</span>
+                  <span className="mb-2 block text-sm font-bold text-ink">Evolução e conduta</span>
                   <TextArea
                     value={content}
                     onChange={(event) => setContent(event.target.value)}
@@ -346,10 +346,10 @@ export default function ClinicalRecordPage() {
                 )}
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <p className="text-xs text-slate-400">
-                    {content.length}/{MAX_RECORD_LENGTH} caracteres. Alteracoes geram versao e trilha de auditoria.
+                    {content.length}/{MAX_RECORD_LENGTH} caracteres. Alterações geram versão e trilha de auditoria.
                   </p>
                   <Button type="submit" isLoading={saving} disabled={!canEditClinicalRecord || saving}>
-                    <Save size={17} /> Salvar prontuario
+                    <Save size={17} /> Salvar prontuário
                   </Button>
                 </div>
               </form>

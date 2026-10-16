@@ -692,7 +692,7 @@ function RoomClinicalRecordPanel({
 
           <label className="block">
             <span className="mb-2 block text-xs font-bold uppercase tracking-[0.08em] text-white/50">
-              Evolucao e conduta
+              Evolução e conduta
             </span>
             <TextArea
               value={content}
