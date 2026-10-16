@@ -3,6 +3,7 @@ import type {
   AppointmentReport,
   ClinicInvoice,
   InvoicePaymentMethod,
+  PatientPrescriptionHistory,
   AvailableDays,
   MedicationSearchItem,
   PatientMedications,
@@ -515,6 +516,8 @@ export const api = {
     download(`/billing/report/pdf?${new URLSearchParams({ from, to })}`, `relatorio-financeiro-${from}-a-${to}.pdf`),
   downloadAttendanceDeclaration: (appointmentId: string) =>
     download(`/appointments/${appointmentId}/attendance-declaration`, "declaracao-de-comparecimento.pdf"),
+  getPatientPrescriptions: (patientId: string) =>
+    request<PatientPrescriptionHistory[]>(`/patients/${patientId}/prescriptions`),
   getPatientMedications: (patientId: string) =>
     request<PatientMedications>(`/patients/${patientId}/medications`),
   createAppointment: (appointment: {

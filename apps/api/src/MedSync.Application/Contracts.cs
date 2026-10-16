@@ -638,6 +638,24 @@ public sealed record MedicationInUseResponse(
     string PrescribedBy,
     Guid PrescriptionId);
 
+// Earlier prescriptions of one patient, for the doctor who attends that patient (in the call and in the record).
+public sealed record PatientPrescriptionLine(
+    string MedicationName,
+    string? Dosage,
+    string Instructions,
+    string? Quantity,
+    bool ContinuousUse);
+
+public sealed record PatientPrescriptionHistoryItem(
+    Guid Id,
+    Guid AppointmentId,
+    DateTime IssuedAt,
+    string DoctorName,
+    PrescriptionKind Kind,
+    PrescriptionStatus Status,
+    bool Simulated,
+    IReadOnlyList<PatientPrescriptionLine> Items);
+
 public sealed record PatientMedicationsResponse(
     IReadOnlyList<MedicationInUseResponse> Items,
     string? LegacyNote);

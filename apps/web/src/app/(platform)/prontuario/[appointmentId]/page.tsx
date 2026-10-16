@@ -3,6 +3,7 @@
 import { AlertBanner, Button, Card, ErrorBanner, LoadingState, PageHeader, TextArea } from "@/components/ui";
 import { ClinicalAttachmentsPanel } from "@/components/clinical-attachments-panel";
 import { PrescriptionPanel } from "@/components/prescription-panel";
+import { PrescriptionHistory } from "@/components/prescription-history";
 import { formatDateTime } from "@/lib/format";
 import type { Appointment, ClinicalRecord, PatientClinicalRecord } from "@/lib/types";
 import { ApiError, api, getSession } from "@/services/api";
@@ -425,6 +426,12 @@ export default function ClinicalRecordPage() {
                 </div>
               )}
             </Card>
+
+            {canEditClinicalRecord && (
+              <Card>
+                <PrescriptionHistory patientId={appointment.patientId} currentAppointmentId={appointmentId} />
+              </Card>
+            )}
 
             <ClinicalAttachmentsPanel appointmentId={appointmentId} canUpload={canUploadClinicalAttachment} />
           </aside>

@@ -149,6 +149,40 @@ test.describe("receita do atendimento", () => {
     expect(pdf.status()).toBe(200);
   });
 
+  test("medico ve as receitas anteriores so do paciente que atende; ADM, recepcao e paciente nao", async () => {
+    const doctor = await request.newContext({ baseURL: baseApiURL });
+    await loginByApi(doctor, users.doctor);
+    const appointments = ((await (await doctor.get("/appointments")).json()) as Array<{ id: string; status: string; patientId: string }>).filter(
+      (item) => item.status !== "Cancelled",
+    );
+    test.skip(appointments.length === 0, "sem consulta do medico");
+    const { id: appointmentId, patientId } = appointments[0];
+    const medication = `Historico E2E ${Date.now().toString().slice(-6)}`;
+    const created = await doctor.post(`/appointments/${appointmentId}/prescriptions`, {
+      data: { kind: "Simple", patientLocation: "São Paulo/SP", items: [{ medicationName: medication, instructions: "1 ao dia", continuousUse: false }] },
+    });
+    const prescriptionId = ((await created.json()) as { id: string }).id;
+    // A draft is not history yet; once issued it is.
+    let history = (await (await doctor.get(`/patients/${patientId}/prescriptions`)).json()) as Array<{ id: string; items: Array<{ medicationName: string }> }>;
+    expect(history.some((item) => item.id === prescriptionId)).toBe(false);
+    expect((await doctor.post(`/prescriptions/${prescriptionId}/issue-paper`)).status()).toBe(200);
+    history = (await (await doctor.get(`/patients/${patientId}/prescriptions`)).json()) as typeof history;
+    expect(history.find((item) => item.id === prescriptionId)?.items[0].medicationName).toBe(medication);
+    await doctor.dispose();
+
+    for (const email of [users.clinicAdmin, users.receptionist, users.patient]) {
+      const context = await request.newContext({ baseURL: baseApiURL });
+      await loginByApi(context, email);
+      expect((await context.get(`/patients/${patientId}/prescriptions`)).status(), email).toBe(403);
+      await context.dispose();
+    }
+    // A doctor of another clinic does not even find the patient.
+    const other = await request.newContext({ baseURL: baseApiURL });
+    await loginByApi(other, users.clinic2Doctor);
+    expect((await other.get(`/patients/${patientId}/prescriptions`)).status()).toBe(404);
+    await other.dispose();
+  });
+
   test("ADM da clinica e suporte nao veem receitas", async () => {
     const doctor = await request.newContext({ baseURL: baseApiURL });
     await loginByApi(doctor, users.doctor);

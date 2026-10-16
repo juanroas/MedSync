@@ -1,5 +1,5 @@
-import { expect, test } from "@playwright/test";
-import { loginByUi, sharedPassword, users } from "./fixtures";
+import { expect, request, test } from "@playwright/test";
+import { baseApiURL, loginByApi, loginByUi, sharedPassword, users } from "./fixtures";
 
 function brazilDatePlus(days: number) {
   const date = new Date(Date.now() - 3 * 60 * 60 * 1000);
@@ -36,7 +36,22 @@ test.describe("agenda do medico", () => {
   });
 
   test("horarios de atendimento: faixa presencial, regras e folga", async ({ page }) => {
-    await loginByUi(page, users.doctor);
+    // Own doctor: other specs book with Dra. Marina in parallel, and this test changes the weekly windows and rules.
+    const seed = Date.now().toString().slice(-6);
+    const email = `agenda.${seed}@example.test`;
+    const admin = await request.newContext({ baseURL: baseApiURL });
+    await loginByApi(admin, users.clinicAdmin);
+    const created = await admin.post("/doctors", {
+      data: { name: `Dra. Agenda ${seed}`, email, crm: `8${seed}`, crmUf: "SP", specialty: "Clínica geral", temporaryPassword: "Temporaria123!" },
+    });
+    expect(created.status(), await created.text()).toBeLessThan(400);
+    const doctorApi = await request.newContext({ baseURL: baseApiURL });
+    await doctorApi.post("/auth/login", { data: { email, password: "Temporaria123!" } });
+    const changed = await doctorApi.post("/auth/change-password", { data: { currentPassword: "Temporaria123!", newPassword: sharedPassword } });
+    expect(changed.status(), await changed.text()).toBeLessThan(400);
+    await Promise.all([admin.dispose(), doctorApi.dispose()]);
+
+    await loginByUi(page, email);
     await page.getByRole("link", { name: /^agenda$/i }).click();
     await page.getByRole("link", { name: /horários de atendimento/i }).click();
     await expect(page.getByRole("heading", { name: /horários de atendimento/i })).toBeVisible();

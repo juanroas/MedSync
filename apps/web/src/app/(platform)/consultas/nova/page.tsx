@@ -331,7 +331,7 @@ function PatientRequestForm({
   if (specialties.length === 0) {
     return (
       <div className="rounded-3xl border border-amber-100 bg-amber-50 p-6 text-sm text-amber-800">
-        Nenhuma especialidade está disponível para solicitação neste momento. Fale com o suporte MedSync.
+        Ainda não há médico com horários abertos para solicitar consulta. Fale com a clínica para agendar.
       </div>
     );
   }
@@ -530,17 +530,10 @@ function PatientRequestForm({
               )}
             </div>
           ) : (
-            <label className="block sm:col-span-2">
-              <span className="mb-2 block text-sm font-bold text-slate-700">Data e horário (Brasília)</span>
-              <input
-                className={inputClass}
-                type="datetime-local"
-                value={form.scheduledAt}
-                onChange={(event) => onChange({ ...form, scheduledAt: event.target.value })}
-                min={formatBrazilDateTimeInput()}
-                required
-              />
-            </label>
+            // Only doctors with their own time windows are offered: no window, no booking by the patient.
+            <p className="rounded-lg border border-amber-100 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-800 sm:col-span-2">
+              Escolha um médico com horários disponíveis.
+            </p>
           )}
           <label className="block sm:col-span-2">
             <span className="mb-2 block text-sm font-bold text-slate-700">Observação para o atendimento</span>

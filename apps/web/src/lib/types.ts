@@ -648,3 +648,15 @@ export function invoiceStatusLabel(invoice: Pick<ClinicInvoice, "status" | "over
   if (invoice.status === "Cancelled") return "Cancelada";
   return invoice.overdue ? "Em atraso" : "Em aberto";
 }
+
+// Earlier prescriptions of one patient, for the doctor who attends that patient (call and record).
+export type PatientPrescriptionHistory = {
+  id: string;
+  appointmentId: string;
+  issuedAt: string;
+  doctorName: string;
+  kind: PrescriptionKind;
+  status: PrescriptionStatus;
+  simulated: boolean;
+  items: Array<{ medicationName: string; dosage?: string | null; instructions: string; quantity?: string | null; continuousUse: boolean }>;
+};

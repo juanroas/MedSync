@@ -481,6 +481,7 @@ public static partial class ApiEndpoints
         "Prescription.DownloadPdf" => "Baixou o PDF da receita",
         "Prescription.DeleteDraft" => "Excluiu rascunho de receita",
         "Prescription.MedicationsInUse" => "Consultou as medicações em uso",
+        "Prescription.History" => "Consultou as receitas anteriores",
         "Privacy.DataAccessReport" => "Gerou o relatório de acessos (LGPD)",
         _ => action
     };

@@ -5,6 +5,7 @@ import "@livekit/components-styles";
 import { ClinicalAttachmentsPanel } from "@/components/clinical-attachments-panel";
 import { useRealtimeConnected, useRealtimeRefresh } from "@/lib/realtime";
 import { EndConsultationDialog } from "@/components/end-consultation-dialog";
+import { PrescriptionHistory } from "@/components/prescription-history";
 import { ErrorBanner, LoadingState, TextArea, buttonClass, cn } from "@/components/ui";
 import { formatDateTime } from "@/lib/format";
 import type { Appointment, ClinicalRecord, PatientClinicalRecord } from "@/lib/types";
@@ -590,6 +591,7 @@ export function ConsultationRoom({ appointmentId }: { appointmentId: string }) {
           ) : sidebarMode === "history" && canEditClinicalRecord ? (
             <RoomHistoryPanel
               currentAppointmentId={appointmentId}
+              patientId={appointment.patientId}
               records={patientHistory}
               loading={historyLoading}
               error={historyError}
@@ -737,12 +739,14 @@ function RoomClinicalRecordPanel({
 
 function RoomHistoryPanel({
   currentAppointmentId,
+  patientId,
   records,
   loading,
   error,
   continuousMedications,
 }: {
   currentAppointmentId: string;
+  patientId: string;
   records: PatientClinicalRecord[];
   loading: boolean;
   error: string;
@@ -800,6 +804,8 @@ function RoomHistoryPanel({
           ))}
         </div>
       )}
+
+      <PrescriptionHistory patientId={patientId} currentAppointmentId={currentAppointmentId} variant="dark" />
 
       <a
         href={`/prontuario/${currentAppointmentId}`}

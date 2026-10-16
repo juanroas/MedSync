@@ -1975,9 +1975,11 @@ public static partial class ApiEndpoints
             .Where(x => Offers(x, modality))
             .ToList();
 
+        // A doctor who attends in more than one place is one person: busy anywhere is busy here.
+        var doctorUserId = doctor.UserId;
         var busy = await db.Appointments.AsNoTracking()
             .Where(x =>
-                x.DoctorId == doctor.Id &&
+                (x.DoctorId == doctor.Id || (doctorUserId != null && x.Doctor.UserId == doctorUserId)) &&
                 x.Status != AppointmentStatus.Cancelled &&
                 x.Status != AppointmentStatus.Completed)
             .Select(x => new { x.ScheduledAt, x.DurationMinutes })
@@ -1991,7 +1993,7 @@ public static partial class ApiEndpoints
     }
 
     // Days with at least one free slot, so the patient's calendar only offers dates that can be booked.
-    // A doctor with no availability windows has an open schedule (Restricted = false), as before.
+    // A doctor with no availability windows offers the patient no days; the front desk gets Restricted = false (fit-in by hand).
     // The range never goes past the doctor's booking window, and days off offer nothing.
     private static async Task<IResult> GetAvailableDays(
         Guid id,
@@ -2024,15 +2026,17 @@ public static partial class ApiEndpoints
         var allWindows = await db.DoctorAvailabilitySlots.AsNoTracking()
             .Where(x => x.DoctorId == doctor.Id)
             .ToListAsync(cancellationToken);
+        // No windows: the front desk may still fit the patient in by hand; the patient gets no days.
         if (allWindows.Count == 0)
-            return Results.Ok(new AvailableDaysResponse(false, start, end, []));
+            return Results.Ok(new AvailableDaysResponse(!actor.HasAny(AccessRules.ManageAppointments), start, end, []));
         var windows = allWindows.Where(x => Offers(x, modality)).ToList();
 
         var rangeStartUtc = DateTime.SpecifyKind(start.ToDateTime(TimeOnly.MinValue) - BrazilUtcOffset, DateTimeKind.Utc);
         var rangeEndUtc = DateTime.SpecifyKind(end.AddDays(1).ToDateTime(TimeOnly.MinValue) - BrazilUtcOffset, DateTimeKind.Utc);
+        var doctorUserId = doctor.UserId;
         var busy = (await db.Appointments.AsNoTracking()
                 .Where(x =>
-                    x.DoctorId == doctor.Id &&
+                    (x.DoctorId == doctor.Id || (doctorUserId != null && x.Doctor.UserId == doctorUserId)) &&
                     x.Status != AppointmentStatus.Cancelled &&
                     x.Status != AppointmentStatus.Completed &&
                     x.ScheduledAt < rangeEndUtc &&
@@ -2115,8 +2119,9 @@ public static partial class ApiEndpoints
 
         var clinic = await db.Clinics.AsNoTracking().SingleAsync(x => x.Id == actor.ClinicId, cancellationToken);
         var clinicAddress = clinic.FormattedAddress();
+        // The patient only books inside windows the doctor set: a doctor without windows is not offered.
         var doctorsWithAvailability = await db.Doctors.AsNoTracking()
-            .Where(x => x.ClinicId == actor.ClinicId)
+            .Where(x => x.ClinicId == actor.ClinicId && db.DoctorAvailabilitySlots.Any(s => s.DoctorId == x.Id))
             .Select(x => new
             {
                 x.Id,
@@ -2162,11 +2167,9 @@ public static partial class ApiEndpoints
         bool clinicHasAddress)
     {
         var offered = new List<ConsultationModality>();
-        var openSchedule = windowModalities.Count == 0;
-        if (openSchedule || windowModalities.Any(x => x is ConsultationModality.Online or ConsultationModality.Both))
+        if (windowModalities.Any(x => x is ConsultationModality.Online or ConsultationModality.Both))
             offered.Add(ConsultationModality.Online);
-        if (clinicHasAddress &&
-            (openSchedule || windowModalities.Any(x => x is ConsultationModality.InPerson or ConsultationModality.Both)))
+        if (clinicHasAddress && windowModalities.Any(x => x is ConsultationModality.InPerson or ConsultationModality.Both))
             offered.Add(ConsultationModality.InPerson);
         return offered;
     }
@@ -2247,20 +2250,18 @@ public static partial class ApiEndpoints
                 x.BookingWindowDays > daysAhead &&
                 !db.DoctorTimeOffs.Any(t => t.DoctorId == x.Id && t.StartDate <= brazilDate && t.EndDate >= brazilDate) &&
                 !db.Appointments.Any(a =>
-                    a.DoctorId == x.Id &&
+                    (a.DoctorId == x.Id || (x.UserId != null && a.Doctor.UserId == x.UserId)) &&
                     a.Status != AppointmentStatus.Cancelled &&
                     a.Status != AppointmentStatus.Completed &&
                     a.ScheduledAt < scheduledEndsAt &&
                     a.ScheduledAt.AddMinutes(a.DurationMinutes) > scheduledAt) &&
-                // Se o medico configurou disponibilidade, o horario precisa estar dentro dela.
-                // Medicos sem disponibilidade configurada mantem o comportamento anterior (sem restricao).
-                (!db.DoctorAvailabilitySlots.Any(s => s.DoctorId == x.Id) ||
-                 db.DoctorAvailabilitySlots.Any(s =>
-                     s.DoctorId == x.Id &&
-                     s.DayOfWeek == brazilDayOfWeek &&
-                     s.StartTime <= brazilStartTime &&
-                     s.EndTime >= brazilEndTime &&
-                     (s.Modality == modality || s.Modality == ConsultationModality.Both))));
+                // The time must fall inside one of the doctor's own windows; without windows there is no booking.
+                db.DoctorAvailabilitySlots.Any(s =>
+                    s.DoctorId == x.Id &&
+                    s.DayOfWeek == brazilDayOfWeek &&
+                    s.StartTime <= brazilStartTime &&
+                    s.EndTime >= brazilEndTime &&
+                    (s.Modality == modality || s.Modality == ConsultationModality.Both)));
 
         if (request.DoctorId is { } doctorId)
             doctorQuery = doctorQuery.Where(x => x.Id == doctorId);
@@ -2335,13 +2336,19 @@ public static partial class ApiEndpoints
             cancellationToken);
         if (doctor is null || !patientExists)
             return Results.BadRequest(new { message = "Médico ou paciente inválido." });
+        // A fit-in may fall outside the doctor's windows, but never on a day the doctor blocked.
+        var brazilDate = DateOnly.FromDateTime(scheduledAt + BrazilUtcOffset);
+        if (await db.DoctorTimeOffs.AnyAsync(
+                x => x.DoctorId == doctor.Id && x.StartDate <= brazilDate && x.EndDate >= brazilDate, cancellationToken))
+            return Results.Conflict(new { message = "O médico bloqueou este dia na agenda (folga). Escolha outra data." });
         var (location, locationError) = await ResolveLocationAsync(db, actor.ClinicId, request.Modality, cancellationToken);
         if (locationError is not null)
             return locationError;
         var scheduledEndsAt = scheduledAt.AddMinutes(request.DurationMinutes);
+        // Same person in another place counts too: a doctor is never booked twice at the same time.
+        var doctorUserId = doctor.UserId;
         var hasConflict = await db.Appointments.AnyAsync(
-            x => x.ClinicId == actor.ClinicId &&
-                 x.DoctorId == request.DoctorId &&
+            x => (x.DoctorId == doctor.Id || (doctorUserId != null && x.Doctor.UserId == doctorUserId)) &&
                  x.Status != AppointmentStatus.Cancelled &&
                  x.Status != AppointmentStatus.Completed &&
                  x.ScheduledAt < scheduledEndsAt &&
@@ -3153,7 +3160,8 @@ public static partial class ApiEndpoints
         }
         else if (actor.HasAny(ClinicRole.Doctor))
         {
-            query = query.Where(x => x.Doctor.UserId == actor.UserId);
+            // Only the place chosen in "Local de atendimento": each place's data stays apart.
+            query = query.Where(x => x.ClinicId == actor.ClinicId && x.Doctor.UserId == actor.UserId);
         }
         else if (actor.HasAny(ClinicRole.Patient))
         {
@@ -3220,7 +3228,7 @@ public static partial class ApiEndpoints
         if (actor.HasAny(AccessRules.ViewAllAppointments))
             query = query.Where(x => x.ClinicId == actor.ClinicId);
         else if (actor.HasAny(ClinicRole.Doctor))
-            query = query.Where(x => x.Doctor.UserId == actor.UserId);
+            query = query.Where(x => x.ClinicId == actor.ClinicId && x.Doctor.UserId == actor.UserId);
         else if (actor.HasAny(ClinicRole.Patient))
             query = query.Where(x => x.ClinicId == actor.ClinicId && x.Patient.UserId == actor.UserId);
         else

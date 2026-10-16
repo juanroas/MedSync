@@ -28,6 +28,8 @@ test.describe("recepcao agenda pelo paciente", () => {
       await expect(page.getByTestId("selected-patient")).toContainText("Carlos Oliveira");
       await expect(page.getByTestId("selected-patient")).toContainText("mãe:");
 
+      // Other specs create doctors in parallel; pick Dra. Marina instead of relying on the first one in the list.
+      await page.getByRole("combobox", { name: "Médico" }).selectOption({ label: "Dra. Marina Costa — Clínica geral" });
       await expect(page.getByRole("button", { name: "Presencial" })).toHaveAttribute("aria-pressed", "true");
       const calendar = page.getByRole("grid", { name: /dias disponíveis/i });
       await calendar.getByRole("button", { name: `${tomorrow.getUTCDate()}, com horários` }).click();
@@ -50,6 +52,43 @@ test.describe("recepcao agenda pelo paciente", () => {
       }
       await doctor.delete(`/doctors/me/availability/${window.id}`);
       await doctor.dispose();
+    }
+  });
+});
+
+test.describe("encaixe respeita a folga do medico", () => {
+  test.skip(!sharedPassword, "defina MEDSYNC_E2E_PASSWORD para executar login E2E");
+
+  test("recepcao nao encaixa consulta num dia que o medico bloqueou", async () => {
+    // Dia bloqueado só por este teste (o spec da agenda usa outro dia).
+    const blocked = new Date(Date.now() - 3 * 3600_000 + 47 * 24 * 3600_000).toISOString().slice(0, 10);
+    const doctor = await request.newContext({ baseURL: baseApiURL });
+    const reception = await request.newContext({ baseURL: baseApiURL });
+    await loginByApi(doctor, users.doctor);
+    await loginByApi(reception, users.receptionist);
+    const created = await doctor.post("/doctors/me/time-off", { data: { startDate: blocked, endDate: blocked, reason: "Folga E2E" } });
+    expect(created.status()).toBeLessThan(400);
+    const timeOff = (await created.json()) as { id: string };
+
+    try {
+      const patients = (await (await reception.get("/patients")).json()) as Array<{ id: string; email: string }>;
+      const doctors = (await (await reception.get("/doctors")).json()) as Array<{ id: string; email: string }>;
+      const fitIn = await reception.post("/appointments", {
+        data: {
+          doctorId: doctors.find((item) => item.email === users.doctor)!.id,
+          patientId: patients.find((item) => item.email === users.patient)!.id,
+          scheduledAt: new Date(`${blocked}T10:00:00-03:00`).toISOString(),
+          durationMinutes: 30,
+          modality: "Online",
+          paymentRequired: false,
+        },
+      });
+      expect(fitIn.status()).toBe(409);
+      expect(((await fitIn.json()) as { message: string }).message).toContain("folga");
+    } finally {
+      await doctor.delete(`/doctors/me/time-off/${timeOff.id}`);
+      await doctor.dispose();
+      await reception.dispose();
     }
   });
 });

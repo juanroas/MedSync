@@ -29,6 +29,55 @@ public static partial class ApiEndpoints
         protectedApi.MapGet("/signature/session", GetSigningSession);
         protectedApi.MapDelete("/signature/session", EndSigningSession);
         protectedApi.MapGet("/patients/{patientId:guid}/medications", GetPatientMedications);
+        protectedApi.MapGet("/patients/{patientId:guid}/prescriptions", GetPatientPrescriptionHistory);
+    }
+
+    // The patient's earlier prescriptions (signed or issued outside the MedSync signature), for the doctor who attends
+    // this patient: shown in the call and in the record. Never another patient's, never for staff (rule C1).
+    private static async Task<IResult> GetPatientPrescriptionHistory(
+        Guid patientId,
+        ClaimsPrincipal principal,
+        MedSyncDbContext db,
+        AuditWriter audit,
+        CancellationToken cancellationToken)
+    {
+        var actor = RequestContext.From(principal);
+        var exists = await db.Patients.AsNoTracking().AnyAsync(x => x.Id == patientId && x.ClinicId == actor.ClinicId, cancellationToken);
+        if (!exists)
+            return Results.NotFound();
+        if (!await CanViewPatientClinicalHistory(db, actor, patientId, cancellationToken))
+        {
+            audit.Add(actor, "Prescription.History", "Patient", patientId, "Denied", "Só o médico que atende o paciente vê as receitas anteriores.");
+            await db.SaveChangesAsync(cancellationToken);
+            return Results.Forbid();
+        }
+
+        var prescriptions = await db.Prescriptions.AsNoTracking()
+            .Where(x => x.ClinicId == actor.ClinicId &&
+                        x.PatientId == patientId &&
+                        (x.Status == PrescriptionStatus.Signed || x.Status == PrescriptionStatus.IssuedOnPaper))
+            .OrderByDescending(x => x.SignedAt ?? x.IssuedOnPaperAt ?? x.CreatedAt)
+            .Take(100)
+            .Select(x => new
+            {
+                x.Id,
+                x.AppointmentId,
+                IssuedAt = x.SignedAt ?? x.IssuedOnPaperAt ?? x.CreatedAt,
+                DoctorName = x.Appointment.Doctor.Name,
+                x.Kind,
+                x.Status,
+                x.SignatureSimulated,
+                Items = x.Items.OrderBy(i => i.Position)
+                    .Select(i => new PatientPrescriptionLine(i.MedicationName, i.Dosage, i.Instructions, i.Quantity, i.ContinuousUse))
+                    .ToList()
+            })
+            .ToListAsync(cancellationToken);
+
+        audit.Add(actor, "Prescription.History", "Patient", patientId);
+        await db.SaveChangesAsync(cancellationToken);
+        return Results.Ok(prescriptions
+            .Select(x => new PatientPrescriptionHistoryItem(x.Id, x.AppointmentId, x.IssuedAt, x.DoctorName, x.Kind, x.Status, x.SignatureSimulated, x.Items))
+            .ToList());
     }
 
     // The certificate app returns the doctor's browser here after approval; the single-use state proves who started it.
