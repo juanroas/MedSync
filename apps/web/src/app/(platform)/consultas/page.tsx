@@ -2,6 +2,7 @@
 
 import { useRealtimeRefresh } from "@/lib/realtime";
 
+import { AppointmentDocumentsDialog } from "@/components/appointment-documents-dialog";
 import { useConfirm } from "@/components/dialog";
 import { DoctorAgenda } from "@/components/doctor-agenda";
 import { EmptyState, ErrorBanner, LoadingState, PageHeader } from "@/components/ui";
@@ -18,7 +19,7 @@ import {
 import { formatDateTime, statusClass, statusLabel } from "@/lib/format";
 import type { Appointment } from "@/lib/types";
 import { api, getSession } from "@/services/api";
-import { CalendarClock, CalendarDays, Clock3, FileText, MapPin, Plus, Stethoscope, UserRound, Video, XCircle } from "lucide-react";
+import { CalendarClock, CalendarDays, Clock3, FileText, FolderOpen, MapPin, Plus, Stethoscope, UserRound, Video, XCircle } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -82,6 +83,9 @@ function AppointmentsList() {
   const [endingId, setEndingId] = useState("");
   const [cancelingId, setCancelingId] = useState("");
   const [declarationId, setDeclarationId] = useState("");
+  const [documentsOf, setDocumentsOf] = useState<Appointment | null>(null);
+  // Stable: the list re-renders every minute and the dialog would take the focus back each time.
+  const closeDocuments = useCallback(() => setDocumentsOf(null), []);
   const [tab, setTab] = useState<AppointmentTab>("active");
   const [, setNowTick] = useState(() => Date.now());
   const isMountedRef = useRef(false);
@@ -178,7 +182,8 @@ function AppointmentsList() {
     }
   }
 
-  // Proof of attendance for work or school: the patient, the front desk or the doctor downloads it once concluded.
+  // Proof of attendance for work or school: the front desk or the doctor downloads it once the doctor signed it.
+  // The patient finds it in "Documentos" with the rest of what the doctor signed.
   async function downloadDeclaration(appointmentId: string) {
     setDeclarationId(appointmentId);
     setError("");
@@ -266,7 +271,17 @@ function AppointmentsList() {
           <AppointmentNextStep appointment={appointment} />
         )}
 
-        {appointment.status === "Completed" && (isPatient || canOperationalSchedule || mine) && (
+        {isPatient && (appointment.documentCount ?? 0) > 0 && (
+          <button
+            type="button"
+            onClick={() => setDocumentsOf(appointment)}
+            className="inline-flex h-10 items-center justify-center gap-1.5 px-3 text-xs font-bold text-teal-700 hover:text-teal-900"
+          >
+            <FolderOpen size={14} /> Documentos ({appointment.documentCount})
+          </button>
+        )}
+
+        {appointment.status === "Completed" && appointment.attendanceDeclarationId && !isPatient && (canOperationalSchedule || mine) && (
           <button
             type="button"
             onClick={() => downloadDeclaration(appointment.id)}
@@ -326,6 +341,13 @@ function AppointmentsList() {
       />
       {error && <ErrorBanner message={error} />}
       {confirmDialog}
+      {documentsOf && (
+        <AppointmentDocumentsDialog
+          appointmentId={documentsOf.id}
+          doctorName={documentsOf.doctorName}
+          onClose={closeDocuments}
+        />
+      )}
 
       {loading ? (
         <LoadingState label="Carregando agenda..." />

@@ -462,6 +462,49 @@ public sealed class PrescriptionItem
     public bool ContinuousUse { get; set; }
 }
 
+public enum MedicalDocumentKind
+{
+    // Blank document on the standard layout (title, patient, free text): laudo, relatório, orientações.
+    Report,
+    // Proof that the patient attended, with arrival and departure times. Signed by the doctor (28/10/2026).
+    AttendanceDeclaration
+}
+
+public enum MedicalDocumentStatus
+{
+    Draft,
+    Signed
+}
+
+// Documents the doctor writes and signs besides prescriptions (.agents/rules/medical-documents.md). The patient
+// only sees a document once it is signed; drafts never leave the doctor.
+public sealed class MedicalDocument
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid ClinicId { get; set; }
+    public Guid AppointmentId { get; set; }
+    public Appointment Appointment { get; set; } = null!;
+    public Guid PatientId { get; set; }
+    public Guid DoctorId { get; set; }
+    public Guid CreatedByUserId { get; set; }
+    public MedicalDocumentKind Kind { get; set; }
+    public MedicalDocumentStatus Status { get; set; } = MedicalDocumentStatus.Draft;
+    public required string Title { get; set; }
+    // Report: the doctor's text. Declaration: empty, its text comes from the attendance times.
+    public string Body { get; set; } = "";
+    // CFM 2.314 art. 13: where the patient said they were during the teleconsultation.
+    public string? PatientLocation { get; set; }
+    public DateTime? AttendanceStartedAt { get; set; }
+    public DateTime? AttendanceEndedAt { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime? SignedAt { get; set; }
+    public string? SignedDocumentKey { get; set; }
+    public string? SignedDocumentSha256 { get; set; }
+    // Signed by the demonstration simulator: no legal validity, watermarked everywhere.
+    public bool SignatureSimulated { get; set; }
+}
+
 // Rule C3: why the Médico ADM MedSync opened a record outside their own care.
 public enum ClinicalAccessReason
 {

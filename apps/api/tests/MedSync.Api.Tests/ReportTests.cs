@@ -6,7 +6,7 @@ using Xunit;
 
 namespace MedSync.Api.Tests;
 
-// Reports never carry clinical content (rule C5); these cover the outcome reading, the CSV and the three PDFs.
+// Reports never carry clinical content (rule C5); these cover the outcome reading, the CSV and the PDFs.
 public class ReportTests
 {
     private static readonly DateTime Scheduled = new(2026, 10, 14, 13, 0, 0, DateTimeKind.Utc);
@@ -54,10 +54,7 @@ public class ReportTests
             [new DataAccessEntry(Scheduled, "Dra. Marina", "Médico", "Leu o prontuário da consulta", "Permitido", "Clínica Demo")],
             "o próprio titular",
             Scheduled);
-        var declaration = ReportPdf.AttendanceDeclaration(new AttendanceDeclarationData(
-            Guid.NewGuid(), "Clínica Demo", "Clínica Demo Ltda", "12345678000190", "Av. Paulista, 1000 — São Paulo/SP", null, "São Paulo",
-            "Ana Paciente", null, "12345678909", "Dra. Marina", "CRM 123456/SP", true, Scheduled, Scheduled.AddMinutes(30), Scheduled));
-        foreach (var pdf in new[] { appointments, access, declaration })
+        foreach (var pdf in new[] { appointments, access })
             Assert.Equal("%PDF", Encoding.ASCII.GetString(pdf[..4]));
     }
 

@@ -112,7 +112,7 @@ public class PrescriptionPdfTests
                 }
             ]);
 
-    private static X509Certificate2 CreateTestCertificate()
+    internal static X509Certificate2 CreateTestCertificate()
     {
         using var key = RSA.Create(2048);
         var request = new CertificateRequest("CN=MedSync TESTE sem validade", key, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
@@ -121,7 +121,7 @@ public class PrescriptionPdfTests
     }
 
     // Reads /ByteRange and /Contents the way a validator does.
-    private static (byte[] SignedContent, byte[] Cms) ReadSignature(byte[] pdf)
+    internal static (byte[] SignedContent, byte[] Cms) ReadSignature(byte[] pdf)
     {
         var text = Encoding.Latin1.GetString(pdf);
         var range = Regex.Match(text, @"/ByteRange\s*\[\s*(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s*\]");

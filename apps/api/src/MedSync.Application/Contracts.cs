@@ -327,7 +327,11 @@ public sealed record AppointmentResponse(
     bool DoctorJoined = false,
     bool PatientJoined = false,
     ConsultationModality Modality = ConsultationModality.Online,
-    string? Location = null);
+    string? Location = null,
+    // Patient only: signed documents of this consultation ("Documentos da consulta").
+    int DocumentCount = 0,
+    // Signed attendance declaration: the patient, the assigned doctor and the front desk download it.
+    Guid? AttendanceDeclarationId = null);
 
 public sealed record DoctorAvailabilitySlotResponse(
     Guid Id,
@@ -616,6 +620,70 @@ public sealed record PrescriptionDocumentResponse(
     bool PaperAvailable = false,
     IReadOnlyList<string>? MissingForPaper = null,
     string? ClinicAddress = null);
+
+// Report: Title and Body. Declaration: the attendance times (the title and text are fixed).
+public sealed record SaveMedicalDocumentRequest(
+    MedicalDocumentKind Kind,
+    string? Title,
+    string? Body,
+    string? PatientLocation,
+    DateTime? AttendanceStartedAt,
+    DateTime? AttendanceEndedAt);
+
+public sealed record MedicalDocumentResponse(
+    Guid Id,
+    Guid AppointmentId,
+    MedicalDocumentKind Kind,
+    MedicalDocumentStatus Status,
+    string Title,
+    string Body,
+    string? PatientLocation,
+    DateTime? AttendanceStartedAt,
+    DateTime? AttendanceEndedAt,
+    DateTime CreatedAt,
+    DateTime UpdatedAt,
+    DateTime? SignedAt,
+    bool SignatureSimulated);
+
+// The doctor's panel: the documents plus what the declaration form starts with (room times, informed location).
+public sealed record AppointmentMedicalDocumentsResponse(
+    IReadOnlyList<MedicalDocumentResponse> Documents,
+    DateTime? SuggestedStartedAt,
+    DateTime? SuggestedEndedAt,
+    string? SuggestedPatientLocation);
+
+public sealed record MedicalDocumentPageResponse(
+    MedicalDocumentResponse Document,
+    string DoctorName,
+    string DoctorCrm,
+    string DoctorCrmUf,
+    string DoctorSpecialty,
+    string? DoctorRqe,
+    string DoctorProfessionalAddress,
+    string ClinicName,
+    string? ClinicLegalName,
+    string? ClinicTaxId,
+    string? ClinicAddress,
+    string? ClinicPhone,
+    string? ClinicCity,
+    string PatientName,
+    string? PatientSocialName,
+    string PatientCpf,
+    DateOnly PatientBirthDate,
+    ConsultationModality AppointmentModality,
+    IReadOnlyList<string> MissingForSignature,
+    bool SignatureAvailable);
+
+// "Documentos da consulta" (patient): what the doctor signed, ready to download. FileName is generic on purpose:
+// the title may carry clinical content and file names must not (rule C5).
+public sealed record AppointmentDocumentItem(
+    string Type,
+    Guid Id,
+    string Title,
+    DateTime IssuedAt,
+    bool Simulated,
+    string DownloadPath,
+    string FileName);
 
 public sealed record SpecialPrescriptionIdentification(
     string ClinicName,

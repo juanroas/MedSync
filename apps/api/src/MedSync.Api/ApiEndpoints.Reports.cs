@@ -9,7 +9,7 @@ using Microsoft.EntityFrameworkCore;
 namespace MedSync.Api;
 
 // Reports (14/10/2026): agenda production of the clinic or consultório, the doctor's own production, the LGPD report
-// of who accessed a patient's data, and the attendance declaration. None carries clinical content (rule C5): names,
+// of who accessed a patient's data, and the signed attendance declaration. None carries clinical content (rule C5): names,
 // dates, outcomes and counts only. Prescription counts appear only in the doctor's own report.
 public static partial class ApiEndpoints
 {
@@ -482,23 +482,32 @@ public static partial class ApiEndpoints
         "Prescription.DeleteDraft" => "Excluiu rascunho de receita",
         "Prescription.MedicationsInUse" => "Consultou as medicações em uso",
         "Prescription.History" => "Consultou as receitas anteriores",
+        "MedicalDocument.List" => "Consultou os documentos médicos da consulta",
+        "MedicalDocument.View" => "Abriu um documento médico",
+        "MedicalDocument.DownloadPdf" => "Baixou o PDF de um documento médico",
+        "MedicalDocument.Create" => "Criou um documento médico",
+        "MedicalDocument.Update" => "Alterou um rascunho de documento médico",
+        "MedicalDocument.DeleteDraft" => "Excluiu rascunho de documento médico",
+        "MedicalDocument.Sign" => "Assinou um documento médico",
+        "Appointment.Documents" => "Abriu os documentos da consulta",
         "Privacy.DataAccessReport" => "Gerou o relatório de acessos (LGPD)",
         _ => action
     };
 
+    // The signed declaration only (28/10/2026): the doctor signs it after the consultation; before that there is
+    // nothing to download, so nobody receives an unsigned document in the clinic's or the platform's name.
     private static async Task<IResult> GetAttendanceDeclaration(
         Guid id,
         ClaimsPrincipal principal,
         MedSyncDbContext db,
         AuditWriter audit,
+        ClinicalAttachmentStorage storage,
         CancellationToken cancellationToken)
     {
         var actor = RequestContext.From(principal);
         var appointment = await db.Appointments.AsNoTracking()
             .Include(x => x.Patient)
             .Include(x => x.Doctor)
-            .Include(x => x.Clinic)
-            .Include(x => x.ConsultationRoom)
             .SingleOrDefaultAsync(x => x.Id == id && x.ClinicId == actor.ClinicId, cancellationToken);
         if (appointment is null)
             return Results.NotFound();
@@ -512,36 +521,18 @@ public static partial class ApiEndpoints
         if (appointment.Status != AppointmentStatus.Completed)
             return Results.Conflict(new { message = "A declaração de comparecimento sai depois que a consulta é concluída." });
 
-        // Online: from when the patient entered the room until the doctor closed it; in person: the booked time.
-        var room = appointment.ConsultationRoom;
-        var startedAt = room?.PatientJoinedAt ?? room?.StartedAt ?? appointment.ScheduledAt;
-        var endedAt = room?.EndedAt ?? appointment.ScheduledAt.AddMinutes(appointment.DurationMinutes);
-        if (endedAt <= startedAt)
-            endedAt = startedAt.AddMinutes(appointment.DurationMinutes);
+        var declaration = await db.MedicalDocuments.AsNoTracking()
+            .Where(x => x.AppointmentId == id &&
+                        x.Kind == MedicalDocumentKind.AttendanceDeclaration &&
+                        x.Status == MedicalDocumentStatus.Signed)
+            .OrderByDescending(x => x.SignedAt)
+            .FirstOrDefaultAsync(cancellationToken);
+        var path = declaration?.SignedDocumentKey is null ? null : storage.GetAbsolutePath(declaration.SignedDocumentKey);
+        if (path is null || !File.Exists(path))
+            return Results.Conflict(new { message = "O médico ainda não assinou a declaração de comparecimento desta consulta." });
 
-        var clinic = appointment.Clinic;
-        var data = new AttendanceDeclarationData(
-            appointment.Id,
-            clinic.Name,
-            clinic.LegalName,
-            clinic.TaxId,
-            clinic.FormattedAddress(),
-            clinic.Phone,
-            clinic.AddressCity,
-            appointment.Patient.Name,
-            string.IsNullOrWhiteSpace(appointment.Patient.SocialName) ? null : appointment.Patient.SocialName,
-            appointment.Patient.Cpf,
-            appointment.Doctor.Name,
-            PrescriptionPdf.FormatCrm(appointment.Doctor.Crm, appointment.Doctor.CrmUf),
-            appointment.Modality == ConsultationModality.InPerson,
-            startedAt,
-            endedAt,
-            DateTime.UtcNow);
         audit.Add(actor, "Appointment.AttendanceDeclaration", "Appointment", appointment.Id);
         await db.SaveChangesAsync(cancellationToken);
-        return Results.File(
-            ReportPdf.AttendanceDeclaration(data),
-            "application/pdf",
-            $"declaracao-de-comparecimento-{startedAt.Add(BrazilOffset):yyyy-MM-dd}.pdf");
+        return Results.File(path, "application/pdf", $"declaracao-de-comparecimento-{declaration!.SignedAt!.Value.Add(BrazilOffset):yyyy-MM-dd}.pdf");
     }
 }

@@ -257,7 +257,8 @@ app.MapPost("/ops/presentation-seed", async (
     await using var scope = scopeFactory.CreateAsyncScope();
     var db = scope.ServiceProvider.GetRequiredService<MedSyncDbContext>();
     await db.Database.MigrateAsync(cancellationToken);
-    await DatabaseSeeder.SeedAsync(db, passwords, demoPassword!, cancellationToken);
+    await DatabaseSeeder.SeedAsync(
+        db, passwords, demoPassword!, cancellationToken, scope.ServiceProvider.GetRequiredService<ClinicalAttachmentStorage>());
 
     var users = await db.Users.CountAsync(cancellationToken);
     var clinics = await db.Clinics.CountAsync(x => !x.IsPlatform, cancellationToken);
@@ -302,7 +303,8 @@ await using (var scope = app.Services.CreateAsyncScope())
         await DatabaseSeeder.SeedAsync(
             db,
             scope.ServiceProvider.GetRequiredService<IPasswordService>(),
-            demoPassword!);
+            demoPassword!,
+            storage: scope.ServiceProvider.GetRequiredService<ClinicalAttachmentStorage>());
         app.Logger.LogInformation("Demo seed completed.");
     }
     else

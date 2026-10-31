@@ -9,6 +9,11 @@ import type {
   PatientMedications,
   Prescription,
   PrescriptionDocument,
+  AppointmentDocumentItem,
+  AppointmentMedicalDocuments,
+  MedicalDocument,
+  MedicalDocumentPage,
+  SaveMedicalDocumentInput,
   SigningSession,
   SavePrescriptionInput,
   AvailableTime,
@@ -487,6 +492,27 @@ export const api = {
   issuePrescriptionOnPaper: (id: string) =>
     request<Prescription>(`/prescriptions/${id}/issue-paper`, { method: "POST" }),
   prescriptionPdfUrl: (id: string) => `${FILES_URL}/prescriptions/${id}/pdf`,
+  getAppointmentMedicalDocuments: (appointmentId: string) =>
+    request<AppointmentMedicalDocuments>(`/appointments/${appointmentId}/medical-documents`),
+  createMedicalDocument: (appointmentId: string, input: SaveMedicalDocumentInput) =>
+    request<MedicalDocument>(`/appointments/${appointmentId}/medical-documents`, {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
+  updateMedicalDocument: (id: string, input: SaveMedicalDocumentInput) =>
+    request<MedicalDocument>(`/medical-documents/${id}`, { method: "PUT", body: JSON.stringify(input) }),
+  deleteMedicalDocument: (id: string) => request<void>(`/medical-documents/${id}`, { method: "DELETE" }),
+  getMedicalDocumentPage: (id: string) => request<MedicalDocumentPage>(`/medical-documents/${id}`),
+  signMedicalDocument: (id: string, lifetimeHours: number) =>
+    request<{ authorizationUrl?: string; signed?: boolean }>(`/medical-documents/${id}/sign`, {
+      method: "POST",
+      body: JSON.stringify({ lifetimeHours }),
+    }),
+  medicalDocumentPdfUrl: (id: string) => `${FILES_URL}/medical-documents/${id}/pdf`,
+  getAppointmentDocuments: (appointmentId: string) =>
+    request<AppointmentDocumentItem[]>(`/appointments/${appointmentId}/documents`),
+  downloadAppointmentDocument: (item: AppointmentDocumentItem) =>
+    download(`/${item.downloadPath}`, item.fileName),
 
   getAppointmentReport: (filters: { from: string; to: string; doctorId?: string; modality?: string }) =>
     request<AppointmentReport>(`/reports/appointments?${reportQuery(filters)}`),

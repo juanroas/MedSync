@@ -314,6 +314,10 @@ export type Appointment = {
   patientJoined?: boolean;
   modality: ConsultationModality;
   location?: string | null;
+  // Patient only: signed prescriptions and documents of this consultation.
+  documentCount?: number;
+  // Signed attendance declaration (patient, assigned doctor, front desk).
+  attendanceDeclarationId?: string | null;
 };
 
 export type ConsultationRoom = {
@@ -536,6 +540,74 @@ export type MedicationInUse = {
 export type PatientMedications = {
   items: MedicationInUse[];
   legacyNote?: string | null;
+};
+
+export type MedicalDocumentKind = "Report" | "AttendanceDeclaration";
+
+export type MedicalDocument = {
+  id: string;
+  appointmentId: string;
+  kind: MedicalDocumentKind;
+  status: "Draft" | "Signed";
+  title: string;
+  body: string;
+  patientLocation?: string | null;
+  attendanceStartedAt?: string | null;
+  attendanceEndedAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  signedAt?: string | null;
+  signatureSimulated: boolean;
+};
+
+export type AppointmentMedicalDocuments = {
+  documents: MedicalDocument[];
+  suggestedStartedAt?: string | null;
+  suggestedEndedAt?: string | null;
+  suggestedPatientLocation?: string | null;
+};
+
+export type SaveMedicalDocumentInput = {
+  kind: MedicalDocumentKind;
+  title?: string;
+  body?: string;
+  patientLocation?: string;
+  attendanceStartedAt?: string;
+  attendanceEndedAt?: string;
+};
+
+export type MedicalDocumentPage = {
+  document: MedicalDocument;
+  doctorName: string;
+  doctorCrm: string;
+  doctorCrmUf: string;
+  doctorSpecialty: string;
+  doctorRqe?: string | null;
+  doctorProfessionalAddress: string;
+  clinicName: string;
+  clinicLegalName?: string | null;
+  clinicTaxId?: string | null;
+  clinicAddress?: string | null;
+  clinicPhone?: string | null;
+  clinicCity?: string | null;
+  patientName: string;
+  patientSocialName?: string | null;
+  patientCpf: string;
+  patientBirthDate: string;
+  appointmentModality: ConsultationModality;
+  missingForSignature: string[];
+  signatureAvailable: boolean;
+};
+
+// "Documentos da consulta" (patient): what the doctor signed.
+export type AppointmentDocumentItem = {
+  type: "Prescription" | "MedicalDocument";
+  id: string;
+  title: string;
+  issuedAt: string;
+  simulated: boolean;
+  downloadPath: string;
+  fileName: string;
 };
 
 export type SigningSession = {

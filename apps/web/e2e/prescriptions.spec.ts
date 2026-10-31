@@ -7,10 +7,11 @@ test.describe("receita do atendimento", () => {
   test("medico monta rascunho com medicamento novo e ve o documento sem validade", async ({ page }) => {
     const api = await request.newContext({ baseURL: baseApiURL });
     await loginByApi(api, users.doctor);
-    // Cancelled appointments do not take prescriptions; other specs may leave one as the most recent.
-    const appointments = ((await (await api.get("/appointments")).json()) as Array<{ id: string; status: string }>).filter(
-      (item) => item.status !== "Cancelled",
-    );
+    // Cancelled appointments do not take prescriptions; other specs may leave one as the most recent. The patient who
+    // opens the signed prescription below is Carlos, so it must be one of his (the test data books others too).
+    const appointments = (
+      (await (await api.get("/appointments")).json()) as Array<{ id: string; status: string; patientName: string }>
+    ).filter((item) => item.status !== "Cancelled" && item.patientName === "Carlos Oliveira");
     await api.dispose();
     test.skip(appointments.length === 0, "sem consulta do medico");
     const medication = `Medicamento E2E ${Date.now().toString().slice(-6)}`;
@@ -94,10 +95,11 @@ test.describe("receita do atendimento", () => {
     await loginByApi(api, users.doctor);
     const [doctor] = (await (await api.get("/doctors")).json()) as Array<Record<string, unknown>>;
     await api.put(`/doctors/${doctor.id}`, { data: { ...doctor, professionalAddress: "Av. Paulista, 1000 - São Paulo/SP" } });
-    // Cancelled appointments do not take prescriptions; other specs may leave one as the most recent.
-    const appointments = ((await (await api.get("/appointments")).json()) as Array<{ id: string; status: string }>).filter(
-      (item) => item.status !== "Cancelled",
-    );
+    // Cancelled appointments do not take prescriptions; other specs may leave one as the most recent. The patient who
+    // opens the signed prescription below is Carlos, so it must be one of his (the test data books others too).
+    const appointments = (
+      (await (await api.get("/appointments")).json()) as Array<{ id: string; status: string; patientName: string }>
+    ).filter((item) => item.status !== "Cancelled" && item.patientName === "Carlos Oliveira");
     const draft = async () => {
       const created = await api.post(`/appointments/${appointments[0].id}/prescriptions`, {
         data: {

@@ -513,7 +513,8 @@ export function ConsultationRoom({ appointmentId }: { appointmentId: string }) {
                 setEnding(false);
                 exitingRef.current = false;
               }}
-              onEnded={() => router.push(`/prontuario/${appointmentId}`)}
+              // Concluded: straight to the documents, where the attendance declaration waits for the signature.
+              onEnded={(outcome) => router.push(`/prontuario/${appointmentId}${outcome === "Completed" ? "#documentos" : ""}`)}
             />
           )}
           {endError && (

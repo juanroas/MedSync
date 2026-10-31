@@ -8,31 +8,12 @@ namespace MedSync.Api;
 
 public sealed record DataAccessEntry(DateTime AtUtc, string Actor, string Profile, string Action, string Result, string Place);
 
-public sealed record AttendanceDeclarationData(
-    Guid AppointmentId,
-    string ClinicName,
-    string? ClinicLegalName,
-    string? ClinicTaxId,
-    string? ClinicAddress,
-    string? ClinicPhone,
-    string? ClinicCity,
-    string PatientName,
-    string? PatientSocialName,
-    string PatientCpf,
-    string DoctorName,
-    string DoctorCrm,
-    bool InPerson,
-    DateTime StartedAtUtc,
-    DateTime EndedAtUtc,
-    DateTime IssuedAtUtc);
-
 // PDFs of the reports. Same fonts and helpers as the prescription; none of them prints clinical content (rule C5).
 public static class ReportPdf
 {
     private const string FontFamily = "DejaVu Sans";
     private const double Margin = 48;
     private static readonly TimeSpan BrazilOffset = TimeSpan.FromHours(-3);
-    private static readonly CultureInfo PtBr = CultureInfo.GetCultureInfo("pt-BR");
 
     public static byte[] Appointments(AppointmentReportResponse report, string generatedBy)
     {
@@ -163,67 +144,12 @@ public static class ReportPdf
         return canvas.Finish();
     }
 
-    public static byte[] AttendanceDeclaration(AttendanceDeclarationData data)
-    {
-        var canvas = new Canvas("Declaração de comparecimento", $"Emitida pelo MedSync em {Local(data.IssuedAtUtc):dd/MM/yyyy HH:mm} · código {data.AppointmentId.ToString()[..8].ToUpperInvariant()}");
-        canvas.Line(data.ClinicName, canvas.TitleFont);
-        var company = new List<string>();
-        if (!string.IsNullOrWhiteSpace(data.ClinicLegalName) && data.ClinicLegalName != data.ClinicName)
-            company.Add(data.ClinicLegalName!);
-        if (!string.IsNullOrWhiteSpace(data.ClinicTaxId))
-            company.Add($"CNPJ {FormatCnpj(data.ClinicTaxId!)}");
-        if (company.Count > 0)
-            canvas.Line(string.Join(" · ", company), canvas.Body, canvas.Muted);
-        if (!string.IsNullOrWhiteSpace(data.ClinicAddress))
-            canvas.Line(data.ClinicAddress!, canvas.Body, canvas.Muted);
-        if (!string.IsNullOrWhiteSpace(data.ClinicPhone))
-            canvas.Line($"Telefone {data.ClinicPhone}", canvas.Body, canvas.Muted);
-        canvas.Rule();
-        canvas.Gap(28);
-        canvas.Center("DECLARAÇÃO DE COMPARECIMENTO", canvas.TitleFont);
-        canvas.Gap(28);
-
-        var start = Local(data.StartedAtUtc);
-        var end = Local(data.EndedAtUtc);
-        // Decreto 8.727/2016: the social name comes first, followed by the civil name.
-        var person = data.PatientSocialName is null ? data.PatientName : $"{data.PatientSocialName} (nome civil: {data.PatientName})";
-        var how = data.InPerson ? "em consulta presencial neste estabelecimento" : "em consulta por telemedicina (atendimento a distância)";
-        canvas.Paragraph(
-            $"Declaramos, para os devidos fins, que {person}, CPF {FormatCpf(data.PatientCpf)}, esteve {how} " +
-            $"no dia {start:dd/MM/yyyy}, das {start:HH:mm} às {end:HH:mm} (horário de Brasília), " +
-            $"com {data.DoctorName}, {data.DoctorCrm}.");
-        canvas.Gap(14);
-        canvas.Paragraph(
-            "Esta declaração comprova apenas o comparecimento à consulta. Não informa diagnóstico nem afastamento do " +
-            "trabalho, que dependem de atestado médico.",
-            canvas.Muted);
-        canvas.Gap(48);
-        var issued = Local(data.IssuedAtUtc);
-        var city = string.IsNullOrWhiteSpace(data.ClinicCity) ? "" : $"{data.ClinicCity}, ";
-        canvas.Line($"{city}{issued.ToString("d 'de' MMMM 'de' yyyy", PtBr)}.", canvas.Body);
-        canvas.Gap(60);
-        canvas.Signature(data.ClinicName, "Assinatura e carimbo do estabelecimento");
-        return canvas.Finish();
-    }
-
     private static DateTime Local(DateTime utc) => DateTime.SpecifyKind(utc, DateTimeKind.Utc).Add(BrazilOffset);
 
     private static string MaskCpf(string value)
     {
         var digits = new string(value.Where(char.IsDigit).ToArray());
         return digits.Length == 11 ? $"***.{digits[3..6]}.{digits[6..9]}-**" : "***";
-    }
-
-    private static string FormatCpf(string value)
-    {
-        var digits = new string(value.Where(char.IsDigit).ToArray());
-        return digits.Length == 11 ? $"{digits[..3]}.{digits[3..6]}.{digits[6..9]}-{digits[9..]}" : value;
-    }
-
-    private static string FormatCnpj(string value)
-    {
-        var digits = new string(value.Where(char.IsDigit).ToArray());
-        return digits.Length == 14 ? $"{digits[..2]}.{digits[2..5]}.{digits[5..8]}/{digits[8..12]}-{digits[12..]}" : value;
     }
 
     // A4 pages with a running footer; tables break across pages and repeat their header.
@@ -293,13 +219,6 @@ public static class ReportPdf
             Ensure(24);
             graphics.DrawString(text, TitleFont, Ink, new XRect(Margin, y, Width, 20), XStringFormats.TopLeft);
             y += 24;
-        }
-
-        public void Center(string text, XFont font)
-        {
-            Ensure(20);
-            graphics.DrawString(text, font, Ink, new XRect(Margin, y, Width, 20), XStringFormats.TopCenter);
-            y += font.GetHeight() * 1.4;
         }
 
         public void Section(string text)

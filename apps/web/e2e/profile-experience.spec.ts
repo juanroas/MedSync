@@ -84,7 +84,9 @@ test.describe("experiencia por perfil", () => {
       page
         .getByText(/aguardando sala/i)
         .or(page.getByRole("link", { name: /^entrar$/i }))
-        .or(page.getByRole("link", { name: /^aceitar termo$/i })),
+        .or(page.getByRole("link", { name: /^aceitar termo$/i }))
+        // The test data gives Carlos more than one upcoming online consultation.
+        .first(),
     ).toBeVisible();
   });
 });

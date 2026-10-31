@@ -2,6 +2,7 @@
 
 import { AlertBanner, Button, Card, ErrorBanner, LoadingState, PageHeader, TextArea } from "@/components/ui";
 import { ClinicalAttachmentsPanel } from "@/components/clinical-attachments-panel";
+import { MedicalDocumentsPanel } from "@/components/medical-documents-panel";
 import { PrescriptionPanel } from "@/components/prescription-panel";
 import { PrescriptionHistory } from "@/components/prescription-history";
 import { formatDateTime, statusLabel } from "@/lib/format";
@@ -360,6 +361,15 @@ export default function ClinicalRecordPage() {
                 appointmentId={appointmentId}
                 patientId={appointment.patientId}
                 canIssue={appointment.status !== "Cancelled"}
+                inPerson={appointment.modality === "InPerson"}
+              />
+            )}
+
+            {canEditClinicalRecord && (
+              <MedicalDocumentsPanel
+                appointmentId={appointmentId}
+                status={appointment.status}
+                scheduledAt={appointment.scheduledAt}
                 inPerson={appointment.modality === "InPerson"}
               />
             )}

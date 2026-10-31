@@ -42,7 +42,7 @@ export function Dialog({
         aria-modal="true"
         aria-label={title}
         onMouseDown={(event) => event.stopPropagation()}
-        className="w-full max-w-md rounded-lg bg-white p-6 text-ink shadow-soft"
+        className="w-full min-w-0 max-w-md rounded-lg bg-white p-6 text-ink shadow-soft"
       >
         <div className="flex items-start justify-between gap-4">
           <h2 className="text-lg font-bold">{title}</h2>

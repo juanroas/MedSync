@@ -26,6 +26,7 @@ public sealed class MedSyncDbContext(DbContextOptions<MedSyncDbContext> options)
     public DbSet<MedicationCatalogItem> MedicationCatalog => Set<MedicationCatalogItem>();
     public DbSet<Prescription> Prescriptions => Set<Prescription>();
     public DbSet<PrescriptionItem> PrescriptionItems => Set<PrescriptionItem>();
+    public DbSet<MedicalDocument> MedicalDocuments => Set<MedicalDocument>();
     public DbSet<ClinicInvoice> ClinicInvoices => Set<ClinicInvoice>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -280,6 +281,21 @@ public sealed class MedSyncDbContext(DbContextOptions<MedSyncDbContext> options)
             entity.Property(x => x.Quantity).HasMaxLength(120);
             entity.HasOne(x => x.Prescription).WithMany(x => x.Items)
                 .HasForeignKey(x => x.PrescriptionId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<MedicalDocument>(entity =>
+        {
+            entity.HasIndex(x => new { x.ClinicId, x.PatientId, x.CreatedAt });
+            entity.HasIndex(x => x.AppointmentId);
+            entity.Property(x => x.Kind).HasConversion<string>().HasMaxLength(30);
+            entity.Property(x => x.Status).HasConversion<string>().HasMaxLength(20);
+            entity.Property(x => x.Title).HasMaxLength(120);
+            entity.Property(x => x.Body).HasMaxLength(8000);
+            entity.Property(x => x.PatientLocation).HasMaxLength(200);
+            entity.Property(x => x.SignedDocumentKey).HasMaxLength(300);
+            entity.Property(x => x.SignedDocumentSha256).HasMaxLength(64);
+            entity.HasOne(x => x.Appointment).WithMany()
+                .HasForeignKey(x => x.AppointmentId).OnDelete(DeleteBehavior.Restrict);
         });
 
         modelBuilder.Entity<AuditEvent>(entity =>

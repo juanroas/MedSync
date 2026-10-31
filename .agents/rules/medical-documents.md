@@ -30,8 +30,17 @@ O simulador de assinatura (`SIGNATURE_PROVIDER=simulator`) segue a mesma regra: 
 certificado, PDF com "SIMULAÇÃO — SEM VALIDADE" e a receita marcada como simulada no banco e na auditoria.
 
 ## D5 — Paciente recebe cópia
-Documento emitido aparece em "Meus documentos" do paciente (art. 3º §6: direito à cópia). WhatsApp e e-mail levam
-só um link que exige login; nunca o PDF anexado.
+Documento emitido aparece para o paciente em Minhas consultas → "Documentos (n)" da consulta (art. 3º §6: direito à
+cópia). WhatsApp e e-mail levam só um link que exige login; nunca o PDF anexado.
+
+## D7 — Laudo em branco e declaração de comparecimento (28/10/2026)
+- Laudo: documento livre no modelo padrão (`MedicalDocumentPdf.cs`): cabeçalho do local e do médico, título
+  centralizado em negrito, paciente, texto, cidade e data, assinatura; marca d'água com o nome do local de atendimento.
+  Quantos o médico quiser por consulta. Na telemedicina, só assina com o local informado pelo paciente (D2).
+- Declaração de comparecimento: emitida e **assinada pelo médico** depois de concluir a consulta, com entrada e saída;
+  uma por consulta. Não sai mais nada em nome da plataforma nem sem assinatura.
+- O paciente só vê depois de assinado (mesma assinatura da receita, D1/D4). O laudo é conteúdo clínico (C1); a
+  declaração assinada também vai para ADM e Recepção do local.
 
 ## D6 — Receita eletrônica de controlado e antimicrobiano só com SNCR; presencial vai em papel
 RDC Anvisa 1.000/2025: receita **eletrônica** de controle especial, notificações A/B e receitas de retenção

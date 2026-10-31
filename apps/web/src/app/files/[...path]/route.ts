@@ -10,6 +10,7 @@ const ALLOWED_PATHS = [
   /^privacy\/data-access-report$/,
   /^appointments\/[0-9a-f-]{36}\/attendance-declaration$/,
   /^prescriptions\/[0-9a-f-]{36}\/pdf$/,
+  /^medical-documents\/[0-9a-f-]{36}\/pdf$/,
   /^appointments\/[0-9a-f-]{36}\/clinical-record\/attachments\/[0-9a-f-]{36}\/download$/,
   /^billing\/invoices\/[0-9a-f-]{36}\/pdf$/,
   /^billing\/report\/pdf$/,

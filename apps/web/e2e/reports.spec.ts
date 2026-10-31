@@ -1,7 +1,8 @@
 import { expect, request, test, type APIRequestContext } from "@playwright/test";
 import { baseApiURL, loginByApi, loginByUi, sharedPassword, users, validCpfFromSeed } from "./fixtures";
 
-// Relatórios (14/10/2026): atendimentos da clínica, produção do médico, acessos LGPD e declaração de comparecimento.
+// Relatórios (14/10/2026): atendimentos da clínica, produção do médico, acessos LGPD e declaração de comparecimento
+// (assinada pelo médico desde 28/10/2026).
 // Nenhum deles traz conteúdo clínico (regra C5); receitas só aparecem no relatório do próprio médico.
 test.describe("relatorios", () => {
   test.skip(!sharedPassword, "defina MEDSYNC_E2E_PASSWORD para executar login E2E");
@@ -113,7 +114,9 @@ test.describe("relatorios", () => {
     await expect(page.getByText(/relatório gerado/i)).toBeVisible();
   });
 
-  test("declaracao de comparecimento sai so depois da consulta concluida", async ({ page }) => {
+  // 28/10/2026: the doctor signs the declaration; before that nobody downloads anything (no unsigned document in the
+  // clinic's or the platform's name). The signing part needs the simulator: MEDSYNC_E2E_SIGNING=1.
+  test("declaracao de comparecimento sai so depois que o medico assina", async ({ page }) => {
     const seed = Number(Date.now().toString().slice(-8));
     const temporary = `Tmp${seed}!aA`;
     const admin = await request.newContext({ baseURL: baseApiURL });
@@ -156,17 +159,53 @@ test.describe("relatorios", () => {
 
     const doctor = await firstAccess(doctorEmail, temporary);
     const patient = await firstAccess(patientEmail, temporary);
+    const reception = await request.newContext({ baseURL: baseApiURL });
+    await loginByApi(reception, users.receptionist);
     expect((await patient.get(`/appointments/${appointmentId}/attendance-declaration`)).status()).toBe(409);
 
+    // Not before the consultation is concluded.
+    const panel = (await (await doctor.get(`/appointments/${appointmentId}/medical-documents`)).json()) as {
+      suggestedStartedAt: string;
+      suggestedEndedAt: string;
+    };
+    const times = { kind: "AttendanceDeclaration", attendanceStartedAt: panel.suggestedStartedAt, attendanceEndedAt: panel.suggestedEndedAt };
+    expect((await doctor.post(`/appointments/${appointmentId}/medical-documents`, { data: times })).status()).toBe(400);
     expect((await doctor.post(`/consultations/${appointmentId}/end`, { data: { outcome: "Completed" } })).status()).toBe(204);
-    for (const context of [patient, admin, doctor]) {
+
+    // Concluded, entry and exit typed by the doctor (in person: the booked time), still a draft: nobody gets it.
+    const startedAt = new Date(Date.now() - 20 * 60_000).toISOString();
+    const endedAt = new Date().toISOString();
+    const created = await doctor.post(`/appointments/${appointmentId}/medical-documents`, {
+      data: { ...times, attendanceStartedAt: startedAt, attendanceEndedAt: endedAt },
+    });
+    expect(created.status(), await created.text()).toBe(201);
+    const declarationId = ((await created.json()) as { id: string }).id;
+    for (const context of [patient, reception, admin, doctor])
+      expect((await context.get(`/appointments/${appointmentId}/attendance-declaration`)).status()).toBe(409);
+    expect((await patient.get(`/medical-documents/${declarationId}/pdf`)).status()).toBe(404);
+    const patientList = (await (await patient.get("/appointments")).json()) as { id: string; documentCount: number }[];
+    expect(patientList.find((item) => item.id === appointmentId)?.documentCount).toBe(0);
+
+    if (process.env.MEDSYNC_E2E_SIGNING !== "1") {
+      expect((await doctor.post(`/medical-documents/${declarationId}/sign`, { data: { lifetimeHours: 1 } })).status()).toBe(409);
+      for (const context of [admin, doctor, patient, reception]) await context.dispose();
+      return;
+    }
+
+    // The doctor signs it on the document page (simulator in this environment).
+    await loginByUi(page, doctorEmail);
+    await page.goto(`/documento/${declarationId}`);
+    await expect(page.getByRole("heading", { name: /declaração de comparecimento/i })).toBeVisible();
+    await page.getByRole("button", { name: /assinar com certificado digital/i }).click();
+    await expect(page).toHaveURL(/\/assinatura\/simulador/);
+    await page.getByRole("button", { name: /aprovar \(simulação\)/i }).click();
+    await expect(page.getByRole("link", { name: /baixar pdf assinado/i })).toBeVisible({ timeout: 20000 });
+
+    for (const context of [patient, admin, doctor, reception]) {
       const declaration = await context.get(`/appointments/${appointmentId}/attendance-declaration`);
       expect(declaration.status()).toBe(200);
       expect(declaration.headers()["content-type"]).toContain("application/pdf");
     }
-    const reception = await request.newContext({ baseURL: baseApiURL });
-    await loginByApi(reception, users.receptionist);
-    expect((await reception.get(`/appointments/${appointmentId}/attendance-declaration`)).status()).toBe(200);
     for (const email of [users.dpo, users.clinic2Admin]) {
       const other = await request.newContext({ baseURL: baseApiURL });
       await loginByApi(other, email);
@@ -174,21 +213,22 @@ test.describe("relatorios", () => {
       await other.dispose();
     }
 
-    // The patient downloads it from Minhas consultas → Histórico.
-    await loginByUi(page, patientEmail);
-    await page.getByRole("navigation").getByRole("link", { name: "Minhas consultas", exact: true }).click();
-    await page.getByRole("button", { name: /histórico/i }).click();
-    const download = page.waitForEvent("download");
-    await page.getByRole("button", { name: /declaração de comparecimento/i }).click();
-    expect((await download).suggestedFilename()).toBe("declaracao-de-comparecimento.pdf");
-
-    // The doctor also downloads it from the day view of the agenda.
-    await page.context().clearCookies();
-    await loginByUi(page, doctorEmail);
+    // The doctor downloads it from the day view of the agenda.
+    await page.getByRole("link", { name: /voltar ao prontuário/i }).click();
     await page.getByRole("navigation").getByRole("link", { name: "Agenda", exact: true }).click();
     const agendaDownload = page.waitForEvent("download");
     await page.getByRole("button", { name: /declaração de comparecimento/i }).click();
     expect((await agendaDownload).suggestedFilename()).toBe("declaracao-de-comparecimento.pdf");
+
+    // The patient finds it in Minhas consultas → Histórico → Documentos.
+    await page.context().clearCookies();
+    await loginByUi(page, patientEmail);
+    await page.getByRole("navigation").getByRole("link", { name: "Minhas consultas", exact: true }).click();
+    await page.getByRole("button", { name: /histórico/i }).click();
+    await page.getByRole("button", { name: "Documentos (1)" }).click();
+    const download = page.waitForEvent("download");
+    await page.getByRole("dialog", { name: "Documentos da consulta" }).getByRole("button", { name: /baixar pdf/i }).click();
+    expect((await download).suggestedFilename()).toBe("declaracao-de-comparecimento.pdf");
 
     for (const context of [admin, doctor, patient, reception]) await context.dispose();
   });

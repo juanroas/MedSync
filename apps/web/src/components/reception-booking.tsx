@@ -84,6 +84,8 @@ export function ReceptionBookingForm({
   useEffect(() => {
     setScheduledAt("");
     setTimes([]);
+    // Otherwise the calendar mounts with the previous doctor's days and keeps that doctor's month.
+    setDays(null);
     if (!doctorId) return;
     let active = true;
     api

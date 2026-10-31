@@ -8,7 +8,8 @@ test.describe("calendario de solicitacao de consulta", () => {
 
   test("so os dias com horario livre do medico podem ser escolhidos", async ({ page }) => {
     // Amanhã (horário de Brasília) ganha uma janela de atendimento da Dra. Marina. Cada spec usa uma faixa própria
-    // (papel 06-07, presencial 08-10, recepção 10-12, calendário 13-15) para não sobrepor quando rodam em paralelo.
+    // (papel 06-07, calendário 13-15, presencial 15-17, recepção 17-19) para não sobrepor quando rodam em paralelo
+    // nem cruzar com a massa de teste do seed (09-11).
     const tomorrow = new Date(Date.now() - 3 * 3600_000 + 24 * 3600_000);
     const tomorrowKey = tomorrow.toISOString().slice(0, 10);
     const doctor = await request.newContext({ baseURL: baseApiURL });

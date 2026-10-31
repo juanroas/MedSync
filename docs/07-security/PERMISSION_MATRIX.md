@@ -59,8 +59,13 @@ Regras de acesso ao conteúdo clínico: [`.agents/rules/clinical-data-access.md`
 - Relatórios (14/10/2026): atendimentos da clínica para ADM, Recepção e dono do consultório; o médico só a própria
   produção e as próprias receitas (contagem); Suporte, Médico ADM e paciente recebem 403. Nenhum relatório traz
   conteúdo clínico (regra C5). O relatório LGPD de acessos é do próprio paciente (`/me/data-access-report`) ou do DPO
-  pelo CPF (`POST /privacy/data-access-report`); a declaração de comparecimento sai para o paciente, o médico da
-  consulta, ADM e Recepção, só com a consulta concluída. Toda geração fica na auditoria.
+  pelo CPF (`POST /privacy/data-access-report`). Toda geração fica na auditoria.
+- Laudos e declaração de comparecimento (28/10/2026, `ApiEndpoints.MedicalDocuments.cs`): só o médico da consulta
+  cria, edita, exclui rascunho e assina (ICP-Brasil ou simulador). O paciente só vê o que foi **assinado** (lista
+  "Documentos da consulta", PDF e página); rascunho devolve 404 para ele. O laudo é conteúdo clínico: ADM, Recepção,
+  Suporte, DPO e Médico ADM recebem 403/404. A declaração de comparecimento assinada não é clínica: além do paciente e
+  do médico, ADM e Recepção do local baixam o PDF; antes da assinatura ninguém baixa (409). Leitura, download e negação
+  ficam na auditoria; o nome do arquivo é genérico (regra C5).
 - Financeiro (14/10/2026): a mensalidade do MedSync é lançada, confirmada e cancelada só pela equipe MedSync (Suporte e
   Médico ADM), que vê todas as clínicas e o relatório financeiro. O ADM da clínica (e o dono do consultório) vê só as
   cobranças da própria clínica, avisa o pagamento e baixa fatura e recibo; Recepção, Médico, Paciente e DPO recebem 403.

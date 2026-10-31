@@ -12,6 +12,7 @@ Inclui checklist de QA, sprint de qualidade e referencias a pasta `qa/`.
 - [QA_CHECKLIST.md](QA_CHECKLIST.md)
 - [AUTHORIZATION_TEST_MATRIX.md](AUTHORIZATION_TEST_MATRIX.md)
 - [PROFILE_UAT_HOMOLOGATION_PLAN.md](PROFILE_UAT_HOMOLOGATION_PLAN.md)
+- [MASSA_DE_TESTE.md](MASSA_DE_TESTE.md) (perfis, manhã de testes e roteiro; planilha em [massa-de-teste-perfis.csv](massa-de-teste-perfis.csv))
 - [DEMO_ACCOUNTS.md](DEMO_ACCOUNTS.md)
 - [Plano QA](../../qa/README.md)
 - [Plano de teste](../../qa/test-plan.md)

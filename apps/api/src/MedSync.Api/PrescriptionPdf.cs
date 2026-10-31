@@ -61,11 +61,15 @@ public static class PrescriptionPdf
         return document;
     }
 
-    public static async Task<byte[]> SignAsync(PdfDocument document, IDigitalSigner signer, string location)
+    public static async Task<byte[]> SignAsync(
+        PdfDocument document,
+        IDigitalSigner signer,
+        string location,
+        string reason = "Receita médica emitida em modalidade de telemedicina")
     {
         DigitalSignatureHandler.ForDocument(document, signer, new DigitalSignatureOptions
         {
-            Reason = "Receita médica emitida em modalidade de telemedicina",
+            Reason = reason,
             Location = location,
             AppName = "MedSync"
         });

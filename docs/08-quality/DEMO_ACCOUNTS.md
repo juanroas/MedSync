@@ -1,5 +1,8 @@
 # Contas Demo de Homologacao
 
+> Lista atual de perfis e da massa de teste: [MASSA_DE_TESTE.md](MASSA_DE_TESTE.md). As tabelas abaixo são do
+> modelo antigo (antes do ADR-0003) e ficam só como histórico da configuração do seed.
+
 Status: uso exclusivo em ambiente local/homologacao. Nao usar em producao, pacientes reais ou dados reais.
 
 Senha local atual do Docker: `MedSyncLocal123!`

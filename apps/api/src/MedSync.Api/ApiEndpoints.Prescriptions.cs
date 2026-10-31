@@ -85,7 +85,20 @@ public static partial class ApiEndpoints
         app.MapGet("/signature/callback", CompletePrescriptionSignature).AllowAnonymous();
 
 
-    private sealed record PendingSignature(Guid PrescriptionId, Guid UserId, Guid ClinicId, string Verifier, double LifetimeHours);
+    private enum SignatureTarget
+    {
+        Prescription,
+        MedicalDocument
+    }
+
+    // What the doctor is signing while the certificate app asks for approval (single use, 10 minutes).
+    private sealed record PendingSignature(
+        Guid TargetId,
+        Guid UserId,
+        Guid ClinicId,
+        string Verifier,
+        double LifetimeHours,
+        SignatureTarget Target = SignatureTarget.Prescription);
 
     private static async Task<IResult> SearchMedications(
         string? q,
@@ -395,7 +408,7 @@ public static partial class ApiEndpoints
         var state = Convert.ToHexString(System.Security.Cryptography.RandomNumberGenerator.GetBytes(24));
         await cache.SetStringAsync(
             $"signature:{state}",
-            JsonSerializer.Serialize(new PendingSignature(prescription.Id, actor.UserId, actor.ClinicId, verifier, lifetime.TotalHours)),
+            JsonSerializer.Serialize(new PendingSignature(prescription.Id, actor.UserId, actor.ClinicId, verifier, lifetime.TotalHours, SignatureTarget.Prescription)),
             new DistributedCacheEntryOptions { AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10) },
             cancellationToken);
         audit.Add(actor, "Prescription.SignStart", "Prescription", id, "Success", provider.Simulated ? "Simulador de assinatura." : null);
@@ -430,16 +443,20 @@ public static partial class ApiEndpoints
             return Results.Redirect($"{frontend}/consultas?assinatura=expirada");
 
         var pending = JsonSerializer.Deserialize<PendingSignature>(pendingJson)!;
+        if (pending.Target == SignatureTarget.MedicalDocument)
+            return await CompleteMedicalDocumentSignature(
+                pending, credentialId, error, provider, db, audit, sessions, storage, loggerFactory, realtime, frontend, cancellationToken);
+
         var actor = new RequestContext(pending.UserId, pending.ClinicId, new HashSet<ClinicRole> { ClinicRole.Doctor });
-        var documentUrl = $"{frontend}/receita/{pending.PrescriptionId}";
+        var documentUrl = $"{frontend}/receita/{pending.TargetId}";
         if (!string.IsNullOrWhiteSpace(error) || string.IsNullOrWhiteSpace(credentialId))
         {
-            audit.Add(actor, "Prescription.Sign", "Prescription", pending.PrescriptionId, "Denied", "Médico recusou no app do certificado.");
+            audit.Add(actor, "Prescription.Sign", "Prescription", pending.TargetId, "Denied", "Médico recusou no app do certificado.");
             await db.SaveChangesAsync(cancellationToken);
             return Results.Redirect($"{documentUrl}?assinatura=recusada");
         }
 
-        var prescription = await LoadPrescriptionForSigning(db, pending.PrescriptionId, cancellationToken);
+        var prescription = await LoadPrescriptionForSigning(db, pending.TargetId, cancellationToken);
         if (prescription is null ||
             prescription.Status != PrescriptionStatus.Draft ||
             prescription.Appointment.Doctor.UserId != pending.UserId)
@@ -506,8 +523,33 @@ public static partial class ApiEndpoints
         RequestContext actor,
         CancellationToken cancellationToken)
     {
-        var appointment = prescription.Appointment;
         var signedAt = DateTime.UtcNow;
+        var (storageKey, sha256) = await RenderAndSignPrescriptionAsync(
+            storage, prescription, signedAt, provider.CreatePdfSigner(session, cancellationToken), session.Simulated);
+
+        prescription.Status = PrescriptionStatus.Signed;
+        prescription.SignedAt = signedAt;
+        prescription.SignedDocumentKey = storageKey;
+        prescription.SignedDocumentSha256 = sha256;
+        prescription.SignatureSimulated = session.Simulated;
+        prescription.UpdatedAt = signedAt;
+        audit.Add(actor, "Prescription.Sign", "Prescription", prescription.Id, "Success",
+            session.Simulated ? "Simulador de assinatura (sem validade)." : null);
+        await db.SaveChangesAsync(cancellationToken);
+        await realtime.PrescriptionChangedAsync(prescription.Id, cancellationToken);
+        // The patient's "Documentos (n)" counts signed prescriptions too.
+        await realtime.AppointmentChangedAsync(prescription.AppointmentId, cancellationToken);
+    }
+
+    // Shared with the demonstration seed, which signs its sample prescriptions with the simulator.
+    internal static async Task<(string StorageKey, string Sha256)> RenderAndSignPrescriptionAsync(
+        ClinicalAttachmentStorage storage,
+        Prescription prescription,
+        DateTime signedAt,
+        PdfSharp.Pdf.Signatures.IDigitalSigner signer,
+        bool simulated)
+    {
+        var appointment = prescription.Appointment;
         var inPerson = appointment.Modality == ConsultationModality.InPerson;
         var location = inPerson
             ? appointment.Clinic.FormattedAddress() ?? appointment.Clinic.Name
@@ -528,24 +570,12 @@ public static partial class ApiEndpoints
             prescription.Notes,
             signedAt,
             prescription.Items.ToList(),
-            session.Simulated,
+            simulated,
             IsSpecialKind(prescription.Kind) ? SpecialIdentification(appointment.Clinic, appointment.Patient) : null,
             inPerson));
-        var pdf = await PrescriptionPdf.SignAsync(
-            document, provider.CreatePdfSigner(session, cancellationToken), location);
-        var (storageKey, sha256) = await storage.SaveGeneratedAsync(
-            prescription.ClinicId, "prescriptions", $"{prescription.Id:N}.pdf", pdf, cancellationToken);
-
-        prescription.Status = PrescriptionStatus.Signed;
-        prescription.SignedAt = signedAt;
-        prescription.SignedDocumentKey = storageKey;
-        prescription.SignedDocumentSha256 = sha256;
-        prescription.SignatureSimulated = session.Simulated;
-        prescription.UpdatedAt = signedAt;
-        audit.Add(actor, "Prescription.Sign", "Prescription", prescription.Id, "Success",
-            session.Simulated ? "Simulador de assinatura (sem validade)." : null);
-        await db.SaveChangesAsync(cancellationToken);
-        await realtime.PrescriptionChangedAsync(prescription.Id, cancellationToken);
+        var pdf = await PrescriptionPdf.SignAsync(document, signer, location);
+        return await storage.SaveGeneratedAsync(
+            prescription.ClinicId, "prescriptions", $"{prescription.Id:N}.pdf", pdf, CancellationToken.None);
     }
 
     private static Task<Prescription?> LoadPrescriptionForSigning(MedSyncDbContext db, Guid id, CancellationToken cancellationToken) =>

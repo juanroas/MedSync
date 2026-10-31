@@ -290,7 +290,7 @@ export function DoctorAgenda() {
                   }
                   onConclude={() => setConcludingId(appointment.id)}
                   onDeclaration={() =>
-                    run(appointment.id, () => api.downloadAttendanceDeclaration(appointment.id), "Não foi possível gerar a declaração.")
+                    run(appointment.id, () => api.downloadAttendanceDeclaration(appointment.id), "Não foi possível baixar a declaração.")
                   }
                   onCancel={async () => {
                     const ok = await confirm({
@@ -329,9 +329,12 @@ export function DoctorAgenda() {
           appointmentId={concludingId}
           open
           onClose={() => setConcludingId("")}
-          onEnded={() => {
+          onEnded={(outcome) => {
+            const id = concludingId;
             setConcludingId("");
-            void load();
+            // Concluded: the attendance declaration is signed in the record's documents section.
+            if (outcome === "Completed") router.push(`/prontuario/${id}#documentos`);
+            else void load();
           }}
         />
       )}
@@ -528,7 +531,7 @@ function DayRow({
             <CheckCircle2 size={15} /> Concluir
           </button>
         )}
-        {appointment.status === "Completed" && (
+        {appointment.status === "Completed" && appointment.attendanceDeclarationId && (
           <button
             type="button"
             onClick={onDeclaration}

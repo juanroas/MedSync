@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace MedSync.Api;
 
-public static class DatabaseSeeder
+public static partial class DatabaseSeeder
 {
     private static readonly Guid PlatformClinicId = Guid.Parse(ConsolidateRoles.PlatformClinicId);
 
@@ -110,17 +110,20 @@ public static class DatabaseSeeder
         new(Guid.Parse("13000000-0000-0000-0000-000000000004"), Guid.Parse("33000000-0000-0000-0000-000000000004"), "Mariana Demo", "paciente.demo2@medsync.dev", "85351346893")
     ];
 
+    // storage: where the sample signed PDFs of the test scenarios go; without it they stay as drafts.
     public static async Task SeedAsync(
         MedSyncDbContext db,
         IPasswordService passwords,
         string demoPassword,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        ClinicalAttachmentStorage? storage = null)
     {
         await SeedPlatformAsync(db, passwords, demoPassword, cancellationToken);
         foreach (var clinic in DemoClinics)
             await SeedClinicAsync(db, passwords, demoPassword, clinic, cancellationToken);
 
         await db.SaveChangesAsync(cancellationToken);
+        await SeedScenariosAsync(db, passwords, demoPassword, storage, cancellationToken);
     }
 
     private static async Task SeedPlatformAsync(
@@ -239,6 +242,12 @@ public static class DatabaseSeeder
             user.Name = account.Name;
             user.Email = email;
             user.IsActive = true;
+            // The test sheet promises SEED_DEMO_PASSWORD for every demo account, also after it is rotated.
+            if (!passwords.Verify(demoPassword, user.PasswordHash))
+            {
+                user.PasswordHash = passwords.Hash(demoPassword);
+                user.MustChangePassword = false;
+            }
             return user;
         }
 

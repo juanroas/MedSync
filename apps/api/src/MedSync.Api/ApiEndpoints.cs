@@ -97,6 +97,7 @@ public static partial class ApiEndpoints
         protectedApi.MapGet("/appointments/{appointmentId:guid}/payments", GetPayment);
 
         MapPrescriptionEndpoints(protectedApi);
+        MapMedicalDocumentEndpoints(protectedApi);
         MapClinicalAccessEndpoints(protectedApi);
         MapReportEndpoints(protectedApi);
         MapBillingEndpoints(protectedApi);
@@ -3174,6 +3175,7 @@ public static partial class ApiEndpoints
 
         // Notes and medications are clinical: only the assigned doctor sees them, per appointment.
         var isDoctor = actor.HasAny(ClinicRole.Doctor);
+        var isPatient = actor.HasAny(ClinicRole.Patient);
         var actorUserId = actor.UserId;
         var now = DateTime.UtcNow;
         return query.OrderByDescending(x => x.ScheduledAt)
@@ -3207,7 +3209,19 @@ public static partial class ApiEndpoints
                 x.ConsultationRoom != null && x.ConsultationRoom.DoctorJoinedAt != null,
                 x.ConsultationRoom != null && x.ConsultationRoom.PatientJoinedAt != null,
                 x.Modality,
-                x.Location));
+                x.Location,
+                // Drafts never count: the patient only sees what the doctor signed.
+                isPatient && x.Patient.UserId == actorUserId
+                    ? db.Prescriptions.Count(p => p.AppointmentId == x.Id && p.Status == PrescriptionStatus.Signed) +
+                      db.MedicalDocuments.Count(d => d.AppointmentId == x.Id && d.Status == MedicalDocumentStatus.Signed)
+                    : 0,
+                db.MedicalDocuments
+                    .Where(d => d.AppointmentId == x.Id &&
+                                d.Kind == MedicalDocumentKind.AttendanceDeclaration &&
+                                d.Status == MedicalDocumentStatus.Signed)
+                    .OrderByDescending(d => d.SignedAt)
+                    .Select(d => (Guid?)d.Id)
+                    .FirstOrDefault()));
     }
 
 
