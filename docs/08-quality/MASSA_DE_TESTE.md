@@ -12,8 +12,11 @@ demo a esse valor (inclusive depois de trocar a variável), sem pedir troca no p
 ## Como a massa chega ao ambiente
 
 - **Local** (`ASPNETCORE_ENVIRONMENT=Development`): roda sozinha quando a API sobe.
-- **Homologação**: roda no start da API com `ASPNETCORE_ENVIRONMENT=Homologation` (ou o modo apresentação descrito em
-  [`DEMO_ACCOUNTS.md`](DEMO_ACCOUNTS.md)); depois do deploy, também por `POST /ops/presentation-seed`.
+- **Homologação (Railway)**: a API roda em modo produção, onde o seed fica **desligado**, e o deploy sozinho não cria a
+  massa. Configure no serviço da **API** (não no Postgres): `ENABLE_HOMOLOGATION_SEED=true`,
+  `ALLOW_PRESENTATION_SEED_IN_PRODUCTION=true`, `PRESENTATION_SEED_ACK=DEMO_ONLY_NO_REAL_PATIENTS` e
+  `SEED_DEMO_PASSWORD` (forte e diferente da senha local: vazia ou igual à local, a API não sobe). A massa nasce no
+  próximo start. Retire essas variáveis antes de qualquer uso com dados reais.
 - **Dia do teste**: é sempre a próxima manhã. Se o seed roda até as 11h, a manhã de testes é no mesmo dia; depois das
   11h, no dia seguinte. Rodando em 31/10 até as 11h, cai em **31/10/2026 (sábado)**. O histórico fica na véspera.
 - **Criado uma vez só**: tudo tem Id fixo. O que você mudar durante o teste (concluir, cancelar, assinar) não volta no

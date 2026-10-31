@@ -18,6 +18,8 @@ Para HML, configurar:
 Se houver apenas um ambiente e ele estiver configurado como `Production`, usar modo apresentacao controlada:
 
 - `ENABLE_HOMOLOGATION_SEED=true`
+- `ALLOW_PRESENTATION_SEED_IN_PRODUCTION=true`
+- `PRESENTATION_SEED_ACK=DEMO_ONLY_NO_REAL_PATIENTS`
 - `SEED_DEMO_PASSWORD=<senha forte, diferente da senha local>`
 - opcional para acionamento manual apos deploy: `PRESENTATION_SEED_KEY=<chave longa aleatoria>`
 
