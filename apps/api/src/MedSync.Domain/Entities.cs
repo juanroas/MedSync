@@ -196,9 +196,14 @@ public sealed class Patient
     public User? User { get; set; }
     public required string Name { get; set; }
     public required string Email { get; set; }
-    public required string Cpf { get; set; }
+    // Null only for a minor who has no CPF yet (ADR-0006).
+    public string? Cpf { get; set; }
     public DateOnly BirthDate { get; set; }
     public string? Phone { get; set; }
+    // Legal guardian of a minor. The login is the guardian's: Email and UserId are shared with the guardian's account.
+    public string? GuardianName { get; set; }
+    public string? GuardianCpf { get; set; }
+    public string? GuardianRelationship { get; set; }
     // Identification printed on the controlled-drug prescription and used to tell homonyms apart.
     public string? SocialName { get; set; }
     public string? MotherName { get; set; }
@@ -218,6 +223,11 @@ public sealed class Patient
         !string.IsNullOrWhiteSpace(AddressStreet) &&
         !string.IsNullOrWhiteSpace(AddressCity) &&
         !string.IsNullOrWhiteSpace(AddressState);
+
+    // What documents print: the pharmacy reads "não possui" instead of an empty field.
+    public string CpfOrNone => string.IsNullOrWhiteSpace(Cpf) ? "não possui" : Cpf;
+
+    public string? GuardianLabel => GuardianName is null ? null : $"{GuardianName} ({GuardianRelationship})";
 
     public string? FormattedAddress()
     {
@@ -241,6 +251,8 @@ public sealed class DoctorAvailabilitySlot
     public TimeOnly StartTime { get; set; }
     public TimeOnly EndTime { get; set; }
     public ConsultationModality Modality { get; set; } = ConsultationModality.Online;
+    // Consultation length in this window, so each day can have its own; null follows Doctor.SlotMinutes.
+    public int? SlotMinutes { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }
 
@@ -276,6 +288,11 @@ public sealed class Appointment
     public string? Notes { get; set; }
     public decimal? Price { get; set; }
     public bool PaymentRequired { get; set; }
+    // "Encerrar atendimento" (rule D8): from here on nothing of this consultation can be changed.
+    public DateTime? ClosedAt { get; set; }
+    public Guid? ClosedByUserId { get; set; }
+    // Days until the follow-up the doctor asked for; null means none. Clinical: only the doctor and the patient read it.
+    public int? FollowUpDays { get; set; }
     public ConsultationRoom? ConsultationRoom { get; set; }
     public ClinicalRecord? ClinicalRecord { get; set; }
     public ICollection<ConsentRecord> ConsentRecords { get; set; } = [];
@@ -467,7 +484,9 @@ public enum MedicalDocumentKind
     // Blank document on the standard layout (title, patient, free text): laudo, relatório, orientações.
     Report,
     // Proof that the patient attended, with arrival and departure times. Signed by the doctor (28/10/2026).
-    AttendanceDeclaration
+    AttendanceDeclaration,
+    // Exams the doctor asks for: same layout and signature as a laudo, one exam per line.
+    ExamRequest
 }
 
 public enum MedicalDocumentStatus

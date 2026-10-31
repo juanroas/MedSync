@@ -33,7 +33,8 @@ public sealed record MedicalDocumentPdfData(
     DateTime? AttendanceEndedAtUtc,
     DateTime IssuedAtUtc,
     bool Simulated,
-    bool Draft);
+    bool Draft,
+    string? PatientGuardian = null);
 
 // Standard layout of the doctor's documents (28/10/2026): the place of care's header, the title centered in bold,
 // the patient, the text, place and date, the doctor's signature block. The name of the place of care is the
@@ -65,6 +66,8 @@ public static class MedicalDocumentPdf
         // Decreto 8.727/2016: the social name comes first, followed by the civil name.
         writer.Labeled("Paciente", data.PatientSocialName is null ? data.PatientName : $"{data.PatientSocialName} (nome civil: {data.PatientName})");
         writer.Labeled("CPF", $"{FormatCpf(data.PatientCpf)} · Nascimento: {data.PatientBirthDate:dd/MM/yyyy}");
+        if (data.PatientGuardian is not null)
+            writer.Labeled("Responsável", data.PatientGuardian);
         writer.Labeled("Atendimento", data.InPerson
             ? $"presencial — {data.ClinicAddress ?? data.ClinicName}"
             : "por telemedicina" + (string.IsNullOrWhiteSpace(data.PatientLocation) ? "" : $" — local informado pelo paciente: {data.PatientLocation}"));
@@ -100,7 +103,10 @@ public static class MedicalDocumentPdf
         var end = Local(data.AttendanceEndedAtUtc ?? data.IssuedAtUtc);
         var person = data.PatientSocialName is null ? data.PatientName : $"{data.PatientSocialName} (nome civil: {data.PatientName})";
         var how = data.InPerson ? $"em consulta presencial em {data.ClinicName}" : "em consulta por telemedicina (atendimento a distância)";
-        return $"Declaro, para os devidos fins, que {person}, CPF {FormatCpf(data.PatientCpf)}, esteve {how} " +
+        var identity = data.PatientGuardian is null
+            ? $"{person}, CPF {FormatCpf(data.PatientCpf)}"
+            : $"{person}, nascido(a) em {data.PatientBirthDate:dd/MM/yyyy}, acompanhado(a) de {data.PatientGuardian}";
+        return $"Declaro, para os devidos fins, que {identity}, esteve {how} " +
                $"no dia {start:dd/MM/yyyy}, das {start:HH:mm} às {end:HH:mm} (horário de Brasília), sob os meus cuidados.";
     }
 

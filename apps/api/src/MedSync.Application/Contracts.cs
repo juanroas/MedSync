@@ -191,10 +191,12 @@ public sealed record AuditEventResponse(
     string? Reason,
     DateTime CreatedAt);
 
+public sealed record GuardianInput(string Name, string Cpf, string Relationship);
+
 public sealed record CreatePatientRequest(
     string Name,
     string Email,
-    string Cpf,
+    string? Cpf,
     DateOnly BirthDate,
     string? Phone,
     string TemporaryPassword,
@@ -203,7 +205,8 @@ public sealed record CreatePatientRequest(
     string? MotherName = null,
     bool MotherNameUndeclared = false,
     string? Sex = null,
-    AddressInput? Address = null);
+    AddressInput? Address = null,
+    GuardianInput? Guardian = null);
 
 public sealed record PatientResponse(
     Guid Id,
@@ -217,7 +220,9 @@ public sealed record PatientResponse(
     string? MotherName = null,
     bool MotherNameUndeclared = false,
     string? Sex = null,
-    AddressResponse? Address = null);
+    AddressResponse? Address = null,
+    string? GuardianName = null,
+    string? GuardianRelationship = null);
 
 // Identification fields left null keep their value; an empty string clears SocialName or Sex.
 public sealed record UpdatePatientRequest(
@@ -230,7 +235,9 @@ public sealed record UpdatePatientRequest(
     string? MotherName = null,
     bool? MotherNameUndeclared = null,
     string? Sex = null,
-    AddressInput? Address = null);
+    AddressInput? Address = null,
+    // A minor may get a CPF after the first visit: it is added here and never changes afterwards.
+    string? Cpf = null);
 
 public sealed record CreateDoctorRequest(
     string Name,
@@ -304,7 +311,9 @@ public sealed record RequestAppointmentRequest(
     DateTime ScheduledAt,
     int DurationMinutes,
     string? Notes,
-    ConsultationModality Modality = ConsultationModality.Online);
+    ConsultationModality Modality = ConsultationModality.Online,
+    // Who the consultation is for, when the account also holds dependents.
+    Guid? PatientId = null);
 
 public sealed record AppointmentResponse(
     Guid Id,
@@ -331,20 +340,31 @@ public sealed record AppointmentResponse(
     // Patient only: signed documents of this consultation ("Documentos da consulta").
     int DocumentCount = 0,
     // Signed attendance declaration: the patient, the assigned doctor and the front desk download it.
-    Guid? AttendanceDeclarationId = null);
+    Guid? AttendanceDeclarationId = null,
+    // Set by "Encerrar atendimento": the consultation became read-only.
+    DateTime? ClosedAt = null,
+    // Clinical: filled only for the assigned doctor and the patient.
+    int? FollowUpDays = null,
+    // Legal guardian of a minor, for the doctor to know who is in the room.
+    string? PatientGuardian = null);
+
+public sealed record SaveFollowUpRequest(int? Days);
 
 public sealed record DoctorAvailabilitySlotResponse(
     Guid Id,
     DayOfWeek DayOfWeek,
     TimeOnly StartTime,
     TimeOnly EndTime,
-    ConsultationModality Modality);
+    ConsultationModality Modality,
+    // Null: the window follows the doctor's default length.
+    int? SlotMinutes = null);
 
 public sealed record CreateDoctorAvailabilitySlotRequest(
     DayOfWeek DayOfWeek,
     TimeOnly StartTime,
     TimeOnly EndTime,
-    ConsultationModality Modality = ConsultationModality.Online);
+    ConsultationModality Modality = ConsultationModality.Online,
+    int? SlotMinutes = null);
 
 public sealed record DoctorTimeOffResponse(
     Guid Id,

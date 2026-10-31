@@ -6,7 +6,8 @@ namespace MedSync.Api;
 // RDC Anvisa 1.000/2025: electronic controlled and antimicrobial prescriptions need an SNCR number; paper ones do not.
 // Decided with the medical lead (2026-10-13):
 // - Controle especial: never signed electronically before the SNCR integration; in person, printed and signed by hand.
-// - Antimicrobial: electronic only during Anvisa's 30-day grace (until SNCR_ELECTRONIC_GRACE_UNTIL); in person, paper.
+// - Antimicrobial: electronic only until the end of Anvisa's transition (SNCR_ELECTRONIC_GRACE_UNTIL, 29/10/2026); in
+//   person, paper. Since then, without the SNCR integration, telemedicine goes through another integrated system.
 // - Any prescription can be issued outside the MedSync signature (2026-10-13 product decision: the patient must not
 //   wait on a platform outage). In person the doctor signs by hand; in telemedicine the doctor signs the PDF with
 //   their own ICP-Brasil certificate (CFM 2.314 art. 13) and sends it, e.g. by WhatsApp.
@@ -39,7 +40,7 @@ public static class PrescriptionRules
         var blockers = new List<string>();
         var paperHint = modality == ConsultationModality.InPerson
             ? " (nesta consulta presencial, use \"Imprimir para assinar à mão\")"
-            : " (por telemedicina, emita num sistema integrado ao SNCR ou use \"Emitir para assinar fora do MedSync\")";
+            : " (por telemedicina, emita num sistema integrado ao SNCR, como a Prescrição Eletrônica do CFM)";
         if (kind == PrescriptionKind.ControlledSpecial)
             blockers.Add("receita de controle especial eletrônica precisa do número do SNCR da Anvisa, que o MedSync ainda não emite" + paperHint);
         if (kind == PrescriptionKind.Antimicrobial && today > sncrGraceUntil)

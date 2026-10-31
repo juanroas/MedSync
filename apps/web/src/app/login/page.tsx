@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 
 const demoAccounts = [
   { label: "Paciente", email: "paciente@medsync.dev" },
@@ -26,6 +26,13 @@ const demoAccounts = [
 // ambiente de homologacao/demo, nunca em producao real com dados de paciente.
 const demoAccountsEnabled = process.env.NEXT_PUBLIC_ENABLE_DEMO_ACCOUNTS === "true";
 
+// Back to where the session ended. Only a path inside the app: anything else goes to the dashboard.
+function landingPage(mustChangePassword: boolean) {
+  if (mustChangePassword) return "/alterar-senha";
+  const back = new URLSearchParams(window.location.search).get("voltar");
+  return back?.startsWith("/") && !back.startsWith("//") && !back.startsWith("/login") ? back : "/dashboard";
+}
+
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState(demoAccountsEnabled ? "medico@medsync.dev" : "");
@@ -35,6 +42,11 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [mfaPendingToken, setMfaPendingToken] = useState("");
   const [mfaCode, setMfaCode] = useState("");
+  const [idleNotice, setIdleNotice] = useState(false);
+
+  useEffect(() => {
+    setIdleNotice(new URLSearchParams(window.location.search).get("motivo") === "inatividade");
+  }, []);
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
@@ -47,7 +59,7 @@ export default function LoginPage() {
         return;
       }
       saveSession(result);
-      router.push(result.user.mustChangePassword ? "/alterar-senha" : "/dashboard");
+      router.push(landingPage(result.user.mustChangePassword));
     } catch (err) {
       setError(err instanceof Error ? err.message : "E-mail ou senha inválidos.");
     } finally {
@@ -62,7 +74,7 @@ export default function LoginPage() {
     try {
       const session = await api.loginMfa(mfaPendingToken, mfaCode);
       saveSession(session);
-      router.push(session.user.mustChangePassword ? "/alterar-senha" : "/dashboard");
+      router.push(landingPage(session.user.mustChangePassword));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Código inválido ou expirado.");
     } finally {
@@ -164,6 +176,11 @@ export default function LoginPage() {
 
           <form className="space-y-5" onSubmit={handleSubmit}>
             {error && <ErrorBanner message={error} />}
+            {idleNotice && !error && (
+              <p className="rounded-lg border border-amber-100 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                Sua sessão foi encerrada depois de 10 minutos sem uso. Entre de novo para continuar de onde parou.
+              </p>
+            )}
             <label className="block">
               <span className="mb-2 block text-label font-semibold text-slate-700">E-mail</span>
               <input

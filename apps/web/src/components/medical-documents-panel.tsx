@@ -7,16 +7,31 @@ import { AlertBanner, Badge, Button, Card, TextArea, TextInput, secondaryButtonC
 import { formatDateTime } from "@/lib/format";
 import type { AppointmentMedicalDocuments, AppointmentStatus, MedicalDocument } from "@/lib/types";
 import { api } from "@/services/api";
-import { CalendarCheck, FilePen, FileText, Plus, Trash2 } from "lucide-react";
+import { CalendarCheck, FilePen, FileText, FlaskConical, Plus, Trash2 } from "lucide-react";
 import { FormEvent, useCallback, useEffect, useState } from "react";
 
-// Laudos e declaração de comparecimento (28/10/2026, .agents/rules/medical-documents.md). Só o médico da consulta
-// vê este painel. O paciente só recebe o documento depois de assinado; rascunho nunca sai daqui.
+// Laudos, solicitações de exames e declaração de comparecimento (.agents/rules/medical-documents.md). Só o médico da
+// consulta vê este painel. O paciente só recebe o documento depois de assinado; rascunho nunca sai daqui.
 
-const titleSuggestions = ["Laudo médico", "Relatório médico", "Solicitação de exames", "Orientações ao paciente", "Encaminhamento"];
+const titleSuggestions = ["Laudo médico", "Relatório médico", "Orientações ao paciente", "Encaminhamento"];
+const EXAM_REQUEST_TITLE = "Solicitação de exames";
+const commonExams = [
+  "Hemograma completo",
+  "Glicemia de jejum",
+  "Hemoglobina glicada",
+  "Colesterol total e frações",
+  "Triglicerídeos",
+  "Creatinina",
+  "Ureia",
+  "TGO",
+  "TGP",
+  "TSH",
+  "T4 livre",
+  "Urina tipo 1",
+];
 
 type Form =
-  | { kind: "Report"; id?: string; title: string; body: string; patientLocation: string }
+  | { kind: "Report" | "ExamRequest"; id?: string; title: string; body: string; patientLocation: string }
   | { kind: "AttendanceDeclaration"; id?: string; date: string; start: string; end: string };
 
 const brazilDate = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo", year: "numeric", month: "2-digit", day: "2-digit" });
@@ -32,11 +47,17 @@ export function MedicalDocumentsPanel({
   status,
   scheduledAt,
   inPerson = false,
+  mode = "reports",
+  locked = false,
 }: {
   appointmentId: string;
   status: AppointmentStatus;
   scheduledAt: string;
   inPerson?: boolean;
+  // Each prontuário tab shows its own kinds: laudos and declaration, or exam requests.
+  mode?: "reports" | "exams";
+  // Closed consultation: everything stays visible, nothing changes.
+  locked?: boolean;
 }) {
   const [data, setData] = useState<AppointmentMedicalDocuments | null>(null);
   const [form, setForm] = useState<Form | null>(null);
@@ -50,24 +71,26 @@ export function MedicalDocumentsPanel({
   }, [appointmentId]);
 
   useEffect(() => {
-    load()
-      .then(() => {
-        // Coming from "Concluir": the page loads after the browser tried the anchor, so scroll once it exists.
-        if (window.location.hash === "#documentos") document.getElementById("documentos")?.scrollIntoView({ block: "start" });
-      })
-      .catch((err) => setError(err instanceof Error ? err.message : "Não foi possível carregar os documentos."));
+    load().catch((err) => setError(err instanceof Error ? err.message : "Não foi possível carregar os documentos."));
   }, [load]);
   // Signed in another tab (the document page): the list catches up.
   useRealtimeRefresh(["appointmentChanged"], () => load().catch(() => undefined), appointmentId);
 
-  const documents = data?.documents ?? [];
+  const exams = mode === "exams";
+  const documents = (data?.documents ?? []).filter((document) => (document.kind === "ExamRequest") === exams);
   const declaration = documents.find((document) => document.kind === "AttendanceDeclaration");
   const cancelled = status === "Cancelled";
   const completed = status === "Completed";
+  const readOnly = cancelled || locked;
 
   function startReport() {
     setMessage("");
-    setForm({ kind: "Report", title: "Laudo médico", body: "", patientLocation: data?.suggestedPatientLocation ?? "" });
+    setForm({
+      kind: exams ? "ExamRequest" : "Report",
+      title: exams ? EXAM_REQUEST_TITLE : "Laudo médico",
+      body: "",
+      patientLocation: data?.suggestedPatientLocation ?? "",
+    });
   }
 
   function startDeclaration() {
@@ -79,8 +102,8 @@ export function MedicalDocumentsPanel({
 
   function edit(document: MedicalDocument) {
     setMessage("");
-    if (document.kind === "Report") {
-      setForm({ kind: "Report", id: document.id, title: document.title, body: document.body, patientLocation: document.patientLocation ?? "" });
+    if (document.kind !== "AttendanceDeclaration") {
+      setForm({ kind: document.kind, id: document.id, title: document.title, body: document.body, patientLocation: document.patientLocation ?? "" });
       return;
     }
     const start = new Date(document.attendanceStartedAt ?? scheduledAt);
@@ -94,9 +117,9 @@ export function MedicalDocumentsPanel({
     setSaving(true);
     setError("");
     const input =
-      form.kind === "Report"
-        ? { kind: form.kind, title: form.title, body: form.body, patientLocation: form.patientLocation }
-        : { kind: form.kind, attendanceStartedAt: toUtc(form.date, form.start), attendanceEndedAt: toUtc(form.date, form.end) };
+      form.kind === "AttendanceDeclaration"
+        ? { kind: form.kind, attendanceStartedAt: toUtc(form.date, form.start), attendanceEndedAt: toUtc(form.date, form.end) }
+        : { kind: form.kind, title: form.title, body: form.body, patientLocation: form.patientLocation };
     try {
       if (form.id) await api.updateMedicalDocument(form.id, input);
       else await api.createMedicalDocument(appointmentId, input);
@@ -123,21 +146,22 @@ export function MedicalDocumentsPanel({
 
   return (
     <Card className="scroll-mt-24 p-6">
-      <span id="documentos" />
+      {!exams && <span id="documentos" />}
       <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <div className="mb-3 grid size-11 place-items-center rounded-lg bg-teal-50 text-teal-700">
-            <FileText size={20} />
+            {exams ? <FlaskConical size={20} /> : <FileText size={20} />}
           </div>
-          <h2 className="text-xl font-bold text-ink">Laudos e declarações</h2>
+          <h2 className="text-xl font-bold text-ink">{exams ? "Solicitação de exames" : "Laudos e declarações"}</h2>
           <p className="mt-1 text-sm leading-6 text-slate-500">
-            Laudo em branco no modelo padrão (título, paciente, texto livre), quantos precisar, e a declaração de
-            comparecimento com entrada e saída. O paciente só vê depois que você assina.
+            {exams
+              ? "Liste os exames, um por linha. Sai no modelo padrão, com a sua assinatura. O paciente só vê depois que você assina."
+              : "Laudo em branco no modelo padrão (título, paciente, texto livre), quantos precisar, e a declaração de comparecimento com entrada e saída. O paciente só vê depois que você assina."}
           </p>
         </div>
-        {!form && !cancelled && (
+        {!form && !readOnly && (
           <button type="button" className={`${secondaryButtonClass} shrink-0`} onClick={startReport}>
-            <Plus size={16} /> Novo laudo
+            <Plus size={16} /> {exams ? "Nova solicitação" : "Novo laudo"}
           </button>
         )}
       </div>
@@ -148,7 +172,7 @@ export function MedicalDocumentsPanel({
 
       {cancelled && <p className="mb-4 text-xs font-semibold text-slate-500">Consulta cancelada: não é possível emitir documentos.</p>}
 
-      {!form && !cancelled && !declaration && (
+      {!exams && !form && !readOnly && !declaration && (
         completed ? (
           <div className="mb-5 flex flex-col gap-3 rounded-lg border border-amber-100 bg-amber-50/70 p-4 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-sm leading-6 text-amber-900">
@@ -168,23 +192,25 @@ export function MedicalDocumentsPanel({
 
       {form ? (
         <form onSubmit={save} className="space-y-4">
-          {form.kind === "Report" ? (
+          {form.kind !== "AttendanceDeclaration" ? (
             <>
-              <label className="block">
-                <span className="mb-1.5 block text-xs font-bold text-slate-600">Título (sai centralizado e em negrito)</span>
-                <TextInput
-                  value={form.title}
-                  onChange={(event) => setForm({ ...form, title: event.target.value })}
-                  list="medical-document-titles"
-                  maxLength={120}
-                  required
-                />
-                <datalist id="medical-document-titles">
-                  {titleSuggestions.map((title) => (
-                    <option key={title} value={title} />
-                  ))}
-                </datalist>
-              </label>
+              {form.kind === "Report" && (
+                <label className="block">
+                  <span className="mb-1.5 block text-xs font-bold text-slate-600">Título (sai centralizado e em negrito)</span>
+                  <TextInput
+                    value={form.title}
+                    onChange={(event) => setForm({ ...form, title: event.target.value })}
+                    list="medical-document-titles"
+                    maxLength={120}
+                    required
+                  />
+                  <datalist id="medical-document-titles">
+                    {titleSuggestions.map((title) => (
+                      <option key={title} value={title} />
+                    ))}
+                  </datalist>
+                </label>
+              )}
               {!inPerson && (
                 <label className="block">
                   <span className="mb-1.5 block text-xs font-bold text-slate-600">Local onde o paciente está (telemedicina)</span>
@@ -197,7 +223,7 @@ export function MedicalDocumentsPanel({
                 </label>
               )}
               <label className="block">
-                <span className="mb-1.5 block text-xs font-bold text-slate-600">Texto</span>
+                <span className="mb-1.5 block text-xs font-bold text-slate-600">{exams ? "Exames (um por linha)" : "Texto"}</span>
                 <TextArea
                   value={form.body}
                   onChange={(event) => setForm({ ...form, body: event.target.value })}
@@ -205,11 +231,29 @@ export function MedicalDocumentsPanel({
                   spellCheck
                   lang="pt-BR"
                   className="min-h-[220px] resize-y leading-6"
-                  placeholder="Escreva o laudo, relatório ou orientação. O documento já traz o cabeçalho do local, o paciente, a data e o seu bloco de assinatura."
+                  placeholder={
+                    exams
+                      ? "Um exame por linha. Se precisar, termine com a indicação clínica."
+                      : "Escreva o laudo, relatório ou orientação. O documento já traz o cabeçalho do local, o paciente, a data e o seu bloco de assinatura."
+                  }
                   required
                 />
                 <span className="mt-1 block text-[11px] text-slate-400">{form.body.length}/8000 caracteres</span>
               </label>
+              {exams && (
+                <div className="flex flex-wrap gap-1.5" aria-label="Exames frequentes">
+                  {commonExams.map((exam) => (
+                    <button
+                      key={exam}
+                      type="button"
+                      onClick={() => setForm({ ...form, body: form.body.trim() ? `${form.body.trimEnd()}\n${exam}` : exam })}
+                      className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-600 hover:border-teal-200 hover:bg-teal-50 hover:text-teal-800"
+                    >
+                      + {exam}
+                    </button>
+                  ))}
+                </div>
+              )}
             </>
           ) : (
             <div className="grid gap-4 sm:grid-cols-3">
@@ -241,7 +285,7 @@ export function MedicalDocumentsPanel({
         </form>
       ) : documents.length === 0 ? (
         <p className="rounded-lg border border-dashed border-slate-200 px-4 py-8 text-center text-sm text-slate-500">
-          Nenhum laudo ou declaração neste atendimento.
+          {exams ? "Nenhuma solicitação de exames neste atendimento." : "Nenhum laudo ou declaração neste atendimento."}
         </p>
       ) : (
         <ul className="divide-y divide-slate-100 rounded-lg border border-slate-100">
@@ -273,7 +317,7 @@ export function MedicalDocumentsPanel({
                 >
                   <FilePen size={14} /> {document.status === "Draft" ? "Ver e assinar" : "Ver documento"}
                 </a>
-                {document.status === "Draft" && (
+                {document.status === "Draft" && !locked && (
                   <>
                     <button
                       type="button"

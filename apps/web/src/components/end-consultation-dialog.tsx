@@ -8,7 +8,8 @@ import { api } from "@/services/api";
 import { CheckCircle2, UserX } from "lucide-react";
 import { useEffect, useState } from "react";
 
-// Encerrar a consulta, de dentro da sala ou pela agenda. "Paciente não compareceu" só aparece quando o médico
+// Concluir a consulta, de dentro da sala, pela agenda ou pelo prontuário. O prontuário e os documentos seguem editáveis
+// até "Encerrar atendimento" (regra D8). "Paciente não compareceu" só aparece quando o médico
 // entrou na chamada e o paciente não (a API confere a mesma regra). Na presencial não há chamada: o médico registra.
 export function EndConsultationDialog({
   appointmentId,
@@ -52,7 +53,7 @@ export function EndConsultationDialog({
   return (
     <Dialog
       open={open}
-      title="Encerrar consulta"
+      title="Concluir consulta"
       description={
         appointment ? (
           <>

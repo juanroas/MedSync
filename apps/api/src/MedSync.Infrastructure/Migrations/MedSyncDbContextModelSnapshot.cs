@@ -32,6 +32,12 @@ namespace MedSync.Infrastructure.Migrations
                     b.Property<Guid>("ClinicId")
                         .HasColumnType("uuid");
 
+                    b.Property<DateTime?>("ClosedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("ClosedByUserId")
+                        .HasColumnType("uuid");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -39,6 +45,9 @@ namespace MedSync.Infrastructure.Migrations
                         .HasColumnType("uuid");
 
                     b.Property<int>("DurationMinutes")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("FollowUpDays")
                         .HasColumnType("integer");
 
                     b.Property<string>("Location")
@@ -732,6 +741,9 @@ namespace MedSync.Infrastructure.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)");
 
+                    b.Property<int?>("SlotMinutes")
+                        .HasColumnType("integer");
+
                     b.Property<TimeOnly>("StartTime")
                         .HasColumnType("time without time zone");
 
@@ -948,7 +960,6 @@ namespace MedSync.Infrastructure.Migrations
                         .HasColumnType("character varying(2000)");
 
                     b.Property<string>("Cpf")
-                        .IsRequired()
                         .HasMaxLength(14)
                         .HasColumnType("character varying(14)");
 
@@ -956,6 +967,18 @@ namespace MedSync.Infrastructure.Migrations
                         .IsRequired()
                         .HasMaxLength(180)
                         .HasColumnType("character varying(180)");
+
+                    b.Property<string>("GuardianCpf")
+                        .HasMaxLength(14)
+                        .HasColumnType("character varying(14)");
+
+                    b.Property<string>("GuardianName")
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<string>("GuardianRelationship")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
 
                     b.Property<string>("MotherName")
                         .HasMaxLength(160)
@@ -991,10 +1014,12 @@ namespace MedSync.Infrastructure.Migrations
                         .IsUnique();
 
                     b.HasIndex("ClinicId", "Email")
-                        .IsUnique();
+                        .IsUnique()
+                        .HasFilter("\"GuardianName\" IS NULL");
 
                     b.HasIndex("ClinicId", "UserId")
-                        .IsUnique();
+                        .IsUnique()
+                        .HasFilter("\"GuardianName\" IS NULL");
 
                     b.ToTable("Patients", "medsync");
                 });

@@ -240,6 +240,7 @@ export const api = {
       method: "PUT",
       body: JSON.stringify(input),
     }),
+  refreshSession: () => request<void>("/auth/refresh", { method: "POST" }),
   logout: () => request<void>("/auth/logout", { method: "POST" }),
   changePassword: (currentPassword: string, newPassword: string) =>
     request<void>("/auth/change-password", {
@@ -329,7 +330,8 @@ export const api = {
   createPatient: (patient: {
     name: string;
     email: string;
-    cpf: string;
+    cpf?: string;
+    guardian?: { name: string; cpf: string; relationship: string };
     birthDate: string;
     phone?: string;
     temporaryPassword: string;
@@ -386,7 +388,7 @@ export const api = {
 
   getDoctors: () => request<Doctor[]>("/doctors"),
   getMyAvailability: () => request<DoctorAvailabilitySlot[]>("/doctors/me/availability"),
-  createMyAvailabilitySlot: (slot: { dayOfWeek: WeekDay; startTime: string; endTime: string; modality: ConsultationModality }) =>
+  createMyAvailabilitySlot: (slot: { dayOfWeek: WeekDay; startTime: string; endTime: string; slotMinutes?: number; modality: ConsultationModality }) =>
     request<DoctorAvailabilitySlot>("/doctors/me/availability", {
       method: "POST",
       body: JSON.stringify(slot),
@@ -442,6 +444,10 @@ export const api = {
   getAppointment: (id: string) => request<Appointment>(`/appointments/${id}`),
   getClinicalRecord: (appointmentId: string) =>
     request<ClinicalRecord>(`/appointments/${appointmentId}/clinical-record`),
+  closeAppointment: (appointmentId: string) =>
+    request<Appointment>(`/appointments/${appointmentId}/close`, { method: "POST" }),
+  saveFollowUp: (appointmentId: string, days: number | null) =>
+    request<Appointment>(`/appointments/${appointmentId}/follow-up`, { method: "PUT", body: JSON.stringify({ days }) }),
   saveClinicalRecord: (appointmentId: string, input: { content: string }) =>
     request<ClinicalRecord>(`/appointments/${appointmentId}/clinical-record`, {
       method: "PUT",
@@ -567,6 +573,7 @@ export const api = {
     durationMinutes: number;
     notes?: string;
     modality: ConsultationModality;
+    patientId?: string;
   }) =>
     request<Appointment>("/appointments/request", {
       method: "POST",

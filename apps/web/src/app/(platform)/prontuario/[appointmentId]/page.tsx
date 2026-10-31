@@ -1,19 +1,32 @@
 "use client";
 
-import { AlertBanner, Button, Card, ErrorBanner, LoadingState, PageHeader, TextArea } from "@/components/ui";
+import { AlertBanner, Button, Card, ErrorBanner, LoadingState, PageHeader, TextArea, cn, secondaryButtonClass } from "@/components/ui";
 import { ClinicalAttachmentsPanel } from "@/components/clinical-attachments-panel";
+import { useConfirm } from "@/components/dialog";
+import { EndConsultationDialog } from "@/components/end-consultation-dialog";
+import { FollowUpCard } from "@/components/follow-up-card";
 import { MedicalDocumentsPanel } from "@/components/medical-documents-panel";
 import { PrescriptionPanel } from "@/components/prescription-panel";
 import { PrescriptionHistory } from "@/components/prescription-history";
-import { formatDateTime, statusLabel } from "@/lib/format";
+import { holdSession, onIdleLogout } from "@/components/session-keeper";
+import { appointmentStatusLabel, canConcludeConsultation } from "@/lib/appointments";
+import { formatDateTime } from "@/lib/format";
 import type { Appointment, ClinicalRecord, PatientClinicalRecord } from "@/lib/types";
 import { ApiError, api, getSession } from "@/services/api";
-import { ArrowLeft, ClipboardPlus, Eye, FileClock, Mic, MicOff, Pill, Save, ShieldCheck, Stethoscope, X } from "lucide-react";
+import { ArrowLeft, CheckCircle2, ClipboardPlus, Eye, FileClock, Lock, Mic, MicOff, Pill, Save, ShieldCheck, X } from "lucide-react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 
 const MAX_RECORD_LENGTH = 12000;
+
+const TABS = [
+  { id: "registro", label: "Registro clínico" },
+  { id: "receita", label: "Receitas" },
+  { id: "exames", label: "Exames e retorno" },
+  { id: "documentos", label: "Laudos e declaração" },
+] as const;
+type Tab = (typeof TABS)[number]["id"];
 
 type SpeechRecognitionResultLike = {
   isFinal: boolean;
@@ -53,9 +66,10 @@ type SpeechRecognitionWindow = Window & {
 export default function ClinicalRecordPage() {
   const params = useParams<{ appointmentId: string }>();
   const appointmentId = Array.isArray(params.appointmentId) ? params.appointmentId[0] : params.appointmentId;
+  const router = useRouter();
   const roles = getSession()?.user.roles ?? [];
-  const canEditClinicalRecord = roles.includes("Doctor");
-  const canUploadClinicalAttachment = canEditClinicalRecord || roles.includes("Patient");
+  const isDoctor = roles.includes("Doctor");
+  const canUploadClinicalAttachment = isDoctor || roles.includes("Patient");
 
   const [appointment, setAppointment] = useState<Appointment | null>(null);
   const [record, setRecord] = useState<ClinicalRecord | null>(null);
@@ -70,7 +84,14 @@ export default function ClinicalRecordPage() {
   const [dictationSupported, setDictationSupported] = useState(false);
   const [dictationActive, setDictationActive] = useState(false);
   const [dictationStatus, setDictationStatus] = useState("");
+  const [tab, setTab] = useState<Tab>("registro");
+  const [concluding, setConcluding] = useState(false);
+  const [closing, setClosing] = useState(false);
+  const [confirm, confirmDialog] = useConfirm();
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
+  // Rule D8: after "Encerrar atendimento" nothing here changes, the API refuses it too.
+  const closed = Boolean(appointment?.closedAt);
+  const canEditClinicalRecord = isDoctor && !closed;
 
   const currentHistory = useMemo(
     () => history.filter((item) => item.appointmentId !== appointmentId),
@@ -112,6 +133,24 @@ export default function ClinicalRecordPage() {
     };
   }, [appointmentId]);
 
+  // A link can open a tab directly (#documentos, #receita, #exames).
+  useEffect(() => {
+    function openTabFromHash() {
+      const hash = window.location.hash.slice(1);
+      const found = TABS.find((item) => item.id === hash);
+      if (found) setTab(found.id);
+    }
+
+    openTabFromHash();
+    window.addEventListener("hashchange", openTabFromHash);
+    return () => window.removeEventListener("hashchange", openTabFromHash);
+  }, []);
+
+  // Dictating is using the system without touching it.
+  useEffect(() => {
+    if (dictationActive) return holdSession();
+  }, [dictationActive]);
+
   useEffect(() => {
     const SpeechRecognition = getSpeechRecognitionConstructor();
     setDictationSupported(Boolean(SpeechRecognition));
@@ -133,6 +172,51 @@ export default function ClinicalRecordPage() {
     document.addEventListener("keydown", closeOnEscape);
     return () => document.removeEventListener("keydown", closeOnEscape);
   }, [selectedHistory]);
+
+  // What the doctor typed is saved before leaving: on "Concluir", on "Encerrar" and before an idle logout.
+  async function saveDraft() {
+    if (!canEditClinicalRecord || !content.trim() || content === (record?.content ?? "")) return;
+    const updated = await api.saveClinicalRecord(appointmentId, { content });
+    setRecord(updated);
+    setContent(updated.content);
+  }
+
+  const saveDraftRef = useRef(saveDraft);
+  saveDraftRef.current = saveDraft;
+  useEffect(() => onIdleLogout(() => saveDraftRef.current()), []);
+
+  async function openConclude() {
+    setError("");
+    try {
+      await saveDraft();
+      setConcluding(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Não foi possível salvar o prontuário.");
+    }
+  }
+
+  async function closeAttendance() {
+    setError("");
+    setClosing(true);
+    try {
+      await saveDraft();
+      const ok = await confirm({
+        title: "Encerrar atendimento?",
+        description: `Depois de encerrar, nada desta consulta pode ser alterado: prontuário, receitas, exames, laudos, declaração e anexos.${
+          appointment?.attendanceDeclarationId ? "" : " A declaração de comparecimento ainda não foi assinada e não poderá mais ser emitida."
+        }`,
+        confirmLabel: "Encerrar atendimento",
+        danger: true,
+      });
+      if (!ok) return;
+      await api.closeAppointment(appointmentId);
+      router.push("/consultas");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Não foi possível encerrar o atendimento.");
+    } finally {
+      setClosing(false);
+    }
+  }
 
   async function saveRecord(event: FormEvent) {
     event.preventDefault();
@@ -256,8 +340,17 @@ export default function ClinicalRecordPage() {
 
       {error && <ErrorBanner message={error} />}
       {savedMessage && <AlertBanner tone="success" message={savedMessage} />}
+      {confirmDialog}
 
-      {!canEditClinicalRecord && (
+      {closed && appointment?.closedAt && (
+        <AlertBanner
+          tone="info"
+          title="Atendimento encerrado"
+          message={`Encerrado em ${formatDateTime(appointment.closedAt)}. Este prontuário é somente leitura: nada desta consulta pode ser alterado.`}
+        />
+      )}
+
+      {!isDoctor && (
         <AlertBanner
           tone="warning"
           title="Acesso assistencial necessário"
@@ -267,7 +360,7 @@ export default function ClinicalRecordPage() {
 
       {appointment && (
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1.15fr)_minmax(360px,.85fr)]">
-          <div className="space-y-6">
+          <div className="min-w-0 space-y-6">
             <Card className="p-6">
               <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
                 <div>
@@ -276,13 +369,34 @@ export default function ClinicalRecordPage() {
                   <p className="mt-1 text-sm text-slate-500">
                     {appointment.specialty} com {appointment.doctorName}
                   </p>
+                  {appointment.patientGuardian && (
+                    <p className="mt-1 text-sm font-semibold text-slate-600">Responsável legal: {appointment.patientGuardian}</p>
+                  )}
                 </div>
                 <div className="grid gap-3 text-sm text-slate-500 sm:grid-cols-2 lg:min-w-80">
                   <InfoPill label="Horário" value={formatDateTime(appointment.scheduledAt)} />
-                  <InfoPill label="Situação" value={statusLabel[appointment.status]} />
+                  <InfoPill label="Situação" value={appointmentStatusLabel(appointment)} />
                 </div>
               </div>
-              {appointment.patientContinuousMedications && !canEditClinicalRecord && (
+              {isDoctor && canConcludeConsultation(appointment) && (
+                <div className="mt-5 flex flex-col gap-3 border-t border-slate-100 pt-4 sm:flex-row sm:items-center sm:justify-between">
+                  <p className="text-sm leading-6 text-slate-500">Terminou de atender? Conclua a consulta e volte para a agenda.</p>
+                  <button type="button" className={cn(secondaryButtonClass, "shrink-0")} onClick={openConclude}>
+                    <CheckCircle2 size={16} /> Concluir consulta
+                  </button>
+                </div>
+              )}
+              {canEditClinicalRecord && appointment.status === "Completed" && (
+                <div className="mt-5 flex flex-col gap-3 border-t border-slate-100 pt-4 sm:flex-row sm:items-center sm:justify-between">
+                  <p className="text-sm leading-6 text-slate-500">
+                    Consulta concluída. Quando terminar os documentos, encerre o atendimento: depois disso nada pode ser alterado.
+                  </p>
+                  <button type="button" className={cn(secondaryButtonClass, "shrink-0")} onClick={closeAttendance} disabled={closing}>
+                    <Lock size={16} /> {closing ? "Encerrando..." : "Encerrar atendimento"}
+                  </button>
+                </div>
+              )}
+              {appointment.patientContinuousMedications && !isDoctor && (
                 <div className="mt-5 flex gap-3 rounded-lg border border-amber-100 bg-amber-50/70 p-4 text-sm text-amber-800">
                   <Pill size={17} className="mt-0.5 shrink-0" />
                   <div>
@@ -293,7 +407,28 @@ export default function ClinicalRecordPage() {
               )}
             </Card>
 
-            <Card className="p-6">
+            {isDoctor && (
+              <div role="tablist" aria-label="Seções do atendimento" className="flex gap-1 overflow-x-auto rounded-lg border border-slate-200 bg-white p-1">
+                {TABS.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    role="tab"
+                    aria-selected={tab === item.id}
+                    onClick={() => setTab(item.id)}
+                    className={cn(
+                      "h-10 shrink-0 rounded-md px-4 text-sm font-bold transition",
+                      tab === item.id ? "bg-teal-50 text-teal-800 ring-1 ring-teal-200" : "text-slate-500 hover:text-ink",
+                    )}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Hidden, not unmounted: a half-written draft survives a change of tab. */}
+            <Card className={cn("p-6", tab !== "registro" && "hidden")}>
               <div className="mb-5 flex items-start justify-between gap-4">
                 <div>
                   <div className="mb-3 grid size-11 place-items-center rounded-lg bg-teal-50 text-teal-700">
@@ -349,29 +484,49 @@ export default function ClinicalRecordPage() {
                   <p className="text-xs text-slate-400">
                     {content.length}/{MAX_RECORD_LENGTH} caracteres. Alterações geram versão e trilha de auditoria.
                   </p>
-                  <Button type="submit" isLoading={saving} disabled={!canEditClinicalRecord || saving}>
-                    <Save size={17} /> Salvar prontuário
-                  </Button>
+                  {!closed && (
+                    <Button type="submit" isLoading={saving} disabled={!canEditClinicalRecord || saving}>
+                      <Save size={17} /> Salvar prontuário
+                    </Button>
+                  )}
                 </div>
               </form>
             </Card>
 
-            {canEditClinicalRecord && (
-              <PrescriptionPanel
-                appointmentId={appointmentId}
-                patientId={appointment.patientId}
-                canIssue={appointment.status !== "Cancelled"}
-                inPerson={appointment.modality === "InPerson"}
-              />
-            )}
+            {isDoctor && (
+              <>
+                <div hidden={tab !== "receita"}>
+                  <PrescriptionPanel
+                    appointmentId={appointmentId}
+                    patientId={appointment.patientId}
+                    canIssue={appointment.status !== "Cancelled" && !closed}
+                    inPerson={appointment.modality === "InPerson"}
+                    locked={closed}
+                  />
+                </div>
 
-            {canEditClinicalRecord && (
-              <MedicalDocumentsPanel
-                appointmentId={appointmentId}
-                status={appointment.status}
-                scheduledAt={appointment.scheduledAt}
-                inPerson={appointment.modality === "InPerson"}
-              />
+                <div hidden={tab !== "exames"} className="space-y-6">
+                  <MedicalDocumentsPanel
+                    mode="exams"
+                    appointmentId={appointmentId}
+                    status={appointment.status}
+                    scheduledAt={appointment.scheduledAt}
+                    inPerson={appointment.modality === "InPerson"}
+                    locked={closed}
+                  />
+                  <FollowUpCard appointment={appointment} locked={closed} onSaved={setAppointment} />
+                </div>
+
+                <div hidden={tab !== "documentos"}>
+                  <MedicalDocumentsPanel
+                    appointmentId={appointmentId}
+                    status={appointment.status}
+                    scheduledAt={appointment.scheduledAt}
+                    inPerson={appointment.modality === "InPerson"}
+                    locked={closed}
+                  />
+                </div>
+              </>
             )}
           </div>
 
@@ -437,19 +592,28 @@ export default function ClinicalRecordPage() {
               )}
             </Card>
 
-            {canEditClinicalRecord && (
+            {isDoctor && (
               <Card>
                 <PrescriptionHistory patientId={appointment.patientId} currentAppointmentId={appointmentId} />
               </Card>
             )}
 
-            <ClinicalAttachmentsPanel appointmentId={appointmentId} canUpload={canUploadClinicalAttachment} />
+            <ClinicalAttachmentsPanel appointmentId={appointmentId} canUpload={canUploadClinicalAttachment} locked={closed} />
           </aside>
         </div>
       )}
 
       {selectedHistory && (
         <ClinicalHistoryModal record={selectedHistory} onClose={() => setSelectedHistory(null)} />
+      )}
+
+      {isDoctor && (
+        <EndConsultationDialog
+          appointmentId={appointmentId}
+          open={concluding}
+          onClose={() => setConcluding(false)}
+          onEnded={() => router.push("/consultas")}
+        />
       )}
     </>
   );

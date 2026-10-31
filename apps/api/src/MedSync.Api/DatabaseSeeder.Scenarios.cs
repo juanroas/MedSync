@@ -32,6 +32,7 @@ public static partial class DatabaseSeeder
     private static readonly Guid PatientCarla = Guid.Parse("33000000-0000-0000-0000-000000000001");
     private static readonly Guid PatientRoberto = Guid.Parse("33000000-0000-0000-0000-000000000002");
     private static readonly Guid PatientDaniel = Guid.Parse("33000000-0000-0000-0000-000000000003");
+    private static readonly Guid PatientSofia = Guid.Parse("33000000-0000-0000-0000-000000000090");
     private static readonly Guid PatientMariana = Guid.Parse("33000000-0000-0000-0000-000000000004");
     private static readonly Guid PatientBeatriz = Guid.Parse("35000000-0000-0000-0000-000000000001");
 
@@ -60,6 +61,7 @@ public static partial class DatabaseSeeder
         new("50000000-0000-0000-0000-000000000007", ClinicBeta, DoctorRenata, PatientJoao, 10, 0, ConsultationModality.InPerson),
         new("50000000-0000-0000-0000-000000000008", ClinicDemo, DoctorBrunoDemo, PatientMariana, 9, 30, ConsultationModality.Online, Consent: false),
         new("50000000-0000-0000-0000-000000000009", ClinicHelena, DoctorBrunoHelena, PatientLucas, 10, 30, ConsultationModality.InPerson),
+        new("50000000-0000-0000-0000-000000000017", ClinicDemo, DoctorBrunoDemo, PatientSofia, 10, 0, ConsultationModality.Online),
         new("50000000-0000-0000-0000-000000000016", ClinicDemo, DoctorBrunoDemo, PatientCarla, 9, 0, ConsultationModality.InPerson),
     ];
 
@@ -96,6 +98,8 @@ public static partial class DatabaseSeeder
 
         await SeedScenarioAccountsAsync(db, passwords, demoPassword, cancellationToken);
         await db.SaveChangesAsync(cancellationToken);
+        await SeedDependentAsync(db, cancellationToken);
+        await db.SaveChangesAsync(cancellationToken);
 
         await SeedScenarioWindowsAsync(db, day.DayOfWeek, cancellationToken);
         var clinics = await db.Clinics.AsNoTracking()
@@ -110,6 +114,31 @@ public static partial class DatabaseSeeder
             await SignScenarioDocumentsAsync(db, storage, cancellationToken);
         await SeedQueuesAsync(db, day, cancellationToken);
         await db.SaveChangesAsync(cancellationToken);
+    }
+
+    // A child without CPF on her mother's account (ADR-0006): Mariana sees her own consultations and Sofia's.
+    private static async Task SeedDependentAsync(MedSyncDbContext db, CancellationToken cancellationToken)
+    {
+        if (await db.Patients.AnyAsync(x => x.Id == PatientSofia, cancellationToken))
+            return;
+
+        var mother = await db.Patients.SingleAsync(x => x.Id == PatientMariana, cancellationToken);
+        var child = new Patient
+        {
+            Id = PatientSofia,
+            ClinicId = mother.ClinicId,
+            UserId = mother.UserId,
+            Name = "Sofia Demo",
+            Email = mother.Email,
+            BirthDate = new DateOnly(2018, 3, 12),
+            Phone = mother.Phone,
+            MotherName = mother.Name,
+            GuardianName = mother.Name,
+            GuardianCpf = mother.Cpf,
+            GuardianRelationship = "Mãe"
+        };
+        FillDemoIdentification(child);
+        db.Patients.Add(child);
     }
 
     // The next morning of tests: today until 11:00, tomorrow after that. Once created it stays on that day.
@@ -289,6 +318,9 @@ public static partial class DatabaseSeeder
                 history, cancellationToken, AppointmentStatus.Completed) is { } allSigned)
         {
             var (joined, ended) = (allSigned.ScheduledAt.AddMinutes(1), allSigned.ScheduledAt.AddMinutes(27));
+            // Closed by the doctor: the read-only example (rule D8).
+            allSigned.ClosedAt = ended.AddMinutes(5);
+            allSigned.ClosedByUserId = marinaUser;
             AddCompletedRoom(db, allSigned, joined, ended, patientJoined: true);
             AddClinicalRecord(db, allSigned, marinaUser, "Paciente relata cefaleia frontal há 3 dias, sem febre. Exame por vídeo sem sinais de alerta. Conduta: analgésico simples, hidratação e retorno se piora.");
             db.Prescriptions.Add(new Prescription

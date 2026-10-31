@@ -11,8 +11,8 @@ import { ArrowLeft, Plus, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { FormEvent, useCallback, useEffect, useState } from "react";
 
-// Horários de atendimento do médico: semana-padrão que se repete, duração da consulta, até quando o
-// paciente pode marcar e folgas. Cada faixa é online, presencial (no endereço da clínica) ou as duas.
+// Horários de atendimento do médico: semana-padrão que se repete, até quando o paciente pode marcar e folgas.
+// Cada faixa é online, presencial (no endereço da clínica) ou as duas, e tem a própria duração de consulta.
 
 const WEEK: WeekDay[] = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 const DAY_NAMES: Record<WeekDay, string> = {
@@ -45,8 +45,8 @@ function minutesOf(time: string) {
   return hours * 60 + minutes;
 }
 
-function slotsIn(window: DoctorAvailabilitySlot, slotMinutes: number) {
-  return Math.floor((minutesOf(window.endTime) - minutesOf(window.startTime)) / slotMinutes);
+function slotsIn(window: DoctorAvailabilitySlot, defaultMinutes: number) {
+  return Math.floor((minutesOf(window.endTime) - minutesOf(window.startTime)) / (window.slotMinutes ?? defaultMinutes));
 }
 
 function formatDay(key: string) {
@@ -124,7 +124,7 @@ export function DoctorScheduleEditor() {
               <p className="mt-1 text-xs leading-5 text-slate-500">
                 {schedule.windows.length === 0
                   ? "Nenhuma faixa cadastrada: hoje os pacientes podem pedir qualquer horário."
-                  : `${schedule.windows.reduce((total, window) => total + slotsIn(window, schedule.slotMinutes), 0)} horários de ${schedule.slotMinutes} min por semana.`}
+                  : `${schedule.windows.reduce((total, window) => total + slotsIn(window, schedule.slotMinutes), 0)} horários por semana. Cada faixa tem a própria duração.`}
               </p>
             </div>
             <ul className="divide-y divide-slate-100">
@@ -146,7 +146,8 @@ export function DoctorScheduleEditor() {
                               modalityChipClass[window.modality],
                             )}
                           >
-                            {window.startTime.slice(0, 5)}–{window.endTime.slice(0, 5)} · {MODALITY_LABELS[window.modality]}
+                            {window.startTime.slice(0, 5)}–{window.endTime.slice(0, 5)} · {MODALITY_LABELS[window.modality]} ·{" "}
+                            {window.slotMinutes ?? schedule.slotMinutes} min
                             <button
                               type="button"
                               onClick={() => removeWindow(window)}
@@ -171,6 +172,7 @@ export function DoctorScheduleEditor() {
                     {addingDay === day && (
                       <WindowForm
                         day={day}
+                        defaultMinutes={schedule.slotMinutes}
                         onCancel={() => setAddingDay(null)}
                         onSaved={async () => {
                           setAddingDay(null);
@@ -195,11 +197,22 @@ export function DoctorScheduleEditor() {
   );
 }
 
-function WindowForm({ day, onCancel, onSaved }: { day: WeekDay; onCancel: () => void; onSaved: () => Promise<void> }) {
-  const [form, setForm] = useState<{ startTime: string; endTime: string; modality: ConsultationModality }>({
+function WindowForm({
+  day,
+  defaultMinutes,
+  onCancel,
+  onSaved,
+}: {
+  day: WeekDay;
+  defaultMinutes: number;
+  onCancel: () => void;
+  onSaved: () => Promise<void>;
+}) {
+  const [form, setForm] = useState<{ startTime: string; endTime: string; modality: ConsultationModality; slotMinutes: number }>({
     startTime: "09:00",
     endTime: "12:00",
     modality: "Online",
+    slotMinutes: defaultMinutes,
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -219,6 +232,7 @@ function WindowForm({ day, onCancel, onSaved }: { day: WeekDay; onCancel: () => 
         startTime: `${form.startTime}:00`,
         endTime: `${form.endTime}:00`,
         modality: form.modality,
+        slotMinutes: form.slotMinutes,
       });
       await onSaved();
     } catch (err) {
@@ -231,7 +245,7 @@ function WindowForm({ day, onCancel, onSaved }: { day: WeekDay; onCancel: () => 
   return (
     <form onSubmit={submit} className="mt-3 rounded-lg border border-teal-100 bg-teal-50/40 p-4">
       {error && <p className="mb-3 text-sm text-red-600">{error}</p>}
-      <div className="grid gap-3 sm:grid-cols-[1fr_1fr_1.6fr] sm:items-end">
+      <div className="grid gap-3 sm:grid-cols-3 sm:items-end">
         <label className="block">
           <span className="mb-2 block text-xs font-bold text-slate-600">Início</span>
           <input className={inputClass} type="time" value={form.startTime} onChange={(event) => setForm({ ...form, startTime: event.target.value })} required />
@@ -240,7 +254,17 @@ function WindowForm({ day, onCancel, onSaved }: { day: WeekDay; onCancel: () => 
           <span className="mb-2 block text-xs font-bold text-slate-600">Fim</span>
           <input className={inputClass} type="time" value={form.endTime} onChange={(event) => setForm({ ...form, endTime: event.target.value })} required />
         </label>
-        <fieldset>
+        <label className="block">
+          <span className="mb-2 block text-xs font-bold text-slate-600">Duração da consulta</span>
+          <select className={inputClass} value={form.slotMinutes} onChange={(event) => setForm({ ...form, slotMinutes: Number(event.target.value) })}>
+            {SLOT_OPTIONS.map((minutes) => (
+              <option key={minutes} value={minutes}>
+                {minutes === 60 ? "1 hora" : `${minutes} min`}
+              </option>
+            ))}
+          </select>
+        </label>
+        <fieldset className="sm:col-span-3">
           <legend className="mb-2 block text-xs font-bold text-slate-600">Modalidade</legend>
           <div className="inline-flex rounded-lg border border-slate-200 bg-white p-1">
             {MODALITIES.map((modality) => (
@@ -310,7 +334,7 @@ function SettingsCard({ schedule, onSaved }: { schedule: DoctorSchedule; onSaved
     <Card className="p-6">
       <h2 className="font-bold text-ink">Regras da agenda</h2>
       <fieldset className="mt-4">
-        <legend className="mb-2 block text-xs font-bold text-slate-600">Duração de cada consulta</legend>
+        <legend className="mb-2 block text-xs font-bold text-slate-600">Duração padrão das novas faixas</legend>
         <div className="grid grid-cols-5 gap-1 rounded-lg border border-slate-200 bg-white p-1">
           {SLOT_OPTIONS.map((minutes) => (
             <button
@@ -338,7 +362,9 @@ function SettingsCard({ schedule, onSaved }: { schedule: DoctorSchedule; onSaved
           ))}
         </select>
       </label>
-      <p className="mt-3 text-xs leading-5 text-slate-500">Consultas já marcadas não mudam quando você altera estas regras.</p>
+      <p className="mt-3 text-xs leading-5 text-slate-500">
+        Para mudar a duração de um dia, remova a faixa e adicione de novo com a duração certa. Consultas já marcadas não mudam.
+      </p>
       {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
       {message && !changed && <p className="mt-3 text-sm text-teal-700">{message}</p>}
       <Button type="button" className="mt-4 w-full" onClick={save} isLoading={saving} disabled={!changed}>

@@ -405,7 +405,7 @@ async function appointmentsOf(email: string, patientName: string) {
 // on and allowed, otherwise by the second way (sign outside MedSync). "draft" leaves it open.
 async function prescribe(page: Page, appointmentId: string, inPerson: boolean, rx: Prescription, mode: "issue" | "draft" = "issue") {
   expect(appointmentId, rx.medication).toBeTruthy();
-  await page.goto(`/prontuario/${appointmentId}`);
+  await page.goto(`/prontuario/${appointmentId}#receita`);
   await page.getByRole("button", { name: /nova receita/i }).click();
   await page.getByLabel("Tipo").selectOption(rx.kind);
   await pickMedication(page, rx.medication);

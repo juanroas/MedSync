@@ -47,6 +47,8 @@ export default function NewAppointmentPage() {
     }
 
     if (isPatient) {
+      // A guardian books for the dependents on the same account.
+      api.getPatients().then(setPatients).catch(() => undefined);
       api.getCareSpecialties()
         .then((data) => {
           setSpecialties(data);
@@ -107,6 +109,7 @@ export default function NewAppointmentPage() {
         durationMinutes: form.durationMinutes,
         notes: form.notes,
         modality: form.modality,
+        patientId: form.patientId || undefined,
       });
       if (attachments.length > 0) {
         await Promise.all(
@@ -145,6 +148,7 @@ export default function NewAppointmentPage() {
       ) : isPatient ? (
         <PatientRequestForm
           form={form}
+          patients={patients}
           specialties={specialties}
           saving={saving}
           error={error}
@@ -240,6 +244,7 @@ function mapsLink(address: string) {
 
 function PatientRequestForm({
   form,
+  patients,
   specialties,
   saving,
   error,
@@ -249,6 +254,7 @@ function PatientRequestForm({
   onAttachmentsChange,
 }: {
   form: AppointmentForm;
+  patients: Patient[];
   specialties: CareSpecialty[];
   saving: boolean;
   error: string;
@@ -339,6 +345,24 @@ function PatientRequestForm({
   return (
     <form onSubmit={onSubmit} className="grid gap-6 xl:grid-cols-[1.2fr_.7fr]">
       <section className="rounded-3xl border border-slate-100 bg-white p-6 shadow-sm sm:p-8">
+        {patients.length > 1 && (
+          <label className="mb-6 block">
+            <span className="mb-2 block text-sm font-bold text-slate-700">Para quem é a consulta?</span>
+            <select
+              className={inputClass}
+              value={form.patientId}
+              onChange={(event) => onChange({ ...form, patientId: event.target.value })}
+              required
+            >
+              <option value="">Escolha</option>
+              {patients.map((patient) => (
+                <option key={patient.id} value={patient.id}>
+                  {patient.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
         {isNoDoctorAvailableError(error) && (
           <div className="mb-6 rounded-2xl border border-amber-100 bg-amber-50 p-5 text-sm text-amber-800">
             <p className="font-bold">Nenhum médico disponível neste horário.</p>

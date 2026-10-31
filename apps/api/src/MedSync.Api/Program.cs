@@ -209,6 +209,7 @@ app.Use(async (context, next) =>
             StringComparison.OrdinalIgnoreCase) &&
         !context.Request.Path.StartsWithSegments("/auth/change-password") &&
         !context.Request.Path.StartsWithSegments("/auth/me") &&
+        !context.Request.Path.StartsWithSegments("/auth/refresh") &&
         !context.Request.Path.StartsWithSegments("/auth/logout"))
     {
         context.Response.StatusCode = StatusCodes.Status403Forbidden;

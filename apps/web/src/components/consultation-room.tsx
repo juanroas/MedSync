@@ -6,6 +6,7 @@ import { ClinicalAttachmentsPanel } from "@/components/clinical-attachments-pane
 import { useRealtimeConnected, useRealtimeRefresh } from "@/lib/realtime";
 import { EndConsultationDialog } from "@/components/end-consultation-dialog";
 import { PrescriptionHistory } from "@/components/prescription-history";
+import { holdSession } from "@/components/session-keeper";
 import { ErrorBanner, LoadingState, TextArea, buttonClass, cn } from "@/components/ui";
 import { formatDateTime } from "@/lib/format";
 import type { Appointment, ClinicalRecord, PatientClinicalRecord } from "@/lib/types";
@@ -290,6 +291,9 @@ export function ConsultationRoom({ appointmentId }: { appointmentId: string }) {
 
     return true;
   }
+
+  // In a call nobody touches the mouse: the session stays alive for as long as the room is open.
+  useEffect(() => holdSession(), []);
 
   // Leaving keeps the consultation open (the doctor can come back while the window lasts);
   // only "Encerrar consulta" ends it for everyone.

@@ -39,7 +39,7 @@ public static partial class ApiEndpoints
 
         var patients = await db.Patients.AsNoTracking()
             .Where(x => x.Cpf == digits)
-            .Select(x => new ClinicalAccessPatientResponse(x.Id, x.Name, x.Cpf, x.Clinic.Name))
+            .Select(x => new ClinicalAccessPatientResponse(x.Id, x.Name, x.Cpf!, x.Clinic.Name))
             .ToListAsync(cancellationToken);
         audit.Add(actor, "ClinicalAccess.PatientLookup", "Patient", null, patients.Count > 0 ? "Success" : "NotFound");
         await db.SaveChangesAsync(cancellationToken);

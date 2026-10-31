@@ -275,7 +275,9 @@ function PrescriptionDocument() {
               paperOption && missingForPaper.length === 0 &&
                 (inPerson
                   ? "Consulta presencial: você pode imprimir para assinar à mão."
-                  : "Se a assinatura do MedSync não estiver disponível, emita para assinar fora dele com o seu certificado."),
+                  : special
+                    ? "Por telemedicina, esta receita só vale emitida em sistema integrado ao SNCR da Anvisa, como a Prescrição Eletrônica do CFM. Assinada fora do SNCR, a farmácia pode recusar."
+                    : "Se a assinatura do MedSync não estiver disponível, emita para assinar fora dele com o seu certificado."),
               paperOption && missingForPaper.length > 0 && `Para emitir fora do MedSync: ${missingForPaper.join("; ")}.`,
               document.missingForSignature.length > 0 && `Para assinar digitalmente: ${document.missingForSignature.join("; ")}.`,
               !document.signatureAvailable && "A assinatura digital ICP-Brasil (VIDaaS) ainda não está ativa no MedSync.",

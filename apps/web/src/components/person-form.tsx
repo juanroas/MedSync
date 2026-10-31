@@ -3,12 +3,15 @@
 import { AddressFields, emptyAddress, isAddressComplete } from "@/components/address-fields";
 import { Button, inputClass } from "@/components/ui";
 import type { Address, Patient } from "@/lib/types";
-import { isValidCpf, isValidOptionalPhone, maskCpf } from "@/lib/validation";
+import { isMinor, isValidCpf, isValidOptionalPhone, maskCpf } from "@/lib/validation";
 import { api } from "@/services/api";
 import { FormEvent, useState } from "react";
 
 // Cadastro de pessoa física (paciente) pela clínica: identificação completa para prontuário e receitas.
-// Usado em Pacientes e no agendamento feito pela recepção.
+// Usado em Pacientes e no agendamento feito pela recepção. Menor de 18 anos: responsável legal obrigatório, CPF
+// opcional e a conta é a do responsável (ADR-0006).
+
+const GUARDIAN_RELATIONSHIPS = ["Mãe", "Pai", "Tutor(a)", "Guardião(ã)", "Outro responsável legal"];
 
 const initialPerson = {
   name: "",
@@ -22,6 +25,9 @@ const initialPerson = {
   email: "",
   temporaryPassword: "",
   continuousMedications: "",
+  guardianName: "",
+  guardianCpf: "",
+  guardianRelationship: "",
 };
 
 export function PersonForm({
@@ -37,12 +43,16 @@ export function PersonForm({
   const [address, setAddress] = useState<Address>(emptyAddress);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const minor = isMinor(form.birthDate);
 
   async function submit(event: FormEvent) {
     event.preventDefault();
     setError("");
     if (form.name.trim().length < 3) return setError("Informe o nome completo com pelo menos 3 caracteres.");
-    if (!isValidCpf(form.cpf)) return setError("Informe um CPF válido.");
+    if (form.cpf ? !isValidCpf(form.cpf) : !minor) return setError("Informe um CPF válido.");
+    if (minor && form.guardianName.trim().length < 3) return setError("Informe o nome completo do responsável legal.");
+    if (minor && !isValidCpf(form.guardianCpf)) return setError("Informe um CPF válido do responsável legal.");
+    if (minor && !form.guardianRelationship) return setError("Escolha o vínculo do responsável com o paciente.");
     if (form.birthDate && new Date(`${form.birthDate}T00:00:00`).getTime() > Date.now())
       return setError("A data de nascimento não pode estar no futuro.");
     if (!form.motherNameUndeclared && form.motherName.trim().length < 3)
@@ -55,7 +65,8 @@ export function PersonForm({
       const created = await api.createPatient({
         name: form.name,
         socialName: form.socialName || undefined,
-        cpf: form.cpf,
+        cpf: form.cpf || undefined,
+        guardian: minor ? { name: form.guardianName, cpf: form.guardianCpf, relationship: form.guardianRelationship } : undefined,
         birthDate: form.birthDate,
         sex: form.sex || undefined,
         motherName: form.motherNameUndeclared ? undefined : form.motherName,
@@ -89,12 +100,12 @@ export function PersonForm({
             <input className={inputClass} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required maxLength={160} />
           </label>
           <label className="block">
-            <span className={label}>CPF</span>
+            <span className={label}>{minor ? "CPF (se tiver)" : "CPF"}</span>
             <input
               className={inputClass}
               value={form.cpf}
               onChange={(e) => setForm({ ...form, cpf: maskCpf(e.target.value) })}
-              required
+              required={!minor}
               maxLength={14}
               inputMode="numeric"
             />
@@ -146,7 +157,7 @@ export function PersonForm({
             <input className={inputClass} type="tel" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
           </label>
           <label className="block">
-            <span className={label}>E-mail</span>
+            <span className={label}>{minor ? "E-mail do responsável" : "E-mail"}</span>
             <input className={inputClass} type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required />
           </label>
           <label className="block">
@@ -163,6 +174,43 @@ export function PersonForm({
           </label>
         </div>
       </section>
+      {minor && (
+        <section>
+          <h3 className="mb-1 text-sm font-bold text-ink">Responsável legal</h3>
+          <p className="mb-3 text-xs leading-5 text-slate-500">
+            Paciente menor de 18 anos. O responsável autoriza o atendimento e acompanha pela própria conta: o e-mail acima é o
+            dele, e se já tiver conta aqui, a senha continua a mesma.
+          </p>
+          <div className="grid gap-4 md:grid-cols-3">
+            <label className="block">
+              <span className={label}>Nome do responsável</span>
+              <input className={inputClass} value={form.guardianName} onChange={(e) => setForm({ ...form, guardianName: e.target.value })} required maxLength={160} />
+            </label>
+            <label className="block">
+              <span className={label}>CPF do responsável</span>
+              <input
+                className={inputClass}
+                value={form.guardianCpf}
+                onChange={(e) => setForm({ ...form, guardianCpf: maskCpf(e.target.value) })}
+                required
+                maxLength={14}
+                inputMode="numeric"
+              />
+            </label>
+            <label className="block">
+              <span className={label}>Vínculo</span>
+              <select className={inputClass} value={form.guardianRelationship} onChange={(e) => setForm({ ...form, guardianRelationship: e.target.value })} required>
+                <option value="">Escolha</option>
+                {GUARDIAN_RELATIONSHIPS.map((relationship) => (
+                  <option key={relationship} value={relationship}>
+                    {relationship}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+        </section>
+      )}
       <section>
         <h3 className="mb-3 text-sm font-bold text-ink">Endereço</h3>
         <AddressFields value={address} onChange={setAddress} />

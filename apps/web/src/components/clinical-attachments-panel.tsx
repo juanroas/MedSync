@@ -13,10 +13,13 @@ const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024;
 export function ClinicalAttachmentsPanel({
   appointmentId,
   canUpload,
+  locked = false,
   variant = "light",
 }: {
   appointmentId: string;
   canUpload: boolean;
+  // Closed consultation: the files stay available, nothing changes.
+  locked?: boolean;
   variant?: "light" | "dark";
 }) {
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -124,7 +127,7 @@ export function ClinicalAttachmentsPanel({
             </div>
           </div>
 
-          {canUpload && (
+          {canUpload && !locked && (
             <>
               <input
                 ref={inputRef}
@@ -237,7 +240,7 @@ export function ClinicalAttachmentsPanel({
                     >
                       <Download size={16} />
                     </a>
-                    {attachment.canDelete && (
+                    {attachment.canDelete && !locked && (
                       <button
                         type="button"
                         onClick={() => setPendingDelete(attachment)}

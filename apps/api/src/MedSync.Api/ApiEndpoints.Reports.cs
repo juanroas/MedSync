@@ -307,14 +307,14 @@ public static partial class ApiEndpoints
             return Results.Forbid();
         }
 
-        var patients = await db.Patients.AsNoTracking().Where(x => x.UserId == actor.UserId).ToListAsync(cancellationToken);
+        var patients = await db.Patients.AsNoTracking().Where(x => x.UserId == actor.UserId).OrderBy(x => x.GuardianName != null).ToListAsync(cancellationToken);
         if (patients.Count == 0)
             return Results.NotFound();
         // The titular's own actions are left out: the report answers "who else touched my data".
         var entries = await DataAccessEntriesAsync(db, patients, actor.UserId, cancellationToken);
         audit.Add(actor, "Privacy.DataAccessReport", "Patient", patients[0].Id);
         await db.SaveChangesAsync(cancellationToken);
-        var pdf = ReportPdf.DataAccess(patients[0].Name, patients[0].Cpf, entries, "o próprio titular", DateTime.UtcNow);
+        var pdf = ReportPdf.DataAccess(patients[0].Name, patients[0].CpfOrNone, entries, "o próprio titular", DateTime.UtcNow);
         return Results.File(pdf, "application/pdf", "acessos-aos-meus-dados.pdf");
     }
 
@@ -344,7 +344,7 @@ public static partial class ApiEndpoints
         audit.Add(actor, "Privacy.DataAccessReport", "Patient", patients[0].Id);
         await db.SaveChangesAsync(cancellationToken);
         var dpoName = await db.Users.AsNoTracking().Where(x => x.Id == actor.UserId).Select(x => x.Name).SingleAsync(cancellationToken);
-        var pdf = ReportPdf.DataAccess(patients[0].Name, patients[0].Cpf, entries, $"{dpoName} (DPO MedSync)", DateTime.UtcNow);
+        var pdf = ReportPdf.DataAccess(patients[0].Name, patients[0].CpfOrNone, entries, $"{dpoName} (DPO MedSync)", DateTime.UtcNow);
         return Results.File(pdf, "application/pdf", "relatorio-de-acessos-titular.pdf");
     }
 

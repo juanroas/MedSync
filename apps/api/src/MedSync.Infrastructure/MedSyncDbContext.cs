@@ -105,12 +105,16 @@ public sealed class MedSyncDbContext(DbContextOptions<MedSyncDbContext> options)
             entity.Property(x => x.AddressDistrict).HasMaxLength(80);
             entity.Property(x => x.AddressCity).HasMaxLength(80);
             entity.Property(x => x.AddressState).HasMaxLength(2);
-            entity.HasIndex(x => new { x.ClinicId, x.Email }).IsUnique();
+            // Dependents share the guardian's login, so e-mail and account stay unique only for everyone else.
+            entity.HasIndex(x => new { x.ClinicId, x.Email }).IsUnique().HasFilter("\"GuardianName\" IS NULL");
             entity.HasIndex(x => new { x.ClinicId, x.Cpf }).IsUnique();
-            entity.HasIndex(x => new { x.ClinicId, x.UserId }).IsUnique();
+            entity.HasIndex(x => new { x.ClinicId, x.UserId }).IsUnique().HasFilter("\"GuardianName\" IS NULL");
             entity.Property(x => x.Name).HasMaxLength(160);
             entity.Property(x => x.Email).HasMaxLength(180);
             entity.Property(x => x.Cpf).HasMaxLength(14);
+            entity.Property(x => x.GuardianName).HasMaxLength(160);
+            entity.Property(x => x.GuardianCpf).HasMaxLength(14);
+            entity.Property(x => x.GuardianRelationship).HasMaxLength(40);
             entity.Property(x => x.ContinuousMedications).HasMaxLength(2000);
             entity.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId)
                 .OnDelete(DeleteBehavior.SetNull);

@@ -68,6 +68,7 @@ export function canDoctorOpenRoom(appointment: Appointment) {
 // One wording for how a consultation ended, everywhere (agenda, painel, lista do paciente):
 // "Não compareceu" is only what the doctor registered; a room nobody opened is "Não realizada".
 export function appointmentStatusLabel(appointment: Appointment) {
+  if (appointment.closedAt) return "Atendimento encerrado";
   if (isInPerson(appointment) && isAppointmentMissed(appointment)) return "Aguardando conclusão";
   if (isAppointmentMissed(appointment)) return "Não realizada";
   if (isAppointmentStaleInProgress(appointment)) {

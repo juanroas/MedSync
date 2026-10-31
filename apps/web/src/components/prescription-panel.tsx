@@ -46,18 +46,21 @@ const kindLabel: Record<PrescriptionKind, string> = {
 // Anvisa therapeutic classes that make it an antimicrobial prescription (RDC 471/2021).
 const antimicrobialClass = /antibacterian|antimicrob|antibi[oó]tic/i;
 
-// canIssue: a cancelled consultation keeps its history but takes no new prescription (the API refuses it too).
+// canIssue: a cancelled or closed consultation keeps its history but takes no new prescription (the API refuses it too).
+// locked: the consultation was closed ("Encerrar atendimento").
 // inPerson: no "where is the patient" field, and the document can be printed to sign by hand (rule D6).
 export function PrescriptionPanel({
   appointmentId,
   patientId,
   canIssue = true,
   inPerson = false,
+  locked = false,
 }: {
   appointmentId: string;
   patientId: string;
   canIssue?: boolean;
   inPerson?: boolean;
+  locked?: boolean;
 }) {
   const [prescriptions, setPrescriptions] = useState<Prescription[]>([]);
   const [medications, setMedications] = useState<PatientMedications | null>(null);
@@ -166,7 +169,9 @@ export function PrescriptionPanel({
           </p>
         </div>
         {!draft && !canIssue && (
-          <p className="text-xs font-semibold text-slate-500">Consulta cancelada: não é possível emitir receita.</p>
+          <p className="text-xs font-semibold text-slate-500">
+            {locked ? "Atendimento encerrado: não é possível emitir receita." : "Consulta cancelada: não é possível emitir receita."}
+          </p>
         )}
         {!draft && canIssue && (
           <div className="flex shrink-0 flex-wrap gap-2">

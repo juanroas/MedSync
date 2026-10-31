@@ -48,6 +48,13 @@ export function formatDate(value: string) {
   );
 }
 
+// Brazil has no daylight saving time, so a day is always 24 hours.
+export function addDaysLabel(value: string, days: number) {
+  return new Intl.DateTimeFormat("pt-BR", { timeZone: BRAZIL_TIME_ZONE, dateStyle: "short" }).format(
+    new Date(new Date(value).getTime() + days * 86_400_000),
+  );
+}
+
 export const statusLabel: Record<AppointmentStatus, string> = {
   Scheduled: "Agendada",
   InProgress: "Em andamento",

@@ -10,6 +10,7 @@ Inclui templates e ADRs aprovados, propostos, rejeitados ou substituidos.
 
 - [ADR-0000.md](ADR-0000.md): template canonico.
 - [ADR_TEMPLATE.md](ADR_TEMPLATE.md): template legado mantido.
+- [ADR-0006-menores-e-responsavel-legal.md](ADR-0006-menores-e-responsavel-legal.md): paciente menor de idade e responsável legal.
 
 # Fluxo
 

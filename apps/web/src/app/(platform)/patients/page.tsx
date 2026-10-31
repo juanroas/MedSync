@@ -66,7 +66,8 @@ function PatientsRegistry() {
     if (canManage && new URLSearchParams(window.location.search).get("novo") === "1") setShowForm(true);
   }, [canManage]);
 
-  const ownPatient = isPatient ? patients[0] : undefined;
+  // "Meu cadastro" is the account holder; dependents of a guardian are listed apart.
+  const ownPatient = isPatient ? patients.find((patient) => !patient.guardianName) : undefined;
 
   useEffect(() => {
     if (!ownPatient) return;
@@ -393,7 +394,10 @@ function PatientsRegistry() {
                 </span>
                 <div className="min-w-0">
                   <h2 className="truncate font-bold text-ink">{patient.name}</h2>
-                  <p className="mt-1 text-xs text-slate-400">CPF {patient.cpfMasked}</p>
+                  <p className="mt-1 text-xs text-slate-400">
+                    CPF {patient.cpfMasked}
+                    {patient.guardianName && ` · Responsável: ${patient.guardianName} (${patient.guardianRelationship})`}
+                  </p>
                 </div>
               </div>
               <div className="mt-6 space-y-3 border-t border-slate-100 pt-5 text-sm text-slate-500">

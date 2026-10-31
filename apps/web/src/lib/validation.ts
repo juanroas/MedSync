@@ -10,6 +10,14 @@ export function maskCpf(value: string) {
     .replace(/\.(\d{3})(\d)/, ".$1-$2");
 }
 
+// Under 18 on today's date: the form asks for the legal guardian (ADR-0006, the API checks it again).
+export function isMinor(birthDate: string) {
+  if (!birthDate) return false;
+  const eighteen = new Date(`${birthDate}T00:00:00`);
+  eighteen.setFullYear(eighteen.getFullYear() + 18);
+  return eighteen.getTime() > Date.now();
+}
+
 export function isValidCpf(value: string) {
   const cpf = digitsOnly(value);
   if (cpf.length !== 11 || /^(\d)\1+$/.test(cpf)) return false;

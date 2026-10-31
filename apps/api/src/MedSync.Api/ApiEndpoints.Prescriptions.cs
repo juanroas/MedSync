@@ -220,6 +220,8 @@ public static partial class ApiEndpoints
             await db.SaveChangesAsync(cancellationToken);
             return Results.Forbid();
         }
+        if (appointment.ClosedAt is not null)
+            return await AppointmentClosedAsync(db, audit, actor, "Prescription.Create", id, cancellationToken);
         if (appointment.Status == AppointmentStatus.Cancelled)
             return Validation("appointment", "Consulta cancelada não recebe receita.");
         if (ValidatePrescription(request) is { } invalid)
@@ -262,6 +264,8 @@ public static partial class ApiEndpoints
         var prescription = await LoadDoctorPrescription(db, actor, id, cancellationToken);
         if (prescription is null)
             return Results.NotFound();
+        if (prescription.Appointment.ClosedAt is not null)
+            return await AppointmentClosedAsync(db, audit, actor, "Prescription.Update", prescription.AppointmentId, cancellationToken);
         if (prescription.Status != PrescriptionStatus.Draft)
             return Results.Conflict(new { message = "Receita assinada não pode ser alterada. Crie uma nova receita." });
         if (ValidatePrescription(request) is { } invalid)
@@ -287,6 +291,8 @@ public static partial class ApiEndpoints
         var prescription = await LoadDoctorPrescription(db, actor, id, cancellationToken);
         if (prescription is null)
             return Results.NotFound();
+        if (prescription.Appointment.ClosedAt is not null)
+            return await AppointmentClosedAsync(db, audit, actor, "Prescription.DeleteDraft", prescription.AppointmentId, cancellationToken);
         if (prescription.Status != PrescriptionStatus.Draft)
             return Results.Conflict(new { message = "Receita assinada não pode ser excluída." });
 
@@ -336,7 +342,7 @@ public static partial class ApiEndpoints
             DoctorAddress(appointment),
             appointment.Clinic.Name,
             appointment.Patient.Name,
-            appointment.Patient.Cpf,
+            appointment.Patient.CpfOrNone,
             IsAssignedDoctor(actor, appointment) ? appointment.Patient.Phone : null,
             appointment.ScheduledAt,
             MissingForElectronic(prescription),
@@ -366,6 +372,8 @@ public static partial class ApiEndpoints
         var prescription = await LoadPrescriptionForSigning(db, id, cancellationToken);
         if (prescription is null || prescription.Appointment.Doctor.UserId != actor.UserId || !actor.HasAny(ClinicRole.Doctor))
             return Results.NotFound();
+        if (prescription.Appointment.ClosedAt is not null)
+            return await AppointmentClosedAsync(db, audit, actor, "Prescription.Issue", prescription.AppointmentId, cancellationToken);
         if (prescription.Status != PrescriptionStatus.Draft)
             return Results.Conflict(new { message = "Esta receita já foi emitida." });
 
@@ -565,7 +573,7 @@ public static partial class ApiEndpoints
             DoctorAddress(appointment),
             appointment.Clinic.Name,
             appointment.Patient.Name,
-            appointment.Patient.Cpf,
+            appointment.Patient.CpfOrNone,
             location,
             prescription.Notes,
             signedAt,
@@ -623,7 +631,7 @@ public static partial class ApiEndpoints
                 DoctorAddress(appointment),
                 appointment.Clinic.Name,
                 appointment.Patient.Name,
-                appointment.Patient.Cpf,
+                appointment.Patient.CpfOrNone,
                 inPerson ? appointment.Clinic.FormattedAddress() ?? appointment.Clinic.Name : prescription.PatientLocation ?? "",
                 prescription.Notes,
                 prescription.IssuedOnPaperAt ?? prescription.UpdatedAt,
@@ -717,6 +725,7 @@ public static partial class ApiEndpoints
 
         return db.Prescriptions
             .Include(x => x.Items)
+            .Include(x => x.Appointment)
             .SingleOrDefaultAsync(
                 x => x.Id == id &&
                      x.Status != PrescriptionStatus.Cancelled &&
@@ -855,6 +864,8 @@ public static partial class ApiEndpoints
         var prescription = await LoadPrescriptionForSigning(db, id, cancellationToken);
         if (prescription is null || prescription.Appointment.Doctor.UserId != actor.UserId || !actor.HasAny(ClinicRole.Doctor))
             return Results.NotFound();
+        if (prescription.Appointment.ClosedAt is not null)
+            return await AppointmentClosedAsync(db, audit, actor, "Prescription.Issue", prescription.AppointmentId, cancellationToken);
         if (prescription.Status != PrescriptionStatus.Draft)
             return Results.Conflict(new { message = "Esta receita já foi emitida." });
         var appointment = prescription.Appointment;

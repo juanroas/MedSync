@@ -62,6 +62,7 @@ demo a esse valor (inclusive depois de trocar a variável), sem pedir troca no p
 | 10:30 | Clínica Demo | Dra. Marina Costa | — | — | **livre** para agendar pela tela |
 | 09:00 | Clínica Demo | Dr. Bruno Dois Locais | Carla MedSync | Presencial | agendada |
 | 09:30 | Clínica Demo | Dr. Bruno Dois Locais | Mariana Demo | Online | agendada |
+| 10:00 | Clínica Demo | Dr. Bruno Dois Locais | Sofia Demo (8 anos, **sem CPF**) | Online | conta da mãe, Mariana (`paciente.demo2@medsync.dev`) |
 | 09:00 | Consultório Helena | Dra. Helena Souza | Lucas Consultório | Presencial | agendada |
 | 10:00 | Consultório Helena | Dra. Helena Souza | Beatriz Consultório | Online | termo aceito |
 | 09:30 e 10:30 | Consultório Helena | Dra. Helena Souza | — | — | **livres** |
@@ -78,7 +79,7 @@ com isso).
 
 | Hora | Médico | Paciente | Situação | Documentos |
 |---|---|---|---|---|
-| 09:00 | Dra. Marina | Carlos (online) | Concluída | receita, laudo e declaração **assinados** → paciente vê "Documentos (3)" |
+| 09:00 | Dra. Marina | Carlos (online) | **Atendimento encerrado** | receita, laudo e declaração **assinados** → paciente vê "Documentos (3)"; o prontuário é somente leitura |
 | 09:30 | Dra. Marina | Roberto (presencial) | Cancelada | — |
 | 10:00 | Dra. Marina | Mariana (presencial) | Concluída | **nenhum**: a médica vê "Consulta concluída — emita a declaração" |
 | 11:00 | Dra. Marina | Daniel (online) | Concluída | receita, relatório e declaração em **rascunho**: o paciente não vê nada |

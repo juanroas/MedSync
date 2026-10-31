@@ -38,7 +38,7 @@ test.describe("receita em papel na consulta presencial", () => {
 
       const medication = `Controlado papel ${Date.now().toString().slice(-6)}`;
       await loginByUi(page, users.doctor);
-      await page.goto(`/prontuario/${appointmentId}`);
+      await page.goto(`/prontuario/${appointmentId}#receita`);
       await page.getByRole("button", { name: /nova receita/i }).click();
       await page.getByLabel("Tipo").selectOption("ControlledSpecial");
       await expect(page.getByText(/consulta presencial: a receita sai com o endereço da clínica/i)).toBeVisible();

@@ -66,6 +66,14 @@ Regras de acesso ao conteúdo clínico: [`.agents/rules/clinical-data-access.md`
   Suporte, DPO e Médico ADM recebem 403/404. A declaração de comparecimento assinada não é clínica: além do paciente e
   do médico, ADM e Recepção do local baixam o PDF; antes da assinatura ninguém baixa (409). Leitura, download e negação
   ficam na auditoria; o nome do arquivo é genérico (regra C5).
+- Encerrar atendimento (31/10/2026, regra D8): só o médico da consulta. Depois disso toda escrita da consulta devolve
+  409 e fica na auditoria como `Denied`, para qualquer perfil; a leitura segue as regras de sempre.
+- Retorno e solicitação de exames (31/10/2026, regra D9): conteúdo clínico. O retorno só chega ao médico da consulta e ao
+  paciente; a solicitação de exames segue o acesso do laudo.
+- Sessão (31/10/2026): token de 15 minutos renovado em `POST /auth/refresh` só enquanto há uso real; com 10 minutos sem
+  uso a tela encerra a sessão. A renovação relê conta, clínica e perfis, e sessão revogada não renova.
+- Menor de idade (ADR-0006): responsável legal obrigatório e CPF opcional. A conta é do responsável, que vê consultas e
+  documentos dos dependentes. O sigilo do adolescente está pendente de decisão do responsável médico.
 - Financeiro (14/10/2026): a mensalidade do MedSync é lançada, confirmada e cancelada só pela equipe MedSync (Suporte e
   Médico ADM), que vê todas as clínicas e o relatório financeiro. O ADM da clínica (e o dono do consultório) vê só as
   cobranças da própria clínica, avisa o pagamento e baixa fatura e recibo; Recepção, Médico, Paciente e DPO recebem 403.

@@ -17,7 +17,7 @@ test.describe("receita do atendimento", () => {
     const medication = `Medicamento E2E ${Date.now().toString().slice(-6)}`;
 
     await loginByUi(page, users.doctor);
-    await page.goto(`/prontuario/${appointments[0].id}`);
+    await page.goto(`/prontuario/${appointments[0].id}#receita`);
     await page.getByRole("button", { name: /nova receita/i }).click();
     await page.getByRole("combobox", { name: "Medicamento" }).fill(medication);
     await page.getByRole("button", { name: new RegExp(`incluir “${medication}”`, "i") }).click();
@@ -57,7 +57,7 @@ test.describe("receita do atendimento", () => {
     const medication = `Controlado E2E ${Date.now().toString().slice(-6)}`;
 
     await loginByUi(page, users.doctor);
-    await page.goto(`/prontuario/${appointments[0].id}`);
+    await page.goto(`/prontuario/${appointments[0].id}#receita`);
     await page.getByRole("button", { name: /nova receita/i }).click();
     await page.getByLabel("Tipo").selectOption("ControlledSpecial");
     await page.getByRole("combobox", { name: "Medicamento" }).fill(medication);

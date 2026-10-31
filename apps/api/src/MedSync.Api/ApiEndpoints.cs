@@ -26,6 +26,7 @@ public static partial class ApiEndpoints
 
         var protectedApi = app.MapGroup(string.Empty).RequireAuthorization();
         protectedApi.MapGet("/auth/me", Me);
+        protectedApi.MapPost("/auth/refresh", RefreshSession);
         protectedApi.MapPost("/auth/logout", Logout);
         protectedApi.MapPost("/auth/change-password", ChangePassword);
         protectedApi.MapPost("/mfa/enroll", EnrollMfa);
@@ -74,6 +75,8 @@ public static partial class ApiEndpoints
         protectedApi.MapGet("/appointments/{id:guid}", GetAppointment);
         protectedApi.MapPost("/appointments/{id:guid}/consent", AcceptConsent);
         protectedApi.MapPost("/appointments/{id:guid}/cancel", CancelAppointment);
+        protectedApi.MapPost("/appointments/{id:guid}/close", CloseAppointment);
+        protectedApi.MapPut("/appointments/{id:guid}/follow-up", SaveFollowUp);
         protectedApi.MapGet("/consent/term", GetConsentTerm);
         protectedApi.MapGet("/appointments/{id:guid}/clinical-record", GetClinicalRecord);
         protectedApi.MapPut("/appointments/{id:guid}/clinical-record", SaveClinicalRecord);
@@ -1174,6 +1177,35 @@ public static partial class ApiEndpoints
         return Results.Ok(ToUserSummary(user, clinic, roles, user.Memberships, doctorId));
     }
 
+    // Called by the web only while the person is really using the app (session-keeper.tsx), so an idle tab stops
+    // renewing and the session ends. Background polling never comes here.
+    private static async Task<IResult> RefreshSession(
+        ClaimsPrincipal principal,
+        HttpContext http,
+        MedSyncDbContext db,
+        ITokenService tokens,
+        IConfiguration configuration,
+        CancellationToken cancellationToken)
+    {
+        var actor = RequestContext.From(principal);
+        var user = await db.Users.AsNoTracking().SingleOrDefaultAsync(x => x.Id == actor.UserId, cancellationToken);
+        var clinic = await db.Clinics.AsNoTracking().SingleOrDefaultAsync(x => x.Id == actor.ClinicId, cancellationToken);
+        if (user is null || !user.IsActive || clinic is null || !clinic.IsActive)
+            return Results.Unauthorized();
+
+        // Read again: a role removed by the clinic does not survive in a renewed token.
+        var roles = await db.ClinicMemberships.AsNoTracking()
+            .Where(x => x.UserId == user.Id && x.ClinicId == clinic.Id)
+            .Select(x => x.Role)
+            .Distinct()
+            .ToArrayAsync(cancellationToken);
+        if (roles.Length == 0)
+            return Results.Unauthorized();
+
+        SetSessionCookie(http, tokens.CreateJwt(user, clinic, roles), configuration);
+        return Results.NoContent();
+    }
+
     private static async Task<IResult> Logout(
         ClaimsPrincipal principal,
         HttpContext http,
@@ -1228,7 +1260,7 @@ public static partial class ApiEndpoints
         var user = await db.Users.AsNoTracking().SingleAsync(x => x.Id == actor.UserId, cancellationToken);
         var clinic = await db.Clinics.AsNoTracking().SingleAsync(x => x.Id == actor.ClinicId, cancellationToken);
         var patient = await db.Patients.AsNoTracking()
-            .SingleOrDefaultAsync(x => x.ClinicId == actor.ClinicId && x.UserId == actor.UserId, cancellationToken);
+            .SingleOrDefaultAsync(x => x.ClinicId == actor.ClinicId && x.UserId == actor.UserId && x.GuardianName == null, cancellationToken);
         var doctor = await db.Doctors.AsNoTracking()
             .SingleOrDefaultAsync(x => x.ClinicId == actor.ClinicId && x.UserId == actor.UserId, cancellationToken);
 
@@ -1248,7 +1280,7 @@ public static partial class ApiEndpoints
         var user = await db.Users.SingleAsync(x => x.Id == actor.UserId, cancellationToken);
         var clinic = await db.Clinics.SingleAsync(x => x.Id == actor.ClinicId, cancellationToken);
         var patient = await db.Patients
-            .SingleOrDefaultAsync(x => x.ClinicId == actor.ClinicId && x.UserId == actor.UserId, cancellationToken);
+            .SingleOrDefaultAsync(x => x.ClinicId == actor.ClinicId && x.UserId == actor.UserId && x.GuardianName == null, cancellationToken);
         var doctor = await db.Doctors
             .SingleOrDefaultAsync(x => x.ClinicId == actor.ClinicId && x.UserId == actor.UserId, cancellationToken);
 
@@ -1316,13 +1348,17 @@ public static partial class ApiEndpoints
             return Validation("name", "Informe o nome completo com pelo menos 3 caracteres.");
         if (!IsValidEmail(request.Email))
             return Validation("email", "Informe um e-mail válido.");
-        var cpf = DigitsOnly(request.Cpf);
-        if (!IsValidCpf(cpf))
-            return Validation("cpf", "Informe um CPF válido.");
         if (request.BirthDate == default)
             return Validation("birthDate", "Informe a data de nascimento.");
         if (request.BirthDate > DateOnly.FromDateTime(DateTime.UtcNow))
             return Validation("birthDate", "A data de nascimento não pode estar no futuro.");
+        var minor = PatientRules.IsMinor(request.BirthDate, PrescriptionRules.BrazilToday());
+        var cpf = DigitsOnly(request.Cpf ?? "");
+        if (cpf.Length > 0 ? !IsValidCpf(cpf) : !minor)
+            return Validation("cpf", "Informe um CPF válido.");
+        if (minor && ValidateGuardian(request.Guardian, cpf) is { } guardianError)
+            return guardianError;
+        var guardian = minor ? request.Guardian : null;
         if (!IsValidOptionalPhone(request.Phone))
             return Validation("phone", "Informe um telefone válido com DDD.");
         if (request.ContinuousMedications?.Length > 2000)
@@ -1335,8 +1371,12 @@ public static partial class ApiEndpoints
             return addressError;
 
         var email = request.Email.Trim().ToLowerInvariant();
+        // A dependent shares the guardian's e-mail, and without a CPF the name and birth date tell a repeat apart.
         if (await db.Patients.AnyAsync(
-                x => x.ClinicId == actor.ClinicId && (x.Email == email || x.Cpf == cpf),
+                x => x.ClinicId == actor.ClinicId &&
+                     ((guardian == null && x.GuardianName == null && x.Email == email) ||
+                      (cpf != "" && x.Cpf == cpf) ||
+                      (guardian != null && x.Email == email && x.Name == name && x.BirthDate == request.BirthDate)),
                 cancellationToken))
             return Results.Conflict(new { message = "Já existe um paciente com este e-mail ou CPF nesta clínica." });
 
@@ -1347,33 +1387,44 @@ public static partial class ApiEndpoints
                 return Validation("temporaryPassword", passwordError);
             user = new User
             {
-                Name = request.Name.Trim(),
+                // The account of a minor belongs to the guardian.
+                Name = guardian?.Name.Trim() ?? name,
                 Email = email,
                 PasswordHash = passwords.Hash(request.TemporaryPassword),
                 MustChangePassword = true
             };
             db.Users.Add(user);
         }
-        else if (await db.ClinicMemberships.AnyAsync(
+        else if (guardian is null &&
+                 await db.ClinicMemberships.AnyAsync(
                      x => x.ClinicId == actor.ClinicId && x.UserId == user.Id,
+                     cancellationToken) &&
+                 !await db.Patients.AnyAsync(
+                     x => x.ClinicId == actor.ClinicId && x.UserId == user.Id && x.GuardianName != null,
                      cancellationToken))
         {
             return Results.Conflict(new { message = "Esta conta já está vinculada ao ambiente MedSync." });
         }
 
-        db.ClinicMemberships.Add(new ClinicMembership
-        {
-            ClinicId = actor.ClinicId,
-            User = user,
-            Role = ClinicRole.Patient
-        });
+        if (!await db.ClinicMemberships.AnyAsync(
+                x => x.ClinicId == actor.ClinicId && x.UserId == user.Id && x.Role == ClinicRole.Patient,
+                cancellationToken))
+            db.ClinicMemberships.Add(new ClinicMembership
+            {
+                ClinicId = actor.ClinicId,
+                User = user,
+                Role = ClinicRole.Patient
+            });
         var patient = new Patient
         {
             ClinicId = actor.ClinicId,
             User = user,
             Name = request.Name.Trim(),
             Email = email,
-            Cpf = cpf,
+            Cpf = cpf.Length == 0 ? null : cpf,
+            GuardianName = guardian?.Name.Trim(),
+            GuardianCpf = guardian is null ? null : DigitsOnly(guardian.Cpf),
+            GuardianRelationship = guardian?.Relationship,
             BirthDate = request.BirthDate,
             Phone = request.Phone?.Trim(),
             ContinuousMedications = string.IsNullOrWhiteSpace(request.ContinuousMedications)
@@ -1387,6 +1438,22 @@ public static partial class ApiEndpoints
         audit.Add(actor, "Patient.Create", "Patient", patient.Id);
         await db.SaveChangesAsync(cancellationToken);
         return Results.Created($"/patients/{patient.Id}", ToResponse(patient));
+    }
+
+    private static IResult? ValidateGuardian(GuardianInput? guardian, string patientCpf)
+    {
+        if (guardian is null)
+            return Validation("guardian", "Paciente menor de 18 anos precisa de um responsável legal.");
+        if (guardian.Name.Trim().Length < 3)
+            return Validation("guardianName", "Informe o nome completo do responsável.");
+        var cpf = DigitsOnly(guardian.Cpf);
+        if (!IsValidCpf(cpf))
+            return Validation("guardianCpf", "Informe um CPF válido do responsável.");
+        if (cpf == patientCpf)
+            return Validation("guardianCpf", "O CPF do responsável precisa ser diferente do CPF do paciente.");
+        if (!PatientRules.GuardianRelationships.Contains(guardian.Relationship))
+            return Validation("guardianRelationship", "Escolha o vínculo do responsável com o paciente.");
+        return null;
     }
 
     private static async Task<IResult> GetPatients(
@@ -1415,11 +1482,12 @@ public static partial class ApiEndpoints
             return Results.Forbid();
         }
 
-        // Reception looks a person up by the full CPF (the list only shows it masked).
+        // Reception looks a person up by the full CPF (the list only shows it masked). A child without CPF is found by
+        // the guardian's.
         if (!string.IsNullOrWhiteSpace(cpf))
         {
             var digits = DigitsOnly(cpf);
-            query = query.Where(x => x.Cpf == digits);
+            query = query.Where(x => x.Cpf == digits || x.GuardianCpf == digits);
         }
 
         var patients = await query.OrderBy(x => x.Name).ToListAsync(cancellationToken);
@@ -1482,12 +1550,26 @@ public static partial class ApiEndpoints
         if (request.Address is not null && ValidateAddress(request.Address) is { } addressError)
             return addressError;
 
-        var email = request.Email.Trim().ToLowerInvariant();
-        if (await db.Patients.AnyAsync(
-                x => x.ClinicId == actor.ClinicId && x.Id != id && x.Email == email,
+        var dependent = patient.GuardianName is not null;
+        var cpf = DigitsOnly(request.Cpf ?? "");
+        if (cpf.Length > 0)
+        {
+            if (patient.Cpf is not null)
+                return Validation("cpf", "O CPF não muda depois de cadastrado.");
+            if (!IsValidCpf(cpf))
+                return Validation("cpf", "Informe um CPF válido.");
+            if (await db.Patients.AnyAsync(x => x.ClinicId == actor.ClinicId && x.Id != id && x.Cpf == cpf, cancellationToken))
+                return Results.Conflict(new { message = "Já existe um paciente com este CPF nesta clínica." });
+            patient.Cpf = cpf;
+        }
+
+        // The e-mail of a dependent is the guardian's login, which only the guardian changes.
+        var email = dependent ? patient.Email : request.Email.Trim().ToLowerInvariant();
+        if (!dependent && await db.Patients.AnyAsync(
+                x => x.ClinicId == actor.ClinicId && x.Id != id && x.GuardianName == null && x.Email == email,
                 cancellationToken))
             return Results.Conflict(new { message = "Já existe um paciente com este e-mail nesta clínica." });
-        if (await db.Users.AnyAsync(
+        if (!dependent && await db.Users.AnyAsync(
                 x => x.Id != patient.UserId && x.Email == email,
                 cancellationToken))
             return Results.Conflict(new { message = "Já existe uma conta usando este e-mail." });
@@ -1507,7 +1589,7 @@ public static partial class ApiEndpoints
             request.Sex);
         if (request.Address is not null)
             ApplyAddress(patient, request.Address);
-        if (patient.User is not null)
+        if (patient.User is not null && !dependent)
         {
             patient.User.Name = name;
             patient.User.Email = email;
@@ -1725,7 +1807,7 @@ public static partial class ApiEndpoints
         var slots = await db.DoctorAvailabilitySlots.AsNoTracking()
             .Where(x => x.DoctorId == doctor.Id)
             .OrderBy(x => x.DayOfWeek).ThenBy(x => x.StartTime)
-            .Select(x => new DoctorAvailabilitySlotResponse(x.Id, x.DayOfWeek, x.StartTime, x.EndTime, x.Modality))
+            .Select(x => new DoctorAvailabilitySlotResponse(x.Id, x.DayOfWeek, x.StartTime, x.EndTime, x.Modality, x.SlotMinutes))
             .ToListAsync(cancellationToken);
 
         audit.Add(actor, "DoctorAvailability.List", "DoctorAvailabilitySlot", null);
@@ -1758,7 +1840,7 @@ public static partial class ApiEndpoints
         var windows = await db.DoctorAvailabilitySlots.AsNoTracking()
             .Where(x => x.DoctorId == doctor.Id)
             .OrderBy(x => x.DayOfWeek).ThenBy(x => x.StartTime)
-            .Select(x => new DoctorAvailabilitySlotResponse(x.Id, x.DayOfWeek, x.StartTime, x.EndTime, x.Modality))
+            .Select(x => new DoctorAvailabilitySlotResponse(x.Id, x.DayOfWeek, x.StartTime, x.EndTime, x.Modality, x.SlotMinutes))
             .ToListAsync(cancellationToken);
         var today = DateOnly.FromDateTime(DateTime.UtcNow + BrazilUtcOffset);
         var timeOff = await db.DoctorTimeOffs.AsNoTracking()
@@ -1885,8 +1967,11 @@ public static partial class ApiEndpoints
 
         if (request.StartTime >= request.EndTime)
             return Validation("startTime", "O horário inicial precisa ser antes do horário final.");
-        if (request.EndTime.ToTimeSpan().Subtract(request.StartTime.ToTimeSpan()) < TimeSpan.FromMinutes(doctor.SlotMinutes))
-            return Validation("endTime", $"A faixa precisa ter pelo menos {doctor.SlotMinutes} minutos, a duração de uma consulta.");
+        if (request.SlotMinutes is { } requestedLength && !AllowedSlotMinutes.Contains(requestedLength))
+            return Validation("slotMinutes", "Escolha uma duração de 15, 20, 30, 45 ou 60 minutos.");
+        var slotMinutes = request.SlotMinutes ?? doctor.SlotMinutes;
+        if (request.EndTime.ToTimeSpan().Subtract(request.StartTime.ToTimeSpan()) < TimeSpan.FromMinutes(slotMinutes))
+            return Validation("endTime", $"A faixa precisa ter pelo menos {slotMinutes} minutos, a duração de uma consulta.");
         if (!Enum.IsDefined(request.Modality))
             return Validation("modality", "Escolha online, presencial ou os dois.");
 
@@ -1906,14 +1991,15 @@ public static partial class ApiEndpoints
             DayOfWeek = request.DayOfWeek,
             StartTime = request.StartTime,
             EndTime = request.EndTime,
-            Modality = request.Modality
+            Modality = request.Modality,
+            SlotMinutes = request.SlotMinutes
         };
         db.DoctorAvailabilitySlots.Add(slot);
         audit.Add(actor, "DoctorAvailability.Create", "DoctorAvailabilitySlot", slot.Id);
         await db.SaveChangesAsync(cancellationToken);
         return Results.Created(
             "/doctors/me/availability",
-            new DoctorAvailabilitySlotResponse(slot.Id, slot.DayOfWeek, slot.StartTime, slot.EndTime, slot.Modality));
+            new DoctorAvailabilitySlotResponse(slot.Id, slot.DayOfWeek, slot.StartTime, slot.EndTime, slot.Modality, slot.SlotMinutes));
     }
 
     private static async Task<IResult> DeleteMyAvailabilitySlot(
@@ -2076,11 +2162,12 @@ public static partial class ApiEndpoints
         IReadOnlyCollection<DoctorAvailabilitySlot> windows,
         IReadOnlyCollection<(DateTime ScheduledAt, int DurationMinutes)> busy,
         DateTime nowUtc,
-        int slotMinutes)
+        int defaultSlotMinutes)
     {
         var available = new List<AvailableTimeResponse>();
         foreach (var window in windows)
         {
+            var slotMinutes = window.SlotMinutes ?? defaultSlotMinutes;
             var cursor = window.StartTime;
             while (cursor.AddMinutes(slotMinutes) <= window.EndTime)
             {
@@ -2223,9 +2310,13 @@ public static partial class ApiEndpoints
             return locationError;
         var modality = request.Modality;
 
-        var patient = await db.Patients.SingleOrDefaultAsync(
-            x => x.ClinicId == actor.ClinicId && x.UserId == actor.UserId,
-            cancellationToken);
+        // The account may hold dependents: the consultation is for the one chosen, or for the account holder.
+        var patients = await db.Patients
+            .Where(x => x.ClinicId == actor.ClinicId && x.UserId == actor.UserId)
+            .ToListAsync(cancellationToken);
+        var patient = request.PatientId is { } chosenPatient
+            ? patients.FirstOrDefault(x => x.Id == chosenPatient)
+            : patients.Count == 1 ? patients[0] : patients.FirstOrDefault(x => x.GuardianName is null);
         if (patient is null)
             return Results.NotFound(new { message = "Paciente não encontrado para este ambiente." });
 
@@ -2279,13 +2370,23 @@ public static partial class ApiEndpoints
             return Results.Conflict(new { message });
         }
 
+        var windowMinutes = await db.DoctorAvailabilitySlots.AsNoTracking()
+            .Where(s =>
+                s.DoctorId == doctor.Id &&
+                s.DayOfWeek == brazilDayOfWeek &&
+                s.StartTime <= brazilStartTime &&
+                s.EndTime >= brazilEndTime &&
+                (s.Modality == modality || s.Modality == ConsultationModality.Both))
+            .Select(s => s.SlotMinutes)
+            .FirstOrDefaultAsync(cancellationToken);
+
         var appointment = new Appointment
         {
             ClinicId = actor.ClinicId,
             DoctorId = doctor.Id,
             PatientId = patient.Id,
             ScheduledAt = scheduledAt,
-            DurationMinutes = request.DurationMinutes,
+            DurationMinutes = windowMinutes ?? request.DurationMinutes,
             Modality = modality,
             Location = location,
             Notes = string.IsNullOrWhiteSpace(request.Notes)
@@ -2522,6 +2623,98 @@ public static partial class ApiEndpoints
         return Results.Ok(await AppointmentQuery(db, actor, id).SingleAsync(cancellationToken));
     }
 
+    private const string AppointmentClosedMessage = "Este atendimento foi encerrado: nada dele pode ser alterado.";
+
+    // Every write of a consultation goes through this check (rule D8). The attempt stays in the audit trail (rule C4).
+    private static async Task<IResult> AppointmentClosedAsync(
+        MedSyncDbContext db,
+        AuditWriter audit,
+        RequestContext actor,
+        string action,
+        Guid appointmentId,
+        CancellationToken cancellationToken)
+    {
+        audit.Add(actor, action, "Appointment", appointmentId, "Denied", "Atendimento encerrado.");
+        await db.SaveChangesAsync(cancellationToken);
+        return Results.Conflict(new { message = AppointmentClosedMessage });
+    }
+
+    // "Encerrar atendimento": the last step, after the consultation was concluded and every document was signed.
+    private static async Task<IResult> CloseAppointment(
+        Guid id,
+        ClaimsPrincipal principal,
+        MedSyncDbContext db,
+        AuditWriter audit,
+        RealtimeNotifier realtime,
+        CancellationToken cancellationToken)
+    {
+        var actor = RequestContext.From(principal);
+        var appointment = await LoadAppointment(db, actor, id, cancellationToken);
+        if (appointment is null)
+            return Results.NotFound();
+        if (!IsAssignedDoctor(actor, appointment))
+        {
+            audit.Add(actor, "Consultation.Close", "Appointment", id, "Denied", "Só o médico da consulta encerra o atendimento.");
+            await db.SaveChangesAsync(cancellationToken);
+            return Results.Forbid();
+        }
+        if (appointment.ClosedAt is not null)
+            return Results.Conflict(new { message = "Este atendimento já foi encerrado." });
+        if (appointment.Status != AppointmentStatus.Completed)
+            return Results.Conflict(new { message = "Conclua a consulta antes de encerrar o atendimento." });
+        if (!await db.ClinicalRecords.AnyAsync(x => x.AppointmentId == id, cancellationToken))
+            return Results.Conflict(new { message = "Salve o registro clínico antes de encerrar o atendimento." });
+
+        // A draft could never be signed or removed afterwards.
+        var prescriptions = await db.Prescriptions.CountAsync(
+            x => x.AppointmentId == id && x.Status == PrescriptionStatus.Draft, cancellationToken);
+        var documents = await db.MedicalDocuments.CountAsync(
+            x => x.AppointmentId == id && x.Status == MedicalDocumentStatus.Draft, cancellationToken);
+        var drafts = new List<string>();
+        if (prescriptions > 0)
+            drafts.Add(prescriptions == 1 ? "1 receita" : $"{prescriptions} receitas");
+        if (documents > 0)
+            drafts.Add(documents == 1 ? "1 documento" : $"{documents} documentos");
+        if (drafts.Count > 0)
+            return Results.Conflict(new { message = $"Assine ou exclua os rascunhos antes de encerrar: {string.Join(" e ", drafts)}." });
+
+        appointment.ClosedAt = DateTime.UtcNow;
+        appointment.ClosedByUserId = actor.UserId;
+        audit.Add(actor, "Consultation.Close", "Appointment", id);
+        await db.SaveChangesAsync(cancellationToken);
+        await realtime.AppointmentChangedAsync(id, cancellationToken);
+        return Results.Ok(await AppointmentQuery(db, actor, id).SingleAsync(cancellationToken));
+    }
+
+    private static async Task<IResult> SaveFollowUp(
+        Guid id,
+        SaveFollowUpRequest request,
+        ClaimsPrincipal principal,
+        MedSyncDbContext db,
+        AuditWriter audit,
+        RealtimeNotifier realtime,
+        CancellationToken cancellationToken)
+    {
+        var actor = RequestContext.From(principal);
+        var appointment = await LoadAppointment(db, actor, id, cancellationToken);
+        if (appointment is null)
+            return Results.NotFound();
+        if (!IsAssignedDoctor(actor, appointment))
+            return Results.Forbid();
+        if (appointment.ClosedAt is not null)
+            return await AppointmentClosedAsync(db, audit, actor, "Consultation.FollowUp", id, cancellationToken);
+        if (appointment.Status == AppointmentStatus.Cancelled)
+            return Validation("appointment", "Consulta cancelada não tem retorno.");
+        if (request.Days is < 1 or > 365)
+            return Validation("days", "Informe o retorno entre 1 e 365 dias.");
+
+        appointment.FollowUpDays = request.Days;
+        audit.Add(actor, "Consultation.FollowUp", "Appointment", id);
+        await db.SaveChangesAsync(cancellationToken);
+        await realtime.AppointmentChangedAsync(id, cancellationToken);
+        return Results.Ok(await AppointmentQuery(db, actor, id).SingleAsync(cancellationToken));
+    }
+
     private static async Task<IResult> GetClinicalRecord(
         Guid id,
         ClaimsPrincipal principal,
@@ -2563,6 +2756,8 @@ public static partial class ApiEndpoints
             return Results.NotFound();
         if (!IsAssignedDoctor(actor, appointment))
             return Results.Forbid();
+        if (appointment.ClosedAt is not null)
+            return await AppointmentClosedAsync(db, audit, actor, "ClinicalRecord.Save", id, cancellationToken);
 
         var record = await db.ClinicalRecords
             .SingleOrDefaultAsync(x => x.AppointmentId == id, cancellationToken);
@@ -2690,6 +2885,8 @@ public static partial class ApiEndpoints
             return Results.NotFound();
         if (!IsAssignedDoctor(actor, appointment) && !IsPatient(actor, appointment))
             return Results.Forbid();
+        if (appointment.ClosedAt is not null)
+            return await AppointmentClosedAsync(db, audit, actor, "ClinicalAttachment.Upload", id, cancellationToken);
 
         StoredClinicalAttachment stored;
         try
@@ -2793,6 +2990,8 @@ public static partial class ApiEndpoints
             return Results.NotFound();
         if (!CanDeleteClinicalAttachment(actor, appointment, attachment))
             return Results.Forbid();
+        if (appointment.ClosedAt is not null)
+            return await AppointmentClosedAsync(db, audit, actor, "ClinicalAttachment.Delete", id, cancellationToken);
 
         attachment.IsDeleted = true;
         attachment.DeletedAt = DateTime.UtcNow;
@@ -2983,6 +3182,8 @@ public static partial class ApiEndpoints
         var actor = RequestContext.From(principal);
         var appointment = await LoadAppointment(db, actor, appointmentId, cancellationToken);
         var noShow = string.Equals(request?.Outcome, "NoShow", StringComparison.OrdinalIgnoreCase);
+        if (appointment?.ClosedAt is not null)
+            return Results.Conflict(new { message = AppointmentClosedMessage });
         if (appointment?.Modality == ConsultationModality.InPerson)
             return await EndInPersonConsultationAsync(appointment, noShow, actor, db, audit, realtime, cancellationToken);
         if (appointment?.ConsultationRoom is null)
@@ -3221,7 +3422,12 @@ public static partial class ApiEndpoints
                                 d.Status == MedicalDocumentStatus.Signed)
                     .OrderByDescending(d => d.SignedAt)
                     .Select(d => (Guid?)d.Id)
-                    .FirstOrDefault()));
+                    .FirstOrDefault(),
+                x.ClosedAt,
+                (isDoctor && x.Doctor.UserId == actorUserId) || (isPatient && x.Patient.UserId == actorUserId)
+                    ? x.FollowUpDays
+                    : null,
+                x.Patient.GuardianName == null ? null : x.Patient.GuardianName + " (" + x.Patient.GuardianRelationship + ")"));
     }
 
 
@@ -3475,7 +3681,7 @@ public static partial class ApiEndpoints
             patient.Id,
             patient.Name,
             patient.Email,
-            SecurityText.MaskCpf(patient.Cpf),
+            string.IsNullOrWhiteSpace(patient.Cpf) ? "Não possui" : SecurityText.MaskCpf(patient.Cpf),
             patient.BirthDate,
             patient.Phone,
             includeContinuousMedications ? patient.ContinuousMedications : null,
@@ -3490,7 +3696,9 @@ public static partial class ApiEndpoints
                 patient.AddressComplement,
                 patient.AddressDistrict,
                 patient.AddressCity,
-                patient.AddressState));
+                patient.AddressState),
+            patient.GuardianName,
+            patient.GuardianRelationship);
 
     private static DoctorResponse ToResponse(Doctor doctor) =>
         new(doctor.Id, doctor.Name, doctor.Email, doctor.Crm, doctor.CrmUf, doctor.Specialty, doctor.Phone, doctor.ProfessionalAddress, doctor.Rqe);

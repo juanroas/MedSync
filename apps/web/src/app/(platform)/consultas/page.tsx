@@ -16,7 +16,7 @@ import {
   isAppointmentStaleInProgress,
   isInPerson,
 } from "@/lib/appointments";
-import { formatDateTime, statusClass, statusLabel } from "@/lib/format";
+import { addDaysLabel, formatDateTime, statusClass, statusLabel } from "@/lib/format";
 import type { Appointment } from "@/lib/types";
 import { api, getSession } from "@/services/api";
 import { CalendarClock, CalendarDays, Clock3, FileText, FolderOpen, MapPin, Plus, Stethoscope, UserRound, Video, XCircle } from "lucide-react";
@@ -271,6 +271,12 @@ function AppointmentsList() {
           <AppointmentNextStep appointment={appointment} />
         )}
 
+        {isPatient && appointment.followUpDays != null && appointment.status === "Completed" && (
+          <p className="text-right text-xs font-semibold text-teal-700">
+            Retorno pedido pelo médico: até {addDaysLabel(appointment.scheduledAt, appointment.followUpDays)}
+          </p>
+        )}
+
         {isPatient && (appointment.documentCount ?? 0) > 0 && (
           <button
             type="button"
@@ -435,6 +441,9 @@ function AppointmentsList() {
                         <div>
                           <p className="text-sm font-semibold text-ink">{appointment.doctorName}</p>
                           <p className="mt-1 text-xs text-slate-400">{appointment.specialty}</p>
+                          {isPatient && appointment.patientGuardian && (
+                            <p className="mt-1 text-xs font-semibold text-teal-700">Paciente: {appointment.patientName}</p>
+                          )}
                         </div>
                       </div>
                     )}

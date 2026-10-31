@@ -158,6 +158,9 @@ export type Patient = {
   motherNameUndeclared?: boolean;
   sex?: "F" | "M" | null;
   address?: AddressResponse | null;
+  // Minor: the account belongs to the legal guardian.
+  guardianName?: string | null;
+  guardianRelationship?: string | null;
 };
 
 export type ClinicProfile = {
@@ -230,6 +233,8 @@ export type DoctorAvailabilitySlot = {
   startTime: string;
   endTime: string;
   modality: ConsultationModality;
+  // Null: the window follows the doctor's default length.
+  slotMinutes?: number | null;
 };
 
 export type DoctorTimeOff = {
@@ -318,6 +323,11 @@ export type Appointment = {
   documentCount?: number;
   // Signed attendance declaration (patient, assigned doctor, front desk).
   attendanceDeclarationId?: string | null;
+  // "Encerrar atendimento": the consultation became read-only.
+  closedAt?: string | null;
+  // Only for the assigned doctor and the patient.
+  followUpDays?: number | null;
+  patientGuardian?: string | null;
 };
 
 export type ConsultationRoom = {
@@ -542,7 +552,7 @@ export type PatientMedications = {
   legacyNote?: string | null;
 };
 
-export type MedicalDocumentKind = "Report" | "AttendanceDeclaration";
+export type MedicalDocumentKind = "Report" | "AttendanceDeclaration" | "ExamRequest";
 
 export type MedicalDocument = {
   id: string;

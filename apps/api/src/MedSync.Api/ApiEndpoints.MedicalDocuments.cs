@@ -8,9 +8,9 @@ using Microsoft.Extensions.Caching.Distributed;
 
 namespace MedSync.Api;
 
-// Laudos and the attendance declaration (28/10/2026, .agents/rules/medical-documents.md). Only the assigned doctor
-// writes and signs; the patient sees a document only after it is signed. A laudo is clinical content (rule C1): the
-// front desk never reads it. The signed attendance declaration is not clinical, so the front desk downloads it too.
+// Laudos, exam requests and the attendance declaration (.agents/rules/medical-documents.md). Only the assigned doctor
+// writes and signs; the patient sees a document only after it is signed. Laudos and exam requests are clinical content
+// (rule C1): the front desk never reads them. The signed attendance declaration is not clinical, so the front desk downloads it too.
 public static partial class ApiEndpoints
 {
     private const int MaxReportBodyLength = 8000;
@@ -146,6 +146,8 @@ public static partial class ApiEndpoints
             await db.SaveChangesAsync(cancellationToken);
             return Results.Forbid();
         }
+        if (appointment.ClosedAt is not null)
+            return await AppointmentClosedAsync(db, audit, actor, "MedicalDocument.Create", id, cancellationToken);
 
         var document = new MedicalDocument
         {
@@ -179,6 +181,8 @@ public static partial class ApiEndpoints
         var document = await LoadMedicalDocument(db, actor.ClinicId, id, cancellationToken, tracking: true);
         if (document is null || !IsAssignedDoctor(actor, document.Appointment))
             return Results.NotFound();
+        if (document.Appointment.ClosedAt is not null)
+            return await AppointmentClosedAsync(db, audit, actor, "MedicalDocument.Update", document.AppointmentId, cancellationToken);
         if (document.Status != MedicalDocumentStatus.Draft)
             return Results.Conflict(new { message = "Documento assinado não pode ser alterado. Crie um novo documento." });
         if (request.Kind != document.Kind)
@@ -204,6 +208,8 @@ public static partial class ApiEndpoints
         var document = await LoadMedicalDocument(db, actor.ClinicId, id, cancellationToken, tracking: true);
         if (document is null || !IsAssignedDoctor(actor, document.Appointment))
             return Results.NotFound();
+        if (document.Appointment.ClosedAt is not null)
+            return await AppointmentClosedAsync(db, audit, actor, "MedicalDocument.DeleteDraft", document.AppointmentId, cancellationToken);
         if (document.Status != MedicalDocumentStatus.Draft)
             return Results.Conflict(new { message = "Documento assinado não pode ser excluído." });
 
@@ -255,7 +261,7 @@ public static partial class ApiEndpoints
             clinic.AddressCity,
             patient.Name,
             string.IsNullOrWhiteSpace(patient.SocialName) ? null : patient.SocialName,
-            patient.Cpf,
+            patient.CpfOrNone,
             patient.BirthDate,
             appointment.Modality,
             MissingForSignature(document),
@@ -326,6 +332,8 @@ public static partial class ApiEndpoints
         var document = await LoadMedicalDocument(db, actor.ClinicId, id, cancellationToken, tracking: true);
         if (document is null || document.Appointment.Doctor.UserId != actor.UserId || !actor.HasAny(ClinicRole.Doctor))
             return Results.NotFound();
+        if (document.Appointment.ClosedAt is not null)
+            return await AppointmentClosedAsync(db, audit, actor, "MedicalDocument.Sign", document.AppointmentId, cancellationToken);
         if (document.Status != MedicalDocumentStatus.Draft)
             return Results.Conflict(new { message = "Este documento já foi assinado." });
 
@@ -494,7 +502,7 @@ public static partial class ApiEndpoints
             clinic.AddressCity,
             patient.Name,
             string.IsNullOrWhiteSpace(patient.SocialName) ? null : patient.SocialName,
-            patient.Cpf,
+            patient.CpfOrNone,
             patient.BirthDate,
             appointment.Modality == ConsultationModality.InPerson,
             document.PatientLocation,
@@ -502,7 +510,8 @@ public static partial class ApiEndpoints
             document.AttendanceEndedAt,
             issuedAt,
             simulated,
-            draft);
+            draft,
+            patient.GuardianLabel);
     }
 
     // Online: from when the patient entered the room until the doctor closed it; in person: the booked time.
@@ -528,7 +537,7 @@ public static partial class ApiEndpoints
         if (request.PatientLocation?.Length > 200)
             return Validation("patientLocation", "O local informado pode ter até 200 caracteres.");
 
-        if (request.Kind == MedicalDocumentKind.Report)
+        if (request.Kind != MedicalDocumentKind.AttendanceDeclaration)
         {
             var title = request.Title?.Trim() ?? "";
             if (title.Length is < 3 or > 120)
@@ -590,7 +599,7 @@ public static partial class ApiEndpoints
             missing.Add("cadastre seu CRM e UF em Meu perfil");
         if (string.IsNullOrWhiteSpace(appointment.Doctor.ProfessionalAddress) && !appointment.Clinic.HasAddress)
             missing.Add("cadastre seu endereço profissional em Meu perfil");
-        if (document.Kind == MedicalDocumentKind.Report &&
+        if (document.Kind != MedicalDocumentKind.AttendanceDeclaration &&
             appointment.Modality != ConsultationModality.InPerson &&
             string.IsNullOrWhiteSpace(document.PatientLocation))
             missing.Add("informe o local onde o paciente está (telemedicina)");
