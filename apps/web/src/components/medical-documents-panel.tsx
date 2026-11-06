@@ -7,7 +7,7 @@ import { AlertBanner, Badge, Button, Card, TextArea, TextInput, secondaryButtonC
 import { formatDateTime } from "@/lib/format";
 import type { AppointmentMedicalDocuments, AppointmentStatus, MedicalDocument } from "@/lib/types";
 import { api } from "@/services/api";
-import { CalendarCheck, FilePen, FileText, FlaskConical, Plus, Trash2 } from "lucide-react";
+import { CalendarCheck, FilePen, FileText, FlaskConical, MessageCircle, Plus, Trash2 } from "lucide-react";
 import { FormEvent, useCallback, useEffect, useState } from "react";
 
 // Laudos, solicitações de exames e declaração de comparecimento (.agents/rules/medical-documents.md). Só o médico da
@@ -37,6 +37,14 @@ type Form =
 const brazilDate = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo", year: "numeric", month: "2-digit", day: "2-digit" });
 const brazilTime = new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
 
+// WhatsApp (06/11/2026): a wa.me link with a short message and the document page, which asks for login. Never the PDF
+// and never the title, which may tell what the consultation was about (rules D5 and C5).
+function openWhatsApp(phone: string | null | undefined, message: string) {
+  const digits = (phone ?? "").replace(/\D/g, "");
+  const number = digits.length === 10 || digits.length === 11 ? `55${digits}` : digits.length >= 12 ? digits : "";
+  window.open(`https://wa.me/${number}?text=${encodeURIComponent(message)}`, "_blank", "noopener,noreferrer");
+}
+
 // Brazil has had no daylight saving time since 2019: the time typed by the doctor is always UTC-3.
 function toUtc(date: string, time: string) {
   return new Date(`${date}T${time}:00-03:00`).toISOString();
@@ -49,6 +57,9 @@ export function MedicalDocumentsPanel({
   inPerson = false,
   mode = "reports",
   locked = false,
+  patientName = "",
+  doctorName = "",
+  forGuardian = false,
 }: {
   appointmentId: string;
   status: AppointmentStatus;
@@ -58,6 +69,10 @@ export function MedicalDocumentsPanel({
   mode?: "reports" | "exams";
   // Closed consultation: everything stays visible, nothing changes.
   locked?: boolean;
+  patientName?: string;
+  doctorName?: string;
+  // A minor: the message goes to the legal guardian, who owns the account.
+  forGuardian?: boolean;
 }) {
   const [data, setData] = useState<AppointmentMedicalDocuments | null>(null);
   const [form, setForm] = useState<Form | null>(null);
@@ -131,6 +146,15 @@ export function MedicalDocumentsPanel({
     } finally {
       setSaving(false);
     }
+  }
+
+  function sendByWhatsApp(document: MedicalDocument) {
+    const link = `${window.location.origin}/documento/${document.id}`;
+    const firstName = patientName.split(" ")[0];
+    const greeting = forGuardian
+      ? `Olá! ${doctorName} enviou um documento da consulta de ${firstName} no MedSync.`
+      : `Olá, ${firstName}! ${doctorName} enviou um documento da sua consulta no MedSync.`;
+    openWhatsApp(data?.patientPhone, `${greeting} Para ver e baixar, entre com a sua conta: ${link}`);
   }
 
   async function remove(document: MedicalDocument) {
@@ -317,6 +341,15 @@ export function MedicalDocumentsPanel({
                 >
                   <FilePen size={14} /> {document.status === "Draft" ? "Ver e assinar" : "Ver documento"}
                 </a>
+                {document.status === "Signed" && (
+                  <button
+                    type="button"
+                    onClick={() => sendByWhatsApp(document)}
+                    className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-xs font-bold text-emerald-700 hover:border-emerald-200 hover:bg-emerald-50"
+                  >
+                    <MessageCircle size={14} /> Enviar por WhatsApp
+                  </button>
+                )}
                 {document.status === "Draft" && !locked && (
                   <>
                     <button

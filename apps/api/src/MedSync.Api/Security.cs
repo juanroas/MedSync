@@ -58,6 +58,13 @@ public static class PasswordPolicy
             return "A senha deve conter letra maiúscula, minúscula, número e símbolo.";
         return null;
     }
+
+    // A patient's first password is typed by the front desk and must be changed on the first access (06/11/2026), so an
+    // easy one such as 123456 is accepted. Accounts that see other people's data keep Validate.
+    public static string? ValidatePatientTemporary(string? password) =>
+        string.IsNullOrWhiteSpace(password) || password.Length < 6
+            ? "A senha temporária deve ter pelo menos 6 caracteres."
+            : null;
 }
 
 public static class SecurityText

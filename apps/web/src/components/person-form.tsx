@@ -168,7 +168,8 @@ export function PersonForm({
               value={form.temporaryPassword}
               onChange={(e) => setForm({ ...form, temporaryPassword: e.target.value })}
               required
-              minLength={12}
+              minLength={6}
+              placeholder="Mínimo 6 caracteres"
               autoComplete="new-password"
             />
           </label>
@@ -227,7 +228,7 @@ export function PersonForm({
       </label>
       <p className="text-xs leading-5 text-slate-500">
         Endereço e nome da mãe identificam o paciente sem ambiguidade e saem no receituário de controle especial. Só a equipe
-        da clínica e o médico que atende veem estes dados (LGPD). Com e-mail, a pessoa recebe acesso à própria conta.
+        da clínica e o médico que atende veem estes dados (LGPD). Com e-mail, a pessoa recebe acesso à própria conta e troca a senha temporária no primeiro acesso.
       </p>
       <div className="flex justify-end gap-3">
         {onCancel && (

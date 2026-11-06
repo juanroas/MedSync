@@ -1,10 +1,14 @@
 import { statusClass, statusLabel } from "@/lib/format";
 import type { Appointment } from "@/lib/types";
 
+// The room opens 15 minutes before and closes 30 minutes after the scheduled end (ConsultationRules.cs): the doctor may
+// still see a late patient or fit them in another one's place.
+const GRACE_AFTER_END_MINUTES = 30;
+
 export function isAppointmentJoinWindowOpen(appointment: Appointment) {
   const scheduledAt = new Date(appointment.scheduledAt).getTime();
   const opensAt = scheduledAt - 15 * 60 * 1000;
-  const closesAt = scheduledAt + (appointment.durationMinutes + 15) * 60 * 1000;
+  const closesAt = scheduledAt + (appointment.durationMinutes + GRACE_AFTER_END_MINUTES) * 60 * 1000;
   const now = Date.now();
 
   return now >= opensAt && now <= closesAt;
@@ -12,7 +16,7 @@ export function isAppointmentJoinWindowOpen(appointment: Appointment) {
 
 export function isAppointmentJoinWindowClosed(appointment: Appointment) {
   const scheduledAt = new Date(appointment.scheduledAt).getTime();
-  const closesAt = scheduledAt + (appointment.durationMinutes + 15) * 60 * 1000;
+  const closesAt = scheduledAt + (appointment.durationMinutes + GRACE_AFTER_END_MINUTES) * 60 * 1000;
 
   return Date.now() > closesAt;
 }
@@ -75,6 +79,26 @@ export function appointmentStatusLabel(appointment: Appointment) {
     return appointment.doctorJoined && !appointment.patientJoined ? "Paciente não entrou" : "Sala expirada";
   }
   return statusLabel[appointment.status];
+}
+
+// Why nothing of this consultation can be written (rule D8; the API checks the same in ConsultationRules.WriteBlock).
+// The closed case has its own banner.
+export function notHeldReason(appointment: Appointment) {
+  if (appointment.status === "Cancelled") return "Consulta cancelada: não há atendimento para registrar.";
+  if (appointment.status === "NoShow") return "O paciente não compareceu: não há atendimento para registrar.";
+  if (!isInPerson(appointment) && isAppointmentMissed(appointment))
+    return "Consulta não realizada: a sala não foi aberta no horário, então não há atendimento para registrar.";
+  return null;
+}
+
+// Agenda of the day: finished is closed, cancelled, no-show or not held; everything else still asks the doctor for
+// something, including a concluded consultation that was not closed yet.
+export function isAppointmentFinished(appointment: Appointment) {
+  return Boolean(appointment.closedAt) || notHeldReason(appointment) !== null;
+}
+
+export function isAwaitingClosure(appointment: Appointment) {
+  return appointment.status === "Completed" && !appointment.closedAt;
 }
 
 export function appointmentStatusTone(appointment: Appointment) {

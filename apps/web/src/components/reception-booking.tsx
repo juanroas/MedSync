@@ -327,9 +327,14 @@ export function ReceptionBookingForm({
                     })}
                   </div>
                 )}
-                <button type="button" onClick={() => setManual(true)} className="mt-3 text-xs font-bold text-teal-700 hover:text-teal-900">
-                  Encaixe em outro horário
-                </button>
+                {/* Online only inside the doctor's hours; the front desk fits in an in-person patient on site. */}
+                {modality === "InPerson" ? (
+                  <button type="button" onClick={() => setManual(true)} className="mt-3 text-xs font-bold text-teal-700 hover:text-teal-900">
+                    Encaixe em outro horário
+                  </button>
+                ) : (
+                  <p className="mt-3 text-xs text-slate-500">Consulta online só nos horários do médico. Para encaixe, escolha presencial.</p>
+                )}
               </div>
             </div>
           )}

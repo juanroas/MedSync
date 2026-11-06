@@ -72,6 +72,11 @@ Regras de acesso ao conteúdo clínico: [`.agents/rules/clinical-data-access.md`
   paciente; a solicitação de exames segue o acesso do laudo.
 - Sessão (31/10/2026): token de 15 minutos renovado em `POST /auth/refresh` só enquanto há uso real; com 10 minutos sem
   uso a tela encerra a sessão. A renovação relê conta, clínica e perfis, e sessão revogada não renova.
+- Agendamento pela equipe (06/11/2026): consulta online só dentro das faixas online do médico; encaixe fora delas só
+  presencial (a recepção confere no local).
+- Senha temporária (06/11/2026): no cadastro de paciente basta 6 caracteres (ex.: 123456), porque a troca no primeiro
+  acesso é obrigatória e a senha final segue a regra forte. Médico, equipe da clínica e equipe MedSync seguem com 12
+  caracteres, maiúscula, minúscula, número e símbolo.
 - Menor de idade (ADR-0006): responsável legal obrigatório e CPF opcional. A conta é do responsável, que vê consultas e
   documentos dos dependentes. O sigilo do adolescente está pendente de decisão do responsável médico.
 - Financeiro (14/10/2026): a mensalidade do MedSync é lançada, confirmada e cancelada só pela equipe MedSync (Suporte e

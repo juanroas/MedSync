@@ -73,7 +73,8 @@ test.describe("experiencia por perfil", () => {
     await loginByUi(page, users.doctor);
     await page.getByRole("link", { name: /^agenda$/i }).click();
     await expect(
-      page.getByRole("button", { name: /iniciar sala/i }).or(page.getByRole("link", { name: /^entrar$/i })),
+      // The test data and the 30-minute grace may leave more than one room to start.
+      page.getByRole("button", { name: /iniciar sala/i }).or(page.getByRole("link", { name: /^entrar$/i })).first(),
     ).toBeVisible();
 
     await page.getByRole("button", { name: /sair da conta/i }).click();

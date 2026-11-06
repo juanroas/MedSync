@@ -670,7 +670,9 @@ public sealed record AppointmentMedicalDocumentsResponse(
     IReadOnlyList<MedicalDocumentResponse> Documents,
     DateTime? SuggestedStartedAt,
     DateTime? SuggestedEndedAt,
-    string? SuggestedPatientLocation);
+    string? SuggestedPatientLocation,
+    // The assigned doctor sends the signed document by WhatsApp: a link that asks for login, never the PDF (rule D5).
+    string? PatientPhone = null);
 
 public sealed record MedicalDocumentPageResponse(
     MedicalDocumentResponse Document,

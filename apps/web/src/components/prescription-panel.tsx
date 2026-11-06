@@ -170,7 +170,7 @@ export function PrescriptionPanel({
         </div>
         {!draft && !canIssue && (
           <p className="text-xs font-semibold text-slate-500">
-            {locked ? "Atendimento encerrado: não é possível emitir receita." : "Consulta cancelada: não é possível emitir receita."}
+            {locked ? "Atendimento encerrado: não é possível emitir receita." : "Esta consulta não recebe receita: ela foi cancelada ou não aconteceu."}
           </p>
         )}
         {!draft && canIssue && (

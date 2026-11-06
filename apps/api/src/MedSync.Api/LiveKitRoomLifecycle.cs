@@ -91,7 +91,7 @@ public sealed class VideoSessionCleanupService(
                 (x.Status == VideoSessionStatus.Ready ||
                  x.Status == VideoSessionStatus.InProgress) &&
                 DateTime.UtcNow >
-                x.Appointment.ScheduledAt.AddMinutes(x.Appointment.DurationMinutes + 15))
+                x.Appointment.ScheduledAt.AddMinutes(x.Appointment.DurationMinutes + ConsultationRules.GraceMinutesAfterEnd))
             .Take(50)
             .ToListAsync(cancellationToken);
         if (rooms.Count == 0)

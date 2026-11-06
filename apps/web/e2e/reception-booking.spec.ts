@@ -7,7 +7,7 @@ test.describe("recepcao agenda pelo paciente", () => {
   test.skip(!sharedPassword, "defina MEDSYNC_E2E_PASSWORD para executar login E2E");
 
   test("ADM da clinica busca por CPF e marca consulta presencial num horario livre", async ({ page }) => {
-    // Amanhã (Brasília) a Dra. Marina atende presencialmente das 07:00 às 09:00 (faixa própria deste spec; a massa usa 17h às 20h).
+    // Amanhã (Brasília) a Dra. Marina atende presencialmente das 07:00 às 09:00 (faixa própria deste spec; a massa usa 19h às 22h).
     const tomorrow = new Date(Date.now() - 3 * 3600_000 + 24 * 3600_000);
     const doctor = await request.newContext({ baseURL: baseApiURL });
     await loginByApi(doctor, users.doctor);

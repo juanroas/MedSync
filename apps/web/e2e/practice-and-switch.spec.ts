@@ -83,7 +83,7 @@ test.describe("consultorio do medico e troca de local", () => {
     at.setUTCHours(13, 0, 0, 0);
     const book = (api: typeof demo, doctorId: string, patientId: string, minutes: number) =>
       api.post("/appointments", {
-        data: { doctorId, patientId, scheduledAt: new Date(at.getTime() + minutes * 60_000).toISOString(), durationMinutes: 30, modality: "Online", paymentRequired: false },
+        data: { doctorId, patientId, scheduledAt: new Date(at.getTime() + minutes * 60_000).toISOString(), durationMinutes: 30, modality: "InPerson", paymentRequired: false },
       });
     const ids: Array<[typeof demo, string]> = [];
 

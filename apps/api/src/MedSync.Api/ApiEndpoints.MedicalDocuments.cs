@@ -67,7 +67,8 @@ public static partial class ApiEndpoints
         audit.Add(actor, "MedicalDocument.List", "Appointment", id);
         await db.SaveChangesAsync(cancellationToken);
         return Results.Ok(new AppointmentMedicalDocumentsResponse(
-            documents.Select(ToResponse).ToList(), suggestedStart, suggestedEnd, suggestedLocation));
+            documents.Select(ToResponse).ToList(), suggestedStart, suggestedEnd, suggestedLocation,
+            doctorView ? appointment.Patient.Phone : null));
     }
 
     // "Documentos da consulta": the signed prescriptions and documents, for the patient (and the doctor) to download.
@@ -146,8 +147,8 @@ public static partial class ApiEndpoints
             await db.SaveChangesAsync(cancellationToken);
             return Results.Forbid();
         }
-        if (appointment.ClosedAt is not null)
-            return await AppointmentClosedAsync(db, audit, actor, "MedicalDocument.Create", id, cancellationToken);
+        if (ConsultationRules.WriteBlock(appointment, DateTime.UtcNow) is { } blocked)
+            return await WriteBlockedAsync(db, audit, actor, "MedicalDocument.Create", id, blocked, cancellationToken);
 
         var document = new MedicalDocument
         {
@@ -181,8 +182,8 @@ public static partial class ApiEndpoints
         var document = await LoadMedicalDocument(db, actor.ClinicId, id, cancellationToken, tracking: true);
         if (document is null || !IsAssignedDoctor(actor, document.Appointment))
             return Results.NotFound();
-        if (document.Appointment.ClosedAt is not null)
-            return await AppointmentClosedAsync(db, audit, actor, "MedicalDocument.Update", document.AppointmentId, cancellationToken);
+        if (ConsultationRules.WriteBlock(document.Appointment, DateTime.UtcNow) is { } blocked)
+            return await WriteBlockedAsync(db, audit, actor, "MedicalDocument.Update", document.AppointmentId, blocked, cancellationToken);
         if (document.Status != MedicalDocumentStatus.Draft)
             return Results.Conflict(new { message = "Documento assinado não pode ser alterado. Crie um novo documento." });
         if (request.Kind != document.Kind)
@@ -332,8 +333,8 @@ public static partial class ApiEndpoints
         var document = await LoadMedicalDocument(db, actor.ClinicId, id, cancellationToken, tracking: true);
         if (document is null || document.Appointment.Doctor.UserId != actor.UserId || !actor.HasAny(ClinicRole.Doctor))
             return Results.NotFound();
-        if (document.Appointment.ClosedAt is not null)
-            return await AppointmentClosedAsync(db, audit, actor, "MedicalDocument.Sign", document.AppointmentId, cancellationToken);
+        if (ConsultationRules.WriteBlock(document.Appointment, DateTime.UtcNow) is { } blocked)
+            return await WriteBlockedAsync(db, audit, actor, "MedicalDocument.Sign", document.AppointmentId, blocked, cancellationToken);
         if (document.Status != MedicalDocumentStatus.Draft)
             return Results.Conflict(new { message = "Este documento já foi assinado." });
 

@@ -12,14 +12,16 @@ import {
   canConcludeConsultation,
   canDoctorEnterExistingRoom,
   canStartRoom,
+  isAppointmentFinished,
   isAppointmentMissed,
+  isAwaitingClosure,
   isInPerson,
 } from "@/lib/appointments";
 import { formatBrazilDateInput, formatTime } from "@/lib/format";
 import { MODALITY_LABELS } from "@/lib/types";
 import type { Appointment, DoctorAvailabilitySlot, DoctorTimeOff, WeekDay } from "@/lib/types";
 import { api } from "@/services/api";
-import { CalendarClock, CheckCircle2, ChevronLeft, ChevronRight, FileText, Video, XCircle } from "lucide-react";
+import { CalendarClock, CheckCircle2, ChevronLeft, ChevronRight, FileText, Lock, Video, XCircle } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -93,6 +95,7 @@ export function DoctorAgenda() {
   const [busyId, setBusyId] = useState("");
   const [concludingId, setConcludingId] = useState("");
   const [showCancelled, setShowCancelled] = useState(false);
+  const [dayTab, setDayTab] = useState<"open" | "finished">("open");
   const [confirm, confirmDialog] = useConfirm();
   const [, setTick] = useState(0);
 
@@ -135,6 +138,13 @@ export function DoctorAgenda() {
     const item = timeOff.find((entry) => entry.startDate <= key && entry.endDate >= key);
     return item ? item.reason || "Folga" : null;
   };
+
+  // Lock (06/11/2026): while today's concluded consultation is not closed, the API refuses to start another one.
+  const awaitingClosure = appointments.filter((item) => isAwaitingClosure(item) && dayKeyOf(item.scheduledAt) === today);
+  const ofDay = byDay.get(selectedDay) ?? [];
+  const finishedOfDay = ofDay.filter(isAppointmentFinished);
+  const openOfDay = ofDay.filter((item) => !isAppointmentFinished(item));
+  const shownOfDay = dayTab === "open" ? openOfDay : finishedOfDay;
 
   const cancelledOfDay = appointments.filter(
     (item) => item.status === "Cancelled" && dayKeyOf(item.scheduledAt) === selectedDay,
@@ -256,6 +266,21 @@ export function DoctorAgenda() {
           ))}
         </div>
       ) : (
+        <>
+        {awaitingClosure.length > 0 && (
+          <div className="mb-5 flex flex-col gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 sm:flex-row sm:items-center sm:justify-between">
+            <p>
+              <span className="font-bold">Falta encerrar o atendimento de {awaitingClosure[0].patientName}</span> (
+              {formatTime(awaitingClosure[0].scheduledAt)}). Encerre no prontuário para iniciar a próxima consulta.
+            </p>
+            <Link
+              href={`/prontuario/${awaitingClosure[0].id}`}
+              className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg border border-amber-300 bg-white px-3 text-xs font-bold text-amber-900 hover:bg-amber-100"
+            >
+              <Lock size={14} /> Encerrar atendimento
+            </Link>
+          </div>
+        )}
         <Card className="overflow-hidden">
           <div className="border-b border-slate-100 px-6 py-4">
             <p className="text-xs font-bold uppercase tracking-[0.08em] text-teal-700">Horários de atendimento</p>
@@ -273,11 +298,37 @@ export function DoctorAgenda() {
               </div>
             )}
           </div>
-          {(byDay.get(selectedDay) ?? []).length === 0 ? (
+          {ofDay.length > 0 && (
+            <div role="tablist" aria-label="Consultas do dia" className="flex gap-1 border-b border-slate-100 px-6 py-2">
+              {([
+                ["open", `A atender (${openOfDay.length})`],
+                ["finished", `Finalizadas (${finishedOfDay.length})`],
+              ] as const).map(([id, text]) => (
+                <button
+                  key={id}
+                  type="button"
+                  role="tab"
+                  aria-selected={dayTab === id}
+                  onClick={() => setDayTab(id)}
+                  className={cn(
+                    "h-9 rounded-md px-3 text-xs font-bold transition",
+                    dayTab === id ? "bg-teal-50 text-teal-800 ring-1 ring-teal-100" : "text-slate-500 hover:text-ink",
+                  )}
+                >
+                  {text}
+                </button>
+              ))}
+            </div>
+          )}
+          {ofDay.length === 0 ? (
             <p className="px-6 py-12 text-center text-sm text-slate-400">Nenhuma consulta neste dia.</p>
+          ) : shownOfDay.length === 0 ? (
+            <p className="px-6 py-12 text-center text-sm text-slate-400">
+              {dayTab === "open" ? "Nada a atender neste dia." : "Nenhuma consulta finalizada neste dia."}
+            </p>
           ) : (
             <ul className="divide-y divide-slate-100">
-              {(byDay.get(selectedDay) ?? []).map((appointment) => (
+              {shownOfDay.map((appointment) => (
                 <DayRow
                   key={appointment.id}
                   appointment={appointment}
@@ -322,6 +373,7 @@ export function DoctorAgenda() {
             </div>
           )}
         </Card>
+        </>
       )}
 
       {concludingId && (
@@ -496,7 +548,11 @@ function DayRow({
             : `Online · ${appointment.durationMinutes} min · ${appointment.consentAccepted ? "termo aceito" : "termo de telemedicina pendente"}`}
         </p>
       </div>
-      <Badge className={rowStatusClass(appointment)}>{rowStatusText(appointment)}</Badge>
+      {isAwaitingClosure(appointment) ? (
+        <Badge className="bg-amber-50 text-amber-800">Falta encerrar</Badge>
+      ) : (
+        <Badge className={rowStatusClass(appointment)}>{rowStatusText(appointment)}</Badge>
+      )}
       <div className="flex flex-wrap items-center gap-2">
         <Link
           href={`/prontuario/${appointment.id}`}

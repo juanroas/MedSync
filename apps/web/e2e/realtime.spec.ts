@@ -29,7 +29,7 @@ test.describe("atualizacao em tempo real", () => {
       scheduledAt.setSeconds(0, 0);
       test.skip(todayKey(scheduledAt) !== todayKey(new Date()), "sem horario livre hoje para o teste");
       created = await admin.post("/appointments", {
-        data: { doctorId, patientId, scheduledAt: scheduledAt.toISOString(), durationMinutes: 15, paymentRequired: false, notes: "tempo real" },
+        data: { doctorId, patientId, scheduledAt: scheduledAt.toISOString(), durationMinutes: 15, paymentRequired: false, notes: "tempo real", modality: "InPerson" },
       });
       if (created.status() !== 409) break;
     }

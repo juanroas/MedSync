@@ -220,8 +220,8 @@ public static partial class ApiEndpoints
             await db.SaveChangesAsync(cancellationToken);
             return Results.Forbid();
         }
-        if (appointment.ClosedAt is not null)
-            return await AppointmentClosedAsync(db, audit, actor, "Prescription.Create", id, cancellationToken);
+        if (ConsultationRules.WriteBlock(appointment, DateTime.UtcNow) is { } blocked)
+            return await WriteBlockedAsync(db, audit, actor, "Prescription.Create", id, blocked, cancellationToken);
         if (appointment.Status == AppointmentStatus.Cancelled)
             return Validation("appointment", "Consulta cancelada não recebe receita.");
         if (ValidatePrescription(request) is { } invalid)
@@ -264,8 +264,8 @@ public static partial class ApiEndpoints
         var prescription = await LoadDoctorPrescription(db, actor, id, cancellationToken);
         if (prescription is null)
             return Results.NotFound();
-        if (prescription.Appointment.ClosedAt is not null)
-            return await AppointmentClosedAsync(db, audit, actor, "Prescription.Update", prescription.AppointmentId, cancellationToken);
+        if (ConsultationRules.WriteBlock(prescription.Appointment, DateTime.UtcNow) is { } blocked)
+            return await WriteBlockedAsync(db, audit, actor, "Prescription.Update", prescription.AppointmentId, blocked, cancellationToken);
         if (prescription.Status != PrescriptionStatus.Draft)
             return Results.Conflict(new { message = "Receita assinada não pode ser alterada. Crie uma nova receita." });
         if (ValidatePrescription(request) is { } invalid)
@@ -372,8 +372,8 @@ public static partial class ApiEndpoints
         var prescription = await LoadPrescriptionForSigning(db, id, cancellationToken);
         if (prescription is null || prescription.Appointment.Doctor.UserId != actor.UserId || !actor.HasAny(ClinicRole.Doctor))
             return Results.NotFound();
-        if (prescription.Appointment.ClosedAt is not null)
-            return await AppointmentClosedAsync(db, audit, actor, "Prescription.Issue", prescription.AppointmentId, cancellationToken);
+        if (ConsultationRules.WriteBlock(prescription.Appointment, DateTime.UtcNow) is { } blocked)
+            return await WriteBlockedAsync(db, audit, actor, "Prescription.Issue", prescription.AppointmentId, blocked, cancellationToken);
         if (prescription.Status != PrescriptionStatus.Draft)
             return Results.Conflict(new { message = "Esta receita já foi emitida." });
 
@@ -864,8 +864,8 @@ public static partial class ApiEndpoints
         var prescription = await LoadPrescriptionForSigning(db, id, cancellationToken);
         if (prescription is null || prescription.Appointment.Doctor.UserId != actor.UserId || !actor.HasAny(ClinicRole.Doctor))
             return Results.NotFound();
-        if (prescription.Appointment.ClosedAt is not null)
-            return await AppointmentClosedAsync(db, audit, actor, "Prescription.Issue", prescription.AppointmentId, cancellationToken);
+        if (ConsultationRules.WriteBlock(prescription.Appointment, DateTime.UtcNow) is { } blocked)
+            return await WriteBlockedAsync(db, audit, actor, "Prescription.Issue", prescription.AppointmentId, blocked, cancellationToken);
         if (prescription.Status != PrescriptionStatus.Draft)
             return Results.Conflict(new { message = "Esta receita já foi emitida." });
         var appointment = prescription.Appointment;

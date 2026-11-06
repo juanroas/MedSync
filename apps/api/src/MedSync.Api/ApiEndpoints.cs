@@ -1383,7 +1383,7 @@ public static partial class ApiEndpoints
         var user = await db.Users.SingleOrDefaultAsync(x => x.Email == email, cancellationToken);
         if (user is null)
         {
-            if (PasswordPolicy.Validate(request.TemporaryPassword) is { } passwordError)
+            if (PasswordPolicy.ValidatePatientTemporary(request.TemporaryPassword) is { } passwordError)
                 return Validation("temporaryPassword", passwordError);
             user = new User
             {
@@ -2113,9 +2113,10 @@ public static partial class ApiEndpoints
         var allWindows = await db.DoctorAvailabilitySlots.AsNoTracking()
             .Where(x => x.DoctorId == doctor.Id)
             .ToListAsync(cancellationToken);
-        // No windows: the front desk may still fit the patient in by hand; the patient gets no days.
+        // No windows: the front desk may still fit an in-person patient in by hand; online and the patient get no days.
         if (allWindows.Count == 0)
-            return Results.Ok(new AvailableDaysResponse(!actor.HasAny(AccessRules.ManageAppointments), start, end, []));
+            return Results.Ok(new AvailableDaysResponse(
+                !actor.HasAny(AccessRules.ManageAppointments) || modality != ConsultationModality.InPerson, start, end, []));
         var windows = allWindows.Where(x => Offers(x, modality)).ToList();
 
         var rangeStartUtc = DateTime.SpecifyKind(start.ToDateTime(TimeOnly.MinValue) - BrazilUtcOffset, DateTimeKind.Utc);
@@ -2443,6 +2444,27 @@ public static partial class ApiEndpoints
         if (await db.DoctorTimeOffs.AnyAsync(
                 x => x.DoctorId == doctor.Id && x.StartDate <= brazilDate && x.EndDate >= brazilDate, cancellationToken))
             return Results.Conflict(new { message = "O médico bloqueou este dia na agenda (folga). Escolha outra data." });
+        // Online only inside the doctor's own online hours (06/11/2026): only the front desk on site fits in an
+        // in-person consultation outside them.
+        if (request.Modality == ConsultationModality.Online)
+        {
+            var brazilStart = scheduledAt + BrazilUtcOffset;
+            var startTime = TimeOnly.FromDateTime(brazilStart);
+            var endTime = TimeOnly.FromDateTime(brazilStart.AddMinutes(request.DurationMinutes));
+            var weekday = brazilStart.DayOfWeek;
+            var insideWindow = endTime > startTime && await db.DoctorAvailabilitySlots.AnyAsync(
+                x => x.DoctorId == doctor.Id &&
+                     x.DayOfWeek == weekday &&
+                     x.StartTime <= startTime &&
+                     x.EndTime >= endTime &&
+                     (x.Modality == ConsultationModality.Online || x.Modality == ConsultationModality.Both),
+                cancellationToken);
+            if (!insideWindow)
+                return Results.Conflict(new
+                {
+                    message = "Consulta online só nos horários de atendimento online do médico. Para encaixe fora deles, agende presencial."
+                });
+        }
         var (location, locationError) = await ResolveLocationAsync(db, actor.ClinicId, request.Modality, cancellationToken);
         if (locationError is not null)
             return locationError;
@@ -2625,18 +2647,61 @@ public static partial class ApiEndpoints
 
     private const string AppointmentClosedMessage = "Este atendimento foi encerrado: nada dele pode ser alterado.";
 
-    // Every write of a consultation goes through this check (rule D8). The attempt stays in the audit trail (rule C4).
-    private static async Task<IResult> AppointmentClosedAsync(
+    // Every write of a consultation goes through ConsultationRules.WriteBlock (rule D8); deleting a draft only through
+    // the closed check. The attempt stays in the audit trail (rule C4).
+    private static Task<IResult> AppointmentClosedAsync(
         MedSyncDbContext db,
         AuditWriter audit,
         RequestContext actor,
         string action,
         Guid appointmentId,
+        CancellationToken cancellationToken) =>
+        WriteBlockedAsync(db, audit, actor, action, appointmentId, AppointmentClosedMessage, cancellationToken);
+
+    private static async Task<IResult> WriteBlockedAsync(
+        MedSyncDbContext db,
+        AuditWriter audit,
+        RequestContext actor,
+        string action,
+        Guid appointmentId,
+        string message,
         CancellationToken cancellationToken)
     {
-        audit.Add(actor, action, "Appointment", appointmentId, "Denied", "Atendimento encerrado.");
+        audit.Add(actor, action, "Appointment", appointmentId, "Denied", message);
         await db.SaveChangesAsync(cancellationToken);
-        return Results.Conflict(new { message = AppointmentClosedMessage });
+        return Results.Conflict(new { message });
+    }
+
+    // Lock (06/11/2026): while a consultation of today at this place is concluded and not closed, the doctor does not
+    // start or conclude another one. Older ones do not count, so the history never locks the agenda.
+    private static async Task<IResult?> PendingClosureAsync(
+        MedSyncDbContext db,
+        Appointment appointment,
+        CancellationToken cancellationToken)
+    {
+        var today = DateOnly.FromDateTime(DateTime.UtcNow + BrazilUtcOffset);
+        var dayStart = DateTime.SpecifyKind(today.ToDateTime(TimeOnly.MinValue) - BrazilUtcOffset, DateTimeKind.Utc);
+        var dayEnd = dayStart.AddDays(1);
+        var pending = await db.Appointments.AsNoTracking()
+            .Where(x =>
+                x.Id != appointment.Id &&
+                x.ClinicId == appointment.ClinicId &&
+                x.DoctorId == appointment.DoctorId &&
+                x.Status == AppointmentStatus.Completed &&
+                x.ClosedAt == null &&
+                x.ScheduledAt >= dayStart &&
+                x.ScheduledAt < dayEnd)
+            .OrderBy(x => x.ScheduledAt)
+            .Select(x => new { x.Id, PatientName = x.Patient.Name, x.ScheduledAt })
+            .FirstOrDefaultAsync(cancellationToken);
+        return pending is null
+            ? null
+            : Results.Conflict(new
+            {
+                code = "pending_closure",
+                message = $"Encerre o atendimento de {pending.PatientName} ({pending.ScheduledAt + BrazilUtcOffset:HH:mm}) antes de iniciar outro.",
+                appointmentId = pending.Id
+            });
     }
 
     // "Encerrar atendimento": the last step, after the consultation was concluded and every document was signed.
@@ -2701,8 +2766,8 @@ public static partial class ApiEndpoints
             return Results.NotFound();
         if (!IsAssignedDoctor(actor, appointment))
             return Results.Forbid();
-        if (appointment.ClosedAt is not null)
-            return await AppointmentClosedAsync(db, audit, actor, "Consultation.FollowUp", id, cancellationToken);
+        if (ConsultationRules.WriteBlock(appointment, DateTime.UtcNow) is { } blocked)
+            return await WriteBlockedAsync(db, audit, actor, "Consultation.FollowUp", id, blocked, cancellationToken);
         if (appointment.Status == AppointmentStatus.Cancelled)
             return Validation("appointment", "Consulta cancelada não tem retorno.");
         if (request.Days is < 1 or > 365)
@@ -2756,8 +2821,8 @@ public static partial class ApiEndpoints
             return Results.NotFound();
         if (!IsAssignedDoctor(actor, appointment))
             return Results.Forbid();
-        if (appointment.ClosedAt is not null)
-            return await AppointmentClosedAsync(db, audit, actor, "ClinicalRecord.Save", id, cancellationToken);
+        if (ConsultationRules.WriteBlock(appointment, DateTime.UtcNow) is { } blocked)
+            return await WriteBlockedAsync(db, audit, actor, "ClinicalRecord.Save", id, blocked, cancellationToken);
 
         var record = await db.ClinicalRecords
             .SingleOrDefaultAsync(x => x.AppointmentId == id, cancellationToken);
@@ -2885,8 +2950,8 @@ public static partial class ApiEndpoints
             return Results.NotFound();
         if (!IsAssignedDoctor(actor, appointment) && !IsPatient(actor, appointment))
             return Results.Forbid();
-        if (appointment.ClosedAt is not null)
-            return await AppointmentClosedAsync(db, audit, actor, "ClinicalAttachment.Upload", id, cancellationToken);
+        if (ConsultationRules.WriteBlock(appointment, DateTime.UtcNow) is { } blocked)
+            return await WriteBlockedAsync(db, audit, actor, "ClinicalAttachment.Upload", id, blocked, cancellationToken);
 
         StoredClinicalAttachment stored;
         try
@@ -3022,6 +3087,11 @@ public static partial class ApiEndpoints
             return Results.Conflict(new { message = "A consulta está fora da janela permitida." });
         if (appointment.Status == AppointmentStatus.Cancelled)
             return Results.Conflict(new { message = "A consulta foi cancelada." });
+        if (appointment.Status is not (AppointmentStatus.Scheduled or AppointmentStatus.InProgress) || appointment.ClosedAt is not null)
+            return Results.Conflict(new { message = "Esta consulta já foi concluída." });
+        // Entering a room already open is not starting a new consultation.
+        if (appointment.Status == AppointmentStatus.Scheduled && await PendingClosureAsync(db, appointment, cancellationToken) is { } pending)
+            return pending;
         if (appointment.PaymentRequired &&
             !appointment.Payments.Any(x => x.Status == PaymentStatus.Paid))
             return Results.Conflict(new { message = "A consulta possui pagamento pendente." });
@@ -3229,6 +3299,8 @@ public static partial class ApiEndpoints
             return Results.Conflict(new { message = "Esta consulta já foi encerrada ou cancelada." });
         if (DateTime.UtcNow < appointment.ScheduledAt.AddMinutes(-15))
             return Results.Conflict(new { message = "A consulta presencial só pode ser concluída a partir do horário marcado." });
+        if (!noShow && await PendingClosureAsync(db, appointment, cancellationToken) is { } pending)
+            return pending;
 
         appointment.Status = noShow ? AppointmentStatus.NoShow : AppointmentStatus.Completed;
         audit.Add(actor, noShow ? "Consultation.NoShow" : "Consultation.End", "Appointment", appointment.Id);
@@ -3402,7 +3474,7 @@ public static partial class ApiEndpoints
                     x.ConsultationRoom.Status == VideoSessionStatus.Cancelled ||
                     x.ConsultationRoom.Status == VideoSessionStatus.Expired ||
                     now < x.ScheduledAt.AddMinutes(-15) ||
-                    now > x.ScheduledAt.AddMinutes(x.DurationMinutes + 15)
+                    now > x.ScheduledAt.AddMinutes(x.DurationMinutes + ConsultationRules.GraceMinutesAfterEnd)
                     ? null
                     : x.ConsultationRoom.RoomName,
                 x.ConsultationRoom == null ? null : x.ConsultationRoom.Status,
@@ -3557,15 +3629,8 @@ public static partial class ApiEndpoints
         return digits.Length == 11 && IsValidCpf(digits);
     }
 
-    private static bool InJoinWindow(Appointment appointment)
-    {
-        var now = DateTime.UtcNow;
-        var opens = appointment.ScheduledAt.AddMinutes(-15);
-        var closes = appointment.ScheduledAt
-            .AddMinutes(appointment.DurationMinutes)
-            .AddMinutes(15);
-        return now >= opens && now <= closes;
-    }
+    private static bool InJoinWindow(Appointment appointment) =>
+        ConsultationRules.InJoinWindow(appointment.ScheduledAt, appointment.DurationMinutes, DateTime.UtcNow);
 
     private static void SetSessionCookie(
         HttpContext http,

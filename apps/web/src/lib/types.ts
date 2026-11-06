@@ -575,6 +575,8 @@ export type AppointmentMedicalDocuments = {
   suggestedStartedAt?: string | null;
   suggestedEndedAt?: string | null;
   suggestedPatientLocation?: string | null;
+  // Only for the assigned doctor: to send the signed document by WhatsApp.
+  patientPhone?: string | null;
 };
 
 export type SaveMedicalDocumentInput = {

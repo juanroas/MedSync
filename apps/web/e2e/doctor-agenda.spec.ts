@@ -16,7 +16,8 @@ test.describe("agenda do medico", () => {
 
     await expect(page.getByRole("heading", { name: /^agenda$/i })).toBeVisible();
     await expect(page.getByRole("tab", { name: "Dia" })).toHaveAttribute("aria-selected", "true");
-    await expect(page.getByText("Horários de atendimento", { exact: true })).toBeVisible();
+    // The day card shows the hours of that weekday (the header link has the same words).
+    await expect(page.locator("p", { hasText: /^Horários de atendimento$/ })).toBeVisible();
 
     await page.getByRole("tab", { name: "Semana" }).click();
     const columns = page.locator("section[aria-label]");

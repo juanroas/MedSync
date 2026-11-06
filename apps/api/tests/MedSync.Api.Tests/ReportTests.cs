@@ -15,10 +15,10 @@ public class ReportTests
     [InlineData(AppointmentStatus.Completed, 0, "Completed")]
     [InlineData(AppointmentStatus.NoShow, 0, "NoShow")]
     [InlineData(AppointmentStatus.Cancelled, 0, "Cancelled")]
-    // 30 min consultation + 15 min of tolerance: still upcoming 44 min later, not held at 46.
-    [InlineData(AppointmentStatus.Scheduled, 44, "Upcoming")]
-    [InlineData(AppointmentStatus.Scheduled, 46, "NotHeld")]
-    [InlineData(AppointmentStatus.InProgress, 46, "NotHeld")]
+    // 30 min consultation + 30 min of tolerance: still upcoming 59 min later, not held at 61.
+    [InlineData(AppointmentStatus.Scheduled, 59, "Upcoming")]
+    [InlineData(AppointmentStatus.Scheduled, 61, "NotHeld")]
+    [InlineData(AppointmentStatus.InProgress, 61, "NotHeld")]
     public void Outcome_follows_the_agenda_reading(AppointmentStatus status, int minutesAfter, string expected)
     {
         Assert.Equal(expected, ApiEndpoints.ReportOutcome(status, Scheduled, 30, Scheduled.AddMinutes(minutesAfter)));

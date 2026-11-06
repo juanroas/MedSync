@@ -125,7 +125,9 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 
   if (response.status === 401 && typeof window !== "undefined") {
     clearSession();
-    if (window.location.pathname !== "/login") window.location.href = "/login";
+    // Back to the same page after signing in: a document link sent by WhatsApp opens the document.
+    if (window.location.pathname !== "/login")
+      window.location.href = `/login?voltar=${encodeURIComponent(`${window.location.pathname}${window.location.search}`)}`;
     throw new ApiError("Sua sessão expirou.", response.status);
   }
 

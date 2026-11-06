@@ -218,7 +218,7 @@ test.describe("reuniao de 31/10", () => {
   });
 
   test("cada faixa tem a propria duracao e a consulta marcada segue a faixa", async ({ page }) => {
-    const { admin, doctor, patient, doctorId, doctorEmail } = await setup("duracao", "Online");
+    const { admin, doctor, patient, doctorId, doctorEmail } = await setup("duracao");
     const window = async (dayOfWeek: string, slotMinutes: number) => {
       const created = await doctor.post("/doctors/me/availability", {
         data: { dayOfWeek, startTime: "09:00:00", endTime: "10:00:00", modality: "Online", slotMinutes },
@@ -303,7 +303,7 @@ test.describe("reuniao de 31/10", () => {
     });
     expect(pediatrician.status(), await pediatrician.text()).toBe(201);
     const booked = await admin.post("/appointments", {
-      data: { doctorId: ((await pediatrician.json()) as { id: string }).id, patientId: created.id, scheduledAt: new Date(Date.now() + 26 * 3_600_000).toISOString(), durationMinutes: 30, modality: "Online", paymentRequired: false },
+      data: { doctorId: ((await pediatrician.json()) as { id: string }).id, patientId: created.id, scheduledAt: new Date(Date.now() + 26 * 3_600_000).toISOString(), durationMinutes: 30, modality: "InPerson", paymentRequired: false },
     });
     expect(booked.status(), await booked.text()).toBe(201);
     await loginByUi(page, email);

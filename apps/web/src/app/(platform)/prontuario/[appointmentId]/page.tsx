@@ -9,7 +9,7 @@ import { MedicalDocumentsPanel } from "@/components/medical-documents-panel";
 import { PrescriptionPanel } from "@/components/prescription-panel";
 import { PrescriptionHistory } from "@/components/prescription-history";
 import { holdSession, onIdleLogout } from "@/components/session-keeper";
-import { appointmentStatusLabel, canConcludeConsultation } from "@/lib/appointments";
+import { appointmentStatusLabel, canConcludeConsultation, notHeldReason } from "@/lib/appointments";
 import { formatDateTime } from "@/lib/format";
 import type { Appointment, ClinicalRecord, PatientClinicalRecord } from "@/lib/types";
 import { ApiError, api, getSession } from "@/services/api";
@@ -89,9 +89,12 @@ export default function ClinicalRecordPage() {
   const [closing, setClosing] = useState(false);
   const [confirm, confirmDialog] = useConfirm();
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
-  // Rule D8: after "Encerrar atendimento" nothing here changes, the API refuses it too.
+  // Rule D8: after "Encerrar atendimento", or when the consultation did not happen, nothing here changes; the API
+  // refuses it too.
   const closed = Boolean(appointment?.closedAt);
-  const canEditClinicalRecord = isDoctor && !closed;
+  const notHeld = appointment && !closed ? notHeldReason(appointment) : null;
+  const readOnly = closed || notHeld !== null;
+  const canEditClinicalRecord = isDoctor && !readOnly;
 
   const currentHistory = useMemo(
     () => history.filter((item) => item.appointmentId !== appointmentId),
@@ -350,6 +353,8 @@ export default function ClinicalRecordPage() {
         />
       )}
 
+      {notHeld && <AlertBanner tone="warning" title="Somente leitura" message={notHeld} />}
+
       {!isDoctor && (
         <AlertBanner
           tone="warning"
@@ -484,7 +489,7 @@ export default function ClinicalRecordPage() {
                   <p className="text-xs text-slate-400">
                     {content.length}/{MAX_RECORD_LENGTH} caracteres. Alterações geram versão e trilha de auditoria.
                   </p>
-                  {!closed && (
+                  {!readOnly && (
                     <Button type="submit" isLoading={saving} disabled={!canEditClinicalRecord || saving}>
                       <Save size={17} /> Salvar prontuário
                     </Button>
@@ -499,7 +504,7 @@ export default function ClinicalRecordPage() {
                   <PrescriptionPanel
                     appointmentId={appointmentId}
                     patientId={appointment.patientId}
-                    canIssue={appointment.status !== "Cancelled" && !closed}
+                    canIssue={!readOnly}
                     inPerson={appointment.modality === "InPerson"}
                     locked={closed}
                   />
@@ -512,9 +517,12 @@ export default function ClinicalRecordPage() {
                     status={appointment.status}
                     scheduledAt={appointment.scheduledAt}
                     inPerson={appointment.modality === "InPerson"}
-                    locked={closed}
+                    locked={readOnly}
+                    patientName={appointment.patientName}
+                    doctorName={appointment.doctorName}
+                    forGuardian={Boolean(appointment.patientGuardian)}
                   />
-                  <FollowUpCard appointment={appointment} locked={closed} onSaved={setAppointment} />
+                  <FollowUpCard appointment={appointment} locked={readOnly} onSaved={setAppointment} />
                 </div>
 
                 <div hidden={tab !== "documentos"}>
@@ -523,7 +531,10 @@ export default function ClinicalRecordPage() {
                     status={appointment.status}
                     scheduledAt={appointment.scheduledAt}
                     inPerson={appointment.modality === "InPerson"}
-                    locked={closed}
+                    locked={readOnly}
+                    patientName={appointment.patientName}
+                    doctorName={appointment.doctorName}
+                    forGuardian={Boolean(appointment.patientGuardian)}
                   />
                 </div>
               </>
@@ -598,7 +609,7 @@ export default function ClinicalRecordPage() {
               </Card>
             )}
 
-            <ClinicalAttachmentsPanel appointmentId={appointmentId} canUpload={canUploadClinicalAttachment} locked={closed} />
+            <ClinicalAttachmentsPanel appointmentId={appointmentId} canUpload={canUploadClinicalAttachment} locked={readOnly} />
           </aside>
         </div>
       )}

@@ -31,7 +31,9 @@ certificado, PDF com "SIMULAÇÃO — SEM VALIDADE" e a receita marcada como sim
 
 ## D5 — Paciente recebe cópia
 Documento emitido aparece para o paciente em Minhas consultas → "Documentos (n)" da consulta (art. 3º §6: direito à
-cópia). WhatsApp e e-mail levam só um link que exige login; nunca o PDF anexado.
+cópia). WhatsApp e e-mail levam só um link que exige login; nunca o PDF anexado. No prontuário, documento assinado tem
+"Enviar por WhatsApp" (wa.me com o celular do paciente): mensagem curta, sem o título do documento, e o link da página
+`/documento/{id}`; sem sessão, o login volta para ela.
 
 ## D7 — Laudo em branco e declaração de comparecimento (28/10/2026)
 - Laudo: documento livre no modelo padrão (`MedicalDocumentPdf.cs`): cabeçalho do local e do médico, título
@@ -48,6 +50,10 @@ seguem editáveis. **Encerrar atendimento** é o fim do processo: só o médico 
 registro clínico salvo e nenhum rascunho de receita ou documento. Depois disso a API recusa (409, com auditoria) toda
 escrita da consulta: prontuário, receita, documento, anexo, retorno e desfecho. Tudo continua disponível para leitura.
 Declaração não assinada não pode mais ser emitida: a janela de confirmação avisa.
+Consulta que não aconteceu também não recebe nada (06/11/2026, `ConsultationRules.WriteBlock`): cancelada, "não
+compareceu" ou online cuja sala não abriu até 30 minutos depois do fim. Presencial "aguardando conclusão" segue aberta.
+Trava de auxílio (06/11/2026): enquanto houver consulta do dia, no mesmo local, concluída e não encerrada, a API recusa
+iniciar a sala ou concluir outra (`code: pending_closure`), e a agenda mostra qual falta encerrar.
 
 ## D9 — Solicitação de exames e retorno (31/10/2026)
 - Solicitação de exames: documento do tipo `ExamRequest`, com o mesmo modelo, a mesma assinatura e o mesmo acesso do laudo
