@@ -5,11 +5,12 @@ using Microsoft.EntityFrameworkCore;
 
 namespace MedSync.Api;
 
-// Massa de teste (28/10/2026, roteiro em docs/08-quality/MASSA_DE_TESTE.md): a manhã de testes das 9h às 11h com
-// consultas online e presenciais em todos os locais, um médico em dois locais, o histórico da véspera com documentos
-// assinados (o paciente vê), rascunhos (o paciente não vê) e consultas sem documento, uma clínica em análise, pedidos
-// de suporte e LGPD e mensalidades em todas as situações. Ids fixos, criado uma vez só: o que mudar durante o teste
-// não volta no próximo start. Assinaturas pelo simulador, marcadas "SIMULAÇÃO — SEM VALIDADE" (regra D4).
+// Massa de teste (roteiro em docs/08-quality/MASSA_DE_TESTE.md): uma sessão de testes por dia (17h às 20h por padrão,
+// TEST_SESSION_HOURS muda) com consultas online e presenciais em todos os locais, um médico em dois locais, o histórico
+// da véspera com documentos assinados (o paciente vê), rascunhos (o paciente não vê) e consultas sem documento, uma
+// clínica em análise, pedidos de suporte e LGPD e mensalidades em todas as situações. Os Ids derivam da data da sessão:
+// cada dia de teste começa limpo, o que mudou num teste anterior fica no histórico, e reiniciar no mesmo dia não
+// duplica nada. Assinaturas pelo simulador, marcadas "SIMULAÇÃO — SEM VALIDADE" (regra D4).
 public static partial class DatabaseSeeder
 {
     private static readonly Guid ClinicDemo = Guid.Parse("01000000-0000-0000-0000-000000000001");
@@ -47,22 +48,23 @@ public static partial class DatabaseSeeder
     private static readonly DemoAccount GamaAdminAccount =
         new(Guid.Parse("15000000-0000-0000-0000-000000000003"), "Gustavo Clínica Gama", "clinica.analise@medsync.dev", ClinicRole.ClinicAdmin);
 
-    // The morning of tests (Brasília): 30-minute consultations from 09:00; 10:30 stays free at Dra. Marina and
-    // 09:30/10:30 at Dra. Helena, to book through the screens. Carla never sees Dra. Marina: the E2E suite checks that a
-    // clinic patient without a consultation stays out of the doctor's "Pacientes vinculados".
-    private static readonly ScenarioAppointment[] MorningAppointments =
+    // The session of tests (Brasília), 30-minute consultations from its start: the first two hours hold the massa and
+    // the rest stays free at Dra. Marina and Dra. Helena (Helena also at start+30), to book through the screens. Carla
+    // never sees Dra. Marina: the E2E suite checks that a clinic patient without a consultation stays out of the
+    // doctor's "Pacientes vinculados".
+    private static ScenarioAppointment[] SessionAppointments(int start) =>
     [
-        new("50000000-0000-0000-0000-000000000001", ClinicDemo, DoctorMarina, PatientCarlos, 9, 0, ConsultationModality.Online, Consent: false),
-        new("50000000-0000-0000-0000-000000000002", ClinicDemo, DoctorMarina, PatientDaniel, 9, 30, ConsultationModality.InPerson),
-        new("50000000-0000-0000-0000-000000000003", ClinicDemo, DoctorMarina, PatientRoberto, 10, 0, ConsultationModality.Online, Consent: true),
-        new("50000000-0000-0000-0000-000000000004", ClinicHelena, DoctorHelena, PatientLucas, 9, 0, ConsultationModality.InPerson),
-        new("50000000-0000-0000-0000-000000000005", ClinicHelena, DoctorHelena, PatientBeatriz, 10, 0, ConsultationModality.Online, Consent: true),
-        new("50000000-0000-0000-0000-000000000006", ClinicAlfa, DoctorRafael, PatientPatricia, 9, 0, ConsultationModality.Online, Consent: false),
-        new("50000000-0000-0000-0000-000000000007", ClinicBeta, DoctorRenata, PatientJoao, 10, 0, ConsultationModality.InPerson),
-        new("50000000-0000-0000-0000-000000000008", ClinicDemo, DoctorBrunoDemo, PatientMariana, 9, 30, ConsultationModality.Online, Consent: false),
-        new("50000000-0000-0000-0000-000000000009", ClinicHelena, DoctorBrunoHelena, PatientLucas, 10, 30, ConsultationModality.InPerson),
-        new("50000000-0000-0000-0000-000000000017", ClinicDemo, DoctorBrunoDemo, PatientSofia, 10, 0, ConsultationModality.Online),
-        new("50000000-0000-0000-0000-000000000016", ClinicDemo, DoctorBrunoDemo, PatientCarla, 9, 0, ConsultationModality.InPerson),
+        new("50000000-0000-0000-0000-000000000001", ClinicDemo, DoctorMarina, PatientCarlos, start, 0, ConsultationModality.Online, Consent: false),
+        new("50000000-0000-0000-0000-000000000002", ClinicDemo, DoctorMarina, PatientDaniel, start, 30, ConsultationModality.InPerson),
+        new("50000000-0000-0000-0000-000000000003", ClinicDemo, DoctorMarina, PatientRoberto, start + 1, 0, ConsultationModality.Online, Consent: true),
+        new("50000000-0000-0000-0000-000000000004", ClinicHelena, DoctorHelena, PatientLucas, start, 0, ConsultationModality.InPerson),
+        new("50000000-0000-0000-0000-000000000005", ClinicHelena, DoctorHelena, PatientBeatriz, start + 1, 0, ConsultationModality.Online, Consent: true),
+        new("50000000-0000-0000-0000-000000000006", ClinicAlfa, DoctorRafael, PatientPatricia, start, 0, ConsultationModality.Online, Consent: false),
+        new("50000000-0000-0000-0000-000000000007", ClinicBeta, DoctorRenata, PatientJoao, start + 1, 0, ConsultationModality.InPerson),
+        new("50000000-0000-0000-0000-000000000008", ClinicDemo, DoctorBrunoDemo, PatientMariana, start, 30, ConsultationModality.Online, Consent: false),
+        new("50000000-0000-0000-0000-000000000009", ClinicHelena, DoctorBrunoHelena, PatientLucas, start + 1, 30, ConsultationModality.InPerson),
+        new("50000000-0000-0000-0000-000000000017", ClinicDemo, DoctorBrunoDemo, PatientSofia, start + 1, 0, ConsultationModality.Online),
+        new("50000000-0000-0000-0000-000000000016", ClinicDemo, DoctorBrunoDemo, PatientCarla, start, 0, ConsultationModality.InPerson),
     ];
 
     // The day before: what already happened, with and without documents.
@@ -74,14 +76,18 @@ public static partial class DatabaseSeeder
     private static readonly Guid HistoryPracticeSigned = Guid.Parse("50000000-0000-0000-0000-000000000015");
 
     // Documents the seed signs with the simulator; the others stay as drafts for the doctor to sign in the test.
-    private static readonly Guid[] SignedScenarioDocuments =
+    private static readonly string[] SignedScenarioDocuments =
     [
-        Guid.Parse("51000000-0000-0000-0000-000000000001"),
-        Guid.Parse("51000000-0000-0000-0000-000000000002"),
-        Guid.Parse("51000000-0000-0000-0000-000000000005"),
-        Guid.Parse("51000000-0000-0000-0000-000000000006"),
+        "51000000-0000-0000-0000-000000000001",
+        "51000000-0000-0000-0000-000000000002",
+        "51000000-0000-0000-0000-000000000005",
+        "51000000-0000-0000-0000-000000000006",
     ];
-    private static readonly Guid SignedScenarioPrescription = Guid.Parse("52000000-0000-0000-0000-000000000001");
+    private const string SignedScenarioPrescription = "52000000-0000-0000-0000-000000000001";
+
+    // Same base id, another session: another row. Stable for the same date, so restarting the API changes nothing.
+    private static Guid SessionId(string baseId, DateOnly day) =>
+        new(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes($"{baseId}|{day:yyyy-MM-dd}"))[..16]);
 
     private static async Task SeedScenariosAsync(
         MedSyncDbContext db,
@@ -90,7 +96,7 @@ public static partial class DatabaseSeeder
         ClinicalAttachmentStorage? storage,
         CancellationToken cancellationToken)
     {
-        var day = await ScenarioDayAsync(db, cancellationToken);
+        var (day, startHour, endHour) = ScenarioSession();
         // The day before; two days before when seeded in the morning, so nothing "already happened" in the future.
         var history = day.AddDays(-1);
         if (BrazilToUtc(history, 12, 0) > DateTime.UtcNow)
@@ -101,17 +107,17 @@ public static partial class DatabaseSeeder
         await SeedDependentAsync(db, cancellationToken);
         await db.SaveChangesAsync(cancellationToken);
 
-        await SeedScenarioWindowsAsync(db, day.DayOfWeek, cancellationToken);
+        await SeedScenarioWindowsAsync(db, day.DayOfWeek, startHour, endHour, cancellationToken);
         var clinics = await db.Clinics.AsNoTracking()
             .Where(x => x.Id == ClinicDemo || x.Id == ClinicAlfa || x.Id == ClinicBeta || x.Id == ClinicHelena)
             .ToDictionaryAsync(x => x.Id, cancellationToken);
-        foreach (var item in MorningAppointments)
-            await EnsureScenarioAppointmentAsync(db, clinics, item, day, cancellationToken);
+        foreach (var item in SessionAppointments(startHour))
+            await EnsureScenarioAppointmentAsync(db, clinics, item with { Id = SessionId(item.Id, day).ToString() }, day, cancellationToken);
         await SeedHistoryAsync(db, clinics, history, cancellationToken);
         await db.SaveChangesAsync(cancellationToken);
 
         if (storage is not null)
-            await SignScenarioDocumentsAsync(db, storage, cancellationToken);
+            await SignScenarioDocumentsAsync(db, storage, history, cancellationToken);
         await SeedQueuesAsync(db, day, cancellationToken);
         await db.SaveChangesAsync(cancellationToken);
     }
@@ -141,19 +147,20 @@ public static partial class DatabaseSeeder
         db.Patients.Add(child);
     }
 
-    // The next morning of tests: today until 11:00, tomorrow after that. Once created it stays on that day.
-    private static async Task<DateOnly> ScenarioDayAsync(MedSyncDbContext db, CancellationToken cancellationToken)
+    // The session of tests: TEST_SESSION_HOURS ("17-20" by default, at least 2 hours, between 6h and 23h). It is today
+    // until it ends and tomorrow after that.
+    public static (DateOnly Day, int StartHour, int EndHour) ScenarioSession(DateTime? utcNow = null)
     {
-        var first = Guid.Parse(MorningAppointments[0].Id);
-        var existing = await db.Appointments.AsNoTracking()
-            .Where(x => x.Id == first)
-            .Select(x => (DateTime?)x.ScheduledAt)
-            .SingleOrDefaultAsync(cancellationToken);
-        if (existing is { } scheduledAt)
-            return DateOnly.FromDateTime(scheduledAt.AddHours(-3));
-        var brazilNow = DateTime.UtcNow.AddHours(-3);
+        var (start, end) = (17, 20);
+        var configured = Environment.GetEnvironmentVariable("TEST_SESSION_HOURS")?.Split('-');
+        if (configured is [var first, var last] &&
+            int.TryParse(first, out var configuredStart) &&
+            int.TryParse(last, out var configuredEnd) &&
+            configuredStart >= 6 && configuredEnd <= 23 && configuredEnd - configuredStart >= 2)
+            (start, end) = (configuredStart, configuredEnd);
+        var brazilNow = (utcNow ?? DateTime.UtcNow).AddHours(-3);
         var today = DateOnly.FromDateTime(brazilNow);
-        return brazilNow.Hour < 11 ? today : today.AddDays(1);
+        return (brazilNow.Hour < end ? today : today.AddDays(1), start, end);
     }
 
     private static DateTime BrazilToUtc(DateOnly day, int hour, int minute) =>
@@ -207,20 +214,26 @@ public static partial class DatabaseSeeder
             await EnsureMembershipAsync(db, ClinicGama, gamaAdmin.Id, ClinicRole.ClinicAdmin, cancellationToken);
     }
 
-    // Opening hours on the weekday of the test, so the patient and the front desk can book the free times. Dr. Rafael
+    // Opening hours on the weekday of the session, so the patient and the front desk can book the free times. Dr. Rafael
     // (Alfa) and Dra. Renata (Beta) stay without hours: the E2E suite relies on a doctor patients cannot see yet.
-    private static async Task SeedScenarioWindowsAsync(MedSyncDbContext db, DayOfWeek weekday, CancellationToken cancellationToken)
+    private static async Task SeedScenarioWindowsAsync(
+        MedSyncDbContext db,
+        DayOfWeek weekday,
+        int sessionStart,
+        int sessionEnd,
+        CancellationToken cancellationToken)
     {
         var windows = new (string Id, Guid ClinicId, Guid DoctorId, int StartHour, int EndHour, ConsultationModality Modality)[]
         {
-            ("53000000-0000-0000-0000-000000000001", ClinicDemo, DoctorMarina, 9, 11, ConsultationModality.Both),
-            ("53000000-0000-0000-0000-000000000002", ClinicHelena, DoctorHelena, 9, 11, ConsultationModality.Both),
-            ("53000000-0000-0000-0000-000000000005", ClinicDemo, DoctorBrunoDemo, 9, 10, ConsultationModality.Both),
-            ("53000000-0000-0000-0000-000000000006", ClinicHelena, DoctorBrunoHelena, 10, 11, ConsultationModality.InPerson),
+            ("53000000-0000-0000-0000-000000000001", ClinicDemo, DoctorMarina, sessionStart, sessionEnd, ConsultationModality.Both),
+            ("53000000-0000-0000-0000-000000000002", ClinicHelena, DoctorHelena, sessionStart, sessionEnd, ConsultationModality.Both),
+            ("53000000-0000-0000-0000-000000000005", ClinicDemo, DoctorBrunoDemo, sessionStart, sessionStart + 1, ConsultationModality.Both),
+            ("53000000-0000-0000-0000-000000000006", ClinicHelena, DoctorBrunoHelena, sessionStart + 1, sessionStart + 2, ConsultationModality.InPerson),
         };
         foreach (var window in windows)
         {
-            var id = Guid.Parse(window.Id);
+            // One window per weekday and hours: a later session on the same weekday finds it already there.
+            var id = SessionId($"{window.Id}|{weekday}|{window.StartHour}-{window.EndHour}", DateOnly.MinValue);
             var start = new TimeOnly(window.StartHour, 0);
             var end = new TimeOnly(window.EndHour, 0);
             // Someone may already have opened that morning by hand: never stack a second window on it.
@@ -311,10 +324,12 @@ public static partial class DatabaseSeeder
         CancellationToken cancellationToken)
     {
         var marinaUser = Guid.Parse("10000000-0000-0000-0000-000000000001");
+        string Id(Guid baseId) => SessionId(baseId.ToString(), history).ToString();
+        string DocumentId(string baseId) => SessionId(baseId, history).ToString();
 
         // 09:00 online, everything signed: the patient sees "Documentos (3)", the front desk downloads the declaration.
         if (await EnsureScenarioAppointmentAsync(db, clinics,
-                new(HistoryAllSigned.ToString(), ClinicDemo, DoctorMarina, PatientCarlos, 9, 0, ConsultationModality.Online, Consent: true),
+                new(Id(HistoryAllSigned), ClinicDemo, DoctorMarina, PatientCarlos, 9, 0, ConsultationModality.Online, Consent: true),
                 history, cancellationToken, AppointmentStatus.Completed) is { } allSigned)
         {
             var (joined, ended) = (allSigned.ScheduledAt.AddMinutes(1), allSigned.ScheduledAt.AddMinutes(27));
@@ -325,7 +340,7 @@ public static partial class DatabaseSeeder
             AddClinicalRecord(db, allSigned, marinaUser, "Paciente relata cefaleia frontal há 3 dias, sem febre. Exame por vídeo sem sinais de alerta. Conduta: analgésico simples, hidratação e retorno se piora.");
             db.Prescriptions.Add(new Prescription
             {
-                Id = SignedScenarioPrescription,
+                Id = SessionId(SignedScenarioPrescription, history),
                 ClinicId = ClinicDemo,
                 AppointmentId = allSigned.Id,
                 PatientId = PatientCarlos,
@@ -335,28 +350,28 @@ public static partial class DatabaseSeeder
                 Notes = "Beber bastante água.",
                 Items = [new PrescriptionItem { Position = 0, MedicationName = "Dipirona monoidratada", Dosage = "500 mg", Instructions = "1 comprimido a cada 6 horas se dor ou febre", Quantity = "20 comprimidos" }]
             });
-            AddDocument(db, "51000000-0000-0000-0000-000000000001", allSigned, marinaUser, MedicalDocumentKind.Report, "Laudo médico",
+            AddDocument(db, DocumentId("51000000-0000-0000-0000-000000000001"), allSigned, marinaUser, MedicalDocumentKind.Report, "Laudo médico",
                 "Atesto, para os devidos fins, que o paciente foi atendido nesta data por teleconsulta, com quadro de cefaleia " +
                 "tensional, sem sinais de gravidade.\n\nRecomendo repouso relativo por 24 horas e retorno em caso de piora.",
                 "São Paulo/SP", null, null);
-            AddDocument(db, "51000000-0000-0000-0000-000000000002", allSigned, marinaUser, MedicalDocumentKind.AttendanceDeclaration,
+            AddDocument(db, DocumentId("51000000-0000-0000-0000-000000000002"), allSigned, marinaUser, MedicalDocumentKind.AttendanceDeclaration,
                 MedicalDocumentPdf.DeclarationTitle, "", null, joined, ended);
         }
 
         // 09:30 in person, cancelled by the front desk.
         await EnsureScenarioAppointmentAsync(db, clinics,
-            new(HistoryCancelled.ToString(), ClinicDemo, DoctorMarina, PatientRoberto, 9, 30, ConsultationModality.InPerson),
+            new(Id(HistoryCancelled), ClinicDemo, DoctorMarina, PatientRoberto, 9, 30, ConsultationModality.InPerson),
             history, cancellationToken, AppointmentStatus.Cancelled);
 
         // 10:00 in person, concluded and nothing issued yet: the doctor sees "Emita e assine a declaração".
         if (await EnsureScenarioAppointmentAsync(db, clinics,
-                new(HistoryNoDocuments.ToString(), ClinicDemo, DoctorMarina, PatientMariana, 10, 0, ConsultationModality.InPerson),
+                new(Id(HistoryNoDocuments), ClinicDemo, DoctorMarina, PatientMariana, 10, 0, ConsultationModality.InPerson),
                 history, cancellationToken, AppointmentStatus.Completed) is { } noDocuments)
             AddClinicalRecord(db, noDocuments, marinaUser, "Consulta presencial de rotina. Pressão 12x8. Sem queixas. Retorno em 6 meses.");
 
         // 11:00 online, only drafts: the patient must see nothing until the doctor signs.
         if (await EnsureScenarioAppointmentAsync(db, clinics,
-                new(HistoryDrafts.ToString(), ClinicDemo, DoctorMarina, PatientDaniel, 11, 0, ConsultationModality.Online, Consent: true),
+                new(Id(HistoryDrafts), ClinicDemo, DoctorMarina, PatientDaniel, 11, 0, ConsultationModality.Online, Consent: true),
                 history, cancellationToken, AppointmentStatus.Completed) is { } drafts)
         {
             var (joined, ended) = (drafts.ScheduledAt.AddMinutes(2), drafts.ScheduledAt.AddMinutes(29));
@@ -364,7 +379,7 @@ public static partial class DatabaseSeeder
             AddClinicalRecord(db, drafts, marinaUser, "Queixa de azia pós-prandial há 2 semanas. Orientações alimentares. Inibidor de bomba por 30 dias.");
             db.Prescriptions.Add(new Prescription
             {
-                Id = Guid.Parse("52000000-0000-0000-0000-000000000002"),
+                Id = SessionId("52000000-0000-0000-0000-000000000002", history),
                 ClinicId = ClinicDemo,
                 AppointmentId = drafts.Id,
                 PatientId = PatientDaniel,
@@ -373,30 +388,30 @@ public static partial class DatabaseSeeder
                 PatientLocation = "Campinas/SP",
                 Items = [new PrescriptionItem { Position = 0, MedicationName = "Omeprazol", Dosage = "20 mg", Instructions = "1 cápsula em jejum por 30 dias", Quantity = "30 cápsulas" }]
             });
-            AddDocument(db, "51000000-0000-0000-0000-000000000003", drafts, marinaUser, MedicalDocumentKind.Report, "Relatório médico",
+            AddDocument(db, DocumentId("51000000-0000-0000-0000-000000000003"), drafts, marinaUser, MedicalDocumentKind.Report, "Relatório médico",
                 "Paciente em acompanhamento por dispepsia. Solicito endoscopia digestiva alta caso os sintomas persistam após 30 dias de tratamento.",
                 "Campinas/SP", null, null);
-            AddDocument(db, "51000000-0000-0000-0000-000000000004", drafts, marinaUser, MedicalDocumentKind.AttendanceDeclaration,
+            AddDocument(db, DocumentId("51000000-0000-0000-0000-000000000004"), drafts, marinaUser, MedicalDocumentKind.AttendanceDeclaration,
                 MedicalDocumentPdf.DeclarationTitle, "", null, joined, ended);
         }
 
         // 11:30 online, the doctor waited and the patient never came in.
         if (await EnsureScenarioAppointmentAsync(db, clinics,
-                new(HistoryNoShow.ToString(), ClinicDemo, DoctorMarina, PatientRoberto, 11, 30, ConsultationModality.Online, Consent: true),
+                new(Id(HistoryNoShow), ClinicDemo, DoctorMarina, PatientRoberto, 11, 30, ConsultationModality.Online, Consent: true),
                 history, cancellationToken, AppointmentStatus.NoShow) is { } noShow)
             AddCompletedRoom(db, noShow, null, noShow.ScheduledAt.AddMinutes(15), patientJoined: false);
 
         // Consultório, 10:00 in person with a signed laudo and declaration: the front desk of the practice prints it.
         var helenaUser = UserHelena;
         if (await EnsureScenarioAppointmentAsync(db, clinics,
-                new(HistoryPracticeSigned.ToString(), ClinicHelena, DoctorHelena, PatientLucas, 10, 0, ConsultationModality.InPerson),
+                new(Id(HistoryPracticeSigned), ClinicHelena, DoctorHelena, PatientLucas, 10, 0, ConsultationModality.InPerson),
                 history, cancellationToken, AppointmentStatus.Completed) is { } practice)
         {
             AddClinicalRecord(db, practice, helenaUser, "Avaliação cardiológica de rotina. ECG sem alterações. Liberado para atividade física.");
-            AddDocument(db, "51000000-0000-0000-0000-000000000005", practice, helenaUser, MedicalDocumentKind.Report, "Orientações ao paciente",
+            AddDocument(db, DocumentId("51000000-0000-0000-0000-000000000005"), practice, helenaUser, MedicalDocumentKind.Report, "Orientações ao paciente",
                 "Liberado para atividade física moderada, 3 a 5 vezes por semana.\nManter acompanhamento anual.",
                 null, null, null);
-            AddDocument(db, "51000000-0000-0000-0000-000000000006", practice, helenaUser, MedicalDocumentKind.AttendanceDeclaration,
+            AddDocument(db, DocumentId("51000000-0000-0000-0000-000000000006"), practice, helenaUser, MedicalDocumentKind.AttendanceDeclaration,
                 MedicalDocumentPdf.DeclarationTitle, "", null, practice.ScheduledAt.AddMinutes(-5), practice.ScheduledAt.AddMinutes(35));
         }
     }
@@ -460,8 +475,14 @@ public static partial class DatabaseSeeder
     private static async Task SignScenarioDocumentsAsync(
         MedSyncDbContext db,
         ClinicalAttachmentStorage storage,
+        DateOnly history,
         CancellationToken cancellationToken)
     {
+        // This session's documents, and the ones of the first massa (fixed ids, created before sessions existed).
+        var documentIds = SignedScenarioDocuments.Select(Guid.Parse)
+            .Concat(SignedScenarioDocuments.Select(x => SessionId(x, history)))
+            .ToList();
+        var prescriptionIds = new[] { Guid.Parse(SignedScenarioPrescription), SessionId(SignedScenarioPrescription, history) };
         var simulator = new SimulatedSignatureProvider();
         var signer = simulator.CreatePdfSigner(
             new SigningSession(simulator.Name, "seed", "seed", DateTime.UtcNow.AddMinutes(10), Simulated: true), cancellationToken);
@@ -471,7 +492,7 @@ public static partial class DatabaseSeeder
             .Include(x => x.Appointment).ThenInclude(x => x.Doctor)
             .Include(x => x.Appointment).ThenInclude(x => x.Patient)
             .Include(x => x.Appointment).ThenInclude(x => x.Clinic)
-            .Where(x => SignedScenarioDocuments.Contains(x.Id))
+            .Where(x => documentIds.Contains(x.Id))
             .ToListAsync(cancellationToken);
         foreach (var document in documents.Where(x => x.Status == MedicalDocumentStatus.Draft || Missing(x.SignedDocumentKey)))
         {
@@ -484,13 +505,14 @@ public static partial class DatabaseSeeder
             document.SignatureSimulated = true;
         }
 
-        var prescription = await db.Prescriptions
+        var prescriptions = await db.Prescriptions
             .Include(x => x.Items)
             .Include(x => x.Appointment).ThenInclude(x => x.Doctor)
             .Include(x => x.Appointment).ThenInclude(x => x.Patient)
             .Include(x => x.Appointment).ThenInclude(x => x.Clinic)
-            .SingleOrDefaultAsync(x => x.Id == SignedScenarioPrescription, cancellationToken);
-        if (prescription is not null && (prescription.Status == PrescriptionStatus.Draft || Missing(prescription.SignedDocumentKey)))
+            .Where(x => prescriptionIds.Contains(x.Id))
+            .ToListAsync(cancellationToken);
+        foreach (var prescription in prescriptions.Where(x => x.Status == PrescriptionStatus.Draft || Missing(x.SignedDocumentKey)))
         {
             var signedAt = prescription.SignedAt ?? prescription.Appointment.ScheduledAt.AddMinutes(38);
             var (key, sha256) = await ApiEndpoints.RenderAndSignPrescriptionAsync(storage, prescription, signedAt, signer, simulated: true);

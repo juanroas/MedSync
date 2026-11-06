@@ -373,7 +373,7 @@ async function book(
     await select.selectOption(value!);
   }
   await page.getByRole("button", { name: options.modality === "InPerson" ? "Presencial" : "Online", exact: true }).click();
-  await page.getByRole("grid", { name: /dias disponíveis/i }).getByRole("button", { name: `${tomorrow.getUTCDate()}, com horários` }).click();
+  await page.getByRole("grid", { name: /dias disponíveis/i }).getByRole("button", { name: `${tomorrow.getUTCDate()}, com horários`, exact: true }).click();
   await page.getByRole("button", { name: options.time, exact: true }).click();
   await expect(page.getByTestId("booking-summary")).toContainText(`às ${options.time}`);
   const booked = page.waitForResponse((response) => response.url().endsWith("/appointments") && response.request().method() === "POST");

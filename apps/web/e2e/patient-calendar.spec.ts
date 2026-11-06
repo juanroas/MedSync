@@ -28,11 +28,11 @@ test.describe("calendario de solicitacao de consulta", () => {
       const calendar = page.getByRole("grid", { name: /dias disponíveis/i });
       await expect(calendar).toBeVisible();
       const day = Number(tomorrowKey.slice(8));
-      await expect(calendar.getByRole("button", { name: `${day}, com horários` })).toBeEnabled();
+      await expect(calendar.getByRole("button", { name: `${day}, com horários`, exact: true })).toBeEnabled();
       // Um dia de outra semana no mesmo dia da semana também abre; o dia seguinte a amanhã não.
       await expect(calendar.getByRole("button", { name: /sem horários/ }).first()).toBeDisabled();
 
-      await calendar.getByRole("button", { name: `${day}, com horários` }).click();
+      await calendar.getByRole("button", { name: `${day}, com horários`, exact: true }).click();
       await expect(page.getByRole("button", { name: "13:00" })).toBeVisible();
       await page.getByRole("button", { name: "13:30" }).click();
       await expect(page.getByRole("button", { name: "13:30" })).toHaveClass(/bg-teal-600/);

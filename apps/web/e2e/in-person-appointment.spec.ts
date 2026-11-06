@@ -31,7 +31,7 @@ test.describe("consulta presencial", () => {
       await expect(location.getByRole("link", { name: "Ver no mapa" })).toHaveAttribute("href", /google\.com\/maps/);
 
       const calendar = page.getByRole("grid", { name: /dias disponíveis/i });
-      await calendar.getByRole("button", { name: `${day}, com horários` }).click();
+      await calendar.getByRole("button", { name: `${day}, com horários`, exact: true }).click();
       await page.getByRole("button", { name: "15:30" }).click();
 
       const requestDone = page.waitForResponse((response) => response.url().endsWith("/appointments/request"));

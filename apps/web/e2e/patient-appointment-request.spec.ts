@@ -45,7 +45,7 @@ test.describe("solicitacao de consulta por paciente", () => {
       await expect(page.getByLabel(/data e hor[aá]rio/i)).toHaveCount(0);
 
       const calendar = page.getByRole("grid", { name: /dias disponíveis/i });
-      await calendar.getByRole("button", { name: `${tomorrow.getUTCDate()}, com horários` }).click();
+      await calendar.getByRole("button", { name: `${tomorrow.getUTCDate()}, com horários`, exact: true }).click();
       await page.getByRole("button", { name: "07:00", exact: true }).click();
       await page.getByLabel(/observa[cç][aã]o para o atendimento/i).fill("Solicitacao de homologacao dentro da faixa.");
       const requestDone = page.waitForResponse((response) => response.url().endsWith("/appointments/request"));

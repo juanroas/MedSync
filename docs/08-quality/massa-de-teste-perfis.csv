@@ -1,24 +1,24 @@
-Perfil;E-mail;Senha;Local;Consultas na manhã de testes (9h-11h);O que validar
+Perfil;E-mail;Senha;Local;Consultas na sessão de testes (17h-20h);O que validar
 Médico ADM MedSync;admin@medsync.dev;SEED_DEMO_PASSWORD;MedSync;—;Ativar a Clínica Gama; acesso ao prontuário com justificativa
 Suporte;suporte@medsync.dev;SEED_DEMO_PASSWORD;MedSync;—;Fila de suporte (novo e em andamento); Financeiro com todas as situações
 DPO;dpo@medsync.dev;SEED_DEMO_PASSWORD;MedSync;—;Pedido de acesso novo (Carlos) e correção resolvida (Carla)
 ADM da clínica;clinica.admin@medsync.dev;SEED_DEMO_PASSWORD;Clínica Demo;todas da Clínica Demo;Painel, consultas, financeiro (mês em aberto, mês passado pago)
-Recepção;recepcao@medsync.dev;SEED_DEMO_PASSWORD;Clínica Demo;todas da Clínica Demo;Encaixe às 10h30; declaração só nas assinadas
-Médico;medico@medsync.dev;SEED_DEMO_PASSWORD;Clínica Demo;09:00 Carlos online; 09:30 Daniel presencial; 10:00 Roberto online;Laudos, declaração, assinatura no simulador
-Médico em dois locais;medico.doislocais@medsync.dev;SEED_DEMO_PASSWORD;Clínica Demo + Consultório Dra. Helena Souza;09:00 Carla presencial e 09:30 Mariana online (Demo); 10:30 Lucas presencial (Consultório);Seletor Local de atendimento
-Paciente;paciente@medsync.dev;SEED_DEMO_PASSWORD;Clínica Demo;09:00 online (termo pendente);Documentos (3) no histórico
-Paciente;paciente2@medsync.dev;SEED_DEMO_PASSWORD;Clínica Demo;09:00 presencial com Dr. Bruno;Nunca consultou com a Dra. Marina
-Paciente;paciente3@medsync.dev;SEED_DEMO_PASSWORD;Clínica Demo;10:00 online (termo aceito);Cancelada e Não compareceu no histórico
-Paciente;paciente.demo@medsync.dev;SEED_DEMO_PASSWORD;Clínica Demo;09:30 presencial;Só rascunhos: não vê nada até a médica assinar
-Paciente;paciente.demo2@medsync.dev;SEED_DEMO_PASSWORD;Clínica Demo;09:30 online com Dr. Bruno;Presencial concluída sem documentos
-Médico + ADM (consultório);consultorio@medsync.dev;SEED_DEMO_PASSWORD;Consultório Dra. Helena Souza;09:00 Lucas presencial; 10:00 Beatriz online;Documentos da própria médica; Já paguei aguardando
+Recepção;recepcao@medsync.dev;SEED_DEMO_PASSWORD;Clínica Demo;todas da Clínica Demo;Horários livres a partir das 18h30; declaração só nas assinadas
+Médico;medico@medsync.dev;SEED_DEMO_PASSWORD;Clínica Demo;17:00 Carlos online; 17:30 Daniel presencial; 18:00 Roberto online;Laudos, declaração, assinatura no simulador
+Médico em dois locais;medico.doislocais@medsync.dev;SEED_DEMO_PASSWORD;Clínica Demo + Consultório Dra. Helena Souza;17:00 Carla presencial e 17:30 Mariana online (Demo); 18:30 Lucas presencial (Consultório);Seletor Local de atendimento
+Paciente;paciente@medsync.dev;SEED_DEMO_PASSWORD;Clínica Demo;17:00 online (termo pendente);Documentos (3) no histórico
+Paciente;paciente2@medsync.dev;SEED_DEMO_PASSWORD;Clínica Demo;17:00 presencial com Dr. Bruno;Nunca consultou com a Dra. Marina
+Paciente;paciente3@medsync.dev;SEED_DEMO_PASSWORD;Clínica Demo;18:00 online (termo aceito);Cancelada e Não compareceu no histórico
+Paciente;paciente.demo@medsync.dev;SEED_DEMO_PASSWORD;Clínica Demo;17:30 presencial;Só rascunhos: não vê nada até a médica assinar
+Paciente;paciente.demo2@medsync.dev;SEED_DEMO_PASSWORD;Clínica Demo;17:30 online com Dr. Bruno; 18:00 Sofia (filha, sem CPF);Presencial concluída sem documentos
+Médico + ADM (consultório);consultorio@medsync.dev;SEED_DEMO_PASSWORD;Consultório Dra. Helena Souza;17:00 Lucas presencial; 18:00 Beatriz online;Documentos da própria médica; Já paguei aguardando
 Recepção do consultório;recepcao.consultorio@medsync.dev;SEED_DEMO_PASSWORD;Consultório Dra. Helena Souza;todas do consultório;Declaração assinada do Lucas
-Paciente;paciente.consultorio@medsync.dev;SEED_DEMO_PASSWORD;Consultório Dra. Helena Souza;09:00 presencial (Helena); 10:30 presencial (Bruno);Documentos (2) no histórico
-Paciente;paciente2.consultorio@medsync.dev;SEED_DEMO_PASSWORD;Consultório Dra. Helena Souza;10:00 online (termo aceito);Sala online
-ADM da clínica;clinica2.admin@medsync.dev;SEED_DEMO_PASSWORD;Clínica Alfa;09:00 Patricia online;Fatura do mês passado em atraso
-Médico;medico.empresa2@medsync.dev;SEED_DEMO_PASSWORD;Clínica Alfa;09:00 Patricia online;Atendimento online
-Paciente;paciente.empresa2@medsync.dev;SEED_DEMO_PASSWORD;Clínica Alfa;09:00 online (termo pendente);Termo e sala
-ADM da clínica;clinica3.admin@medsync.dev;SEED_DEMO_PASSWORD;Clínica Beta;10:00 João presencial;Clínica no Rio de Janeiro
-Médico;medico.empresa3@medsync.dev;SEED_DEMO_PASSWORD;Clínica Beta;10:00 João presencial;Concluir pela agenda e assinar a declaração
-Paciente;paciente.empresa3@medsync.dev;SEED_DEMO_PASSWORD;Clínica Beta;10:00 presencial;Documentos depois da assinatura
+Paciente;paciente.consultorio@medsync.dev;SEED_DEMO_PASSWORD;Consultório Dra. Helena Souza;17:00 presencial (Helena); 18:30 presencial (Bruno);Documentos (2) no histórico
+Paciente;paciente2.consultorio@medsync.dev;SEED_DEMO_PASSWORD;Consultório Dra. Helena Souza;18:00 online (termo aceito);Sala online
+ADM da clínica;clinica2.admin@medsync.dev;SEED_DEMO_PASSWORD;Clínica Alfa;17:00 Patricia online;Fatura do mês passado em atraso
+Médico;medico.empresa2@medsync.dev;SEED_DEMO_PASSWORD;Clínica Alfa;17:00 Patricia online;Atendimento online
+Paciente;paciente.empresa2@medsync.dev;SEED_DEMO_PASSWORD;Clínica Alfa;17:00 online (termo pendente);Termo e sala
+ADM da clínica;clinica3.admin@medsync.dev;SEED_DEMO_PASSWORD;Clínica Beta;18:00 João presencial;Clínica no Rio de Janeiro
+Médico;medico.empresa3@medsync.dev;SEED_DEMO_PASSWORD;Clínica Beta;18:00 João presencial;Concluir pela agenda e assinar a declaração
+Paciente;paciente.empresa3@medsync.dev;SEED_DEMO_PASSWORD;Clínica Beta;18:00 presencial;Documentos depois da assinatura
 ADM da clínica em análise;clinica.analise@medsync.dev;SEED_DEMO_PASSWORD;Clínica Gama;—;Painel Cadastro recebido; sem endereço
